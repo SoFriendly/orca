@@ -678,8 +678,8 @@ export default function ProjectPage() {
       <div ref={containerRef} className="flex-1 flex overflow-hidden">
         {/* Left sidebar - Git panel */}
         <div
-          className={cn("h-full flex flex-col overflow-hidden transition-all duration-200", !showGitPanel && "hidden")}
-          style={{ width: showGitPanel ? gitPanelWidth : 0 }}
+          className={cn("h-full flex flex-col overflow-hidden shrink-0", !showGitPanel && "hidden")}
+          style={{ width: gitPanelWidth }}
         >
           <GitPanel
             projectPath={currentProject.path}
@@ -690,7 +690,7 @@ export default function ProjectPage() {
         {/* Resize handle for git panel */}
         {showGitPanel && (
           <div
-            className="w-1 hover:w-1.5 bg-border hover:bg-primary/50 cursor-col-resize transition-all shrink-0"
+            className="w-1 bg-border hover:bg-primary/50 cursor-col-resize shrink-0"
             onMouseDown={(e) => handleResizeStart(e, 'git')}
           />
         )}
@@ -810,7 +810,7 @@ export default function ProjectPage() {
         {/* Resize handle for shell panel */}
         {showShellPanel && (
           <div
-            className="w-1 hover:w-1.5 bg-border hover:bg-primary/50 cursor-col-resize transition-all shrink-0"
+            className="w-1 bg-border hover:bg-primary/50 cursor-col-resize shrink-0"
             onMouseDown={(e) => handleResizeStart(e, 'shell')}
           />
         )}
@@ -818,8 +818,12 @@ export default function ProjectPage() {
         {/* Right sidebar - Utility terminal */}
         <div
           ref={shellPanelRef}
-          className={cn("h-full flex flex-col overflow-hidden transition-all duration-200", !showShellPanel && "hidden")}
-          style={{ width: showShellPanel ? shellPanelWidth : 0 }}
+          className={cn(
+            "h-full flex flex-col overflow-hidden",
+            !showShellPanel && "hidden",
+            !showAssistantPanel ? "flex-1 min-w-0" : "shrink-0"
+          )}
+          style={showAssistantPanel ? { width: shellPanelWidth } : undefined}
         >
           {/* Header */}
           <div className="flex h-10 items-center justify-between px-2 border-b border-border">
