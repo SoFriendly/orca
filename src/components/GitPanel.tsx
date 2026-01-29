@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   GitCommit,
   RefreshCw,
-  Trash2,
+  Undo2,
   ChevronDown,
   ChevronRight,
   Sparkles,
@@ -290,7 +290,7 @@ export default function GitPanel({ projectPath, onRefresh }: GitPanelProps) {
               className="h-5 w-5 opacity-0 group-hover:opacity-100"
               onClick={(e) => e.stopPropagation()}
             >
-              <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+              <Undo2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>

@@ -146,6 +146,9 @@ export default function ProjectPage() {
 
   const createNewTab = async (projectPath: string, assistantId?: string) => {
     try {
+      // Check installed assistants fresh (don't rely on stale state)
+      const currentInstalled = await invoke<string[]>("check_installed_assistants");
+
       let command = "";
       let name = "Shell";
 
@@ -153,24 +156,32 @@ export default function ProjectPage() {
       const targetAssistant = assistantId || defaultAssistant;
 
       if (targetAssistant && targetAssistant !== "shell") {
-        const options = getAssistantOptions();
-        const assistant = options.find(a => a.id === targetAssistant);
-        if (assistant && assistant.installed) {
-          command = assistant.command;
-          name = assistant.name;
-          // Get args based on assistant id
-          const argsKey = targetAssistant === "claude" ? "claude-code" : targetAssistant;
-          const args = assistantArgs[argsKey] || "";
-          if (args) command = `${command} ${args}`;
-        } else if (!assistant?.installed) {
-          // Fall back to first installed assistant if default isn't installed
-          const firstInstalled = options.find(a => a.installed && a.id !== "shell");
-          if (firstInstalled) {
-            command = firstInstalled.command;
-            name = firstInstalled.name;
-            const argsKey = firstInstalled.id === "claude" ? "claude-code" : firstInstalled.id;
+        const isInstalled = currentInstalled.includes(targetAssistant);
+
+        if (isInstalled) {
+          // Use the target assistant
+          const options = getAssistantOptions();
+          const assistant = options.find(a => a.id === targetAssistant);
+          if (assistant) {
+            command = assistant.command;
+            name = assistant.name;
+            const argsKey = targetAssistant === "claude" ? "claude-code" : targetAssistant;
             const args = assistantArgs[argsKey] || "";
             if (args) command = `${command} ${args}`;
+          }
+        } else {
+          // Fall back to first installed assistant if default isn't installed
+          const fallbackId = currentInstalled.find(id => id !== "shell");
+          if (fallbackId) {
+            const options = getAssistantOptions();
+            const assistant = options.find(a => a.id === fallbackId);
+            if (assistant) {
+              command = assistant.command;
+              name = assistant.name;
+              const argsKey = fallbackId === "claude" ? "claude-code" : fallbackId;
+              const args = assistantArgs[argsKey] || "";
+              if (args) command = `${command} ${args}`;
+            }
           }
         }
       }
@@ -595,7 +606,15 @@ export default function ProjectPage() {
       </div>
 
       {/* Settings Sheet */}
-      <SettingsSheet open={showSettings} onOpenChange={setShowSettings} />
+      <SettingsSheet
+        open={showSettings}
+        onOpenChange={(open) => {
+          setShowSettings(open);
+          if (!open) {
+            setActiveSidebarItem("terminal");
+          }
+        }}
+      />
     </div>
   );
 }
