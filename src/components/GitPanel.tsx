@@ -199,6 +199,8 @@ export default function GitPanel({ projectPath, projectName, onRefresh }: GitPan
 
   const handlePull = async () => {
     setIsPulling(true);
+    // Allow UI to update before starting operation
+    await new Promise(resolve => requestAnimationFrame(resolve));
     try {
       await invoke("pull_remote", { repoPath: projectPath, remote: "origin" });
       toast.success("Pulled from remote");
@@ -218,6 +220,8 @@ export default function GitPanel({ projectPath, projectName, onRefresh }: GitPan
 
   const handlePush = async () => {
     setIsPushing(true);
+    // Allow UI to update before starting operation
+    await new Promise(resolve => requestAnimationFrame(resolve));
     try {
       await invoke("push_remote", { repoPath: projectPath, remote: "origin" });
       toast.success("Pushed to remote");
