@@ -119,7 +119,7 @@ export default function ProjectPage() {
         width: 1400,
         height: 900,
         center: true,
-        titleBarStyle: "Overlay",
+        titleBarStyle: "overlay",
         hiddenTitle: true,
         visible: false,
         backgroundColor: "#121212",

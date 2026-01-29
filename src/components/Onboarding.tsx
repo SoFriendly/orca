@@ -40,57 +40,57 @@ interface Step {
 
 const steps: Step[] = [
   {
-    title: "Welcome to Chell",
-    subtitle: "Your AI-aware Git client",
+    title: "Think in changes, not commands",
+    subtitle: "Built for vibecoding",
     description:
-      "Chell helps you stay in control when working with AI coding assistants. See exactly what changed, understand the diffs, and revert anything you don't want.",
+      "Stop switching between your terminal, editor, and git client. Chell shows you what matters — the changes your AI is making — so you can stay in flow and ship faster.",
     icon: <Sparkles className="h-12 w-12" />,
   },
   {
-    title: "Track what your AI changes",
+    title: "Watch your code evolve",
     subtitle: "Git Panel",
     description:
-      "The left panel shows all file changes in real-time. As your AI assistant modifies code, you'll see each file update instantly. Green squares indicate new files, orange for modified, and red for deleted.",
+      "See every change as it happens. New files in green, modifications in orange, deletions in red. No more running git status — your codebase is always in view.",
     icon: <GitBranch className="h-12 w-12" />,
     highlight: "git",
   },
   {
-    title: "Understand diffs instantly",
-    subtitle: "Expandable file diffs",
+    title: "Understand what changed",
+    subtitle: "Inline Diffs",
     description:
-      "Click any file to expand and see exactly what changed. Each hunk shows additions in green and deletions in red. You can even edit lines directly in the diff view.",
+      "Expand any file to see the diff. Good vibecoding means knowing what your AI wrote — Chell makes that instant, without opening another app.",
     icon: <Eye className="h-12 w-12" />,
     highlight: "git",
   },
   {
-    title: "Revert the parts you don't want",
-    subtitle: "Granular control",
+    title: "Keep what works, toss the rest",
+    subtitle: "Granular Control",
     description:
-      "Right-click any file or diff hunk to discard changes. Don't like a specific change? Revert just that part while keeping everything else. You're always in control.",
+      "AI gets it wrong sometimes. Right-click any change to discard it. Stay in control without breaking your flow.",
     icon: <Undo2 className="h-12 w-12" />,
     highlight: "git",
   },
   {
-    title: "Works with any coding assistant",
-    subtitle: "AI Assistant Panel",
+    title: "Your AI, front and center",
+    subtitle: "Assistant Panel",
     description:
-      "The center panel runs your AI coding assistant - Claude Code, Aider, Gemini CLI, or any other tool. Create multiple tabs for different conversations or tasks.",
+      "Run Claude Code, Aider, Gemini, or any AI assistant here. Multiple tabs for different tasks. Your AI and your changes, always side by side.",
     icon: <Bot className="h-12 w-12" />,
     highlight: "assistant",
   },
   {
-    title: "Your personal shell",
+    title: "A shell when you need it",
     subtitle: "Shell Panel",
     description:
-      "The right panel is a general-purpose terminal. Run commands, navigate directories, or test your code. Drag files from the file browser to insert their paths.",
+      "Run tests, start servers, check logs. Everything to validate your AI's work, without switching windows.",
     icon: <TerminalIcon className="h-12 w-12" />,
     highlight: "shell",
   },
   {
-    title: "You're all set!",
-    subtitle: "Start building",
+    title: "You're ready to vibe",
+    subtitle: "Let's build",
     description:
-      "Open a project folder to get started. Chell will track all changes and help you maintain control over your codebase while working with AI assistants.",
+      "Open a project and start coding with AI. See every change, stay in control, ship faster — all from one place.",
     icon: <Check className="h-12 w-12" />,
   },
 ];
