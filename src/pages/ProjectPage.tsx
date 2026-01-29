@@ -10,7 +10,6 @@ import {
   Plus,
   Bot,
   GitBranch,
-  PanelLeftClose,
   PanelRightClose,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -20,6 +19,7 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
+import type { ImperativePanelHandle } from "react-resizable-panels";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,24 +82,55 @@ export default function ProjectPage() {
   // Count visible panels - must always have at least one
   const visiblePanelCount = [showGitPanel, showAssistantPanel, showShellPanel].filter(Boolean).length;
 
-  // Simple toggle handlers - just update state
+  // Toggle handlers using panel collapse/expand
+  // State is updated by onCollapse/onExpand callbacks on the panels
   const toggleGitPanel = () => {
     if (showGitPanel && visiblePanelCount <= 1) return;
-    setShowGitPanel(!showGitPanel);
+    const panel = gitPanelRef.current;
+    if (panel) {
+      if (showGitPanel) {
+        panel.collapse();
+      } else {
+        panel.expand();
+      }
+    }
   };
 
   const toggleAssistantPanel = () => {
+    console.log('[toggleAssistantPanel] showAssistantPanel:', showAssistantPanel, 'visiblePanelCount:', visiblePanelCount);
     if (showAssistantPanel && visiblePanelCount <= 1) return;
-    setShowAssistantPanel(!showAssistantPanel);
+    const panel = assistantPanelRef.current;
+    console.log('[toggleAssistantPanel] panel ref:', panel);
+    if (panel) {
+      if (showAssistantPanel) {
+        console.log('[toggleAssistantPanel] calling collapse()');
+        panel.collapse();
+      } else {
+        console.log('[toggleAssistantPanel] calling expand()');
+        panel.expand();
+      }
+    }
   };
 
   const toggleShellPanel = () => {
     if (showShellPanel && visiblePanelCount <= 1) return;
-    setShowShellPanel(!showShellPanel);
+    const panel = shellPanelRef.current;
+    if (panel) {
+      if (showShellPanel) {
+        panel.collapse();
+      } else {
+        panel.expand();
+      }
+    }
   };
   const terminalsStarted = useRef(false);
   const tabCounter = useRef(1);
   const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Panel refs for collapse/expand
+  const gitPanelRef = useRef<ImperativePanelHandle>(null);
+  const assistantPanelRef = useRef<ImperativePanelHandle>(null);
+  const shellPanelRef = useRef<ImperativePanelHandle>(null);
 
   useEffect(() => {
     const project = projects.find((p) => p.id === projectId);
@@ -550,26 +581,40 @@ export default function ProjectPage() {
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal">
           {/* Left sidebar - Git panel */}
-          {showGitPanel && (
-            <>
-              <ResizablePanel defaultSize={22} minSize={15} maxSize={35}>
-                <div className="flex h-full flex-col select-none">
-                  <GitPanel
-                    projectPath={currentProject.path}
-                    projectName={currentProject.name}
-                    onRefresh={refreshGitData}
-                  />
-                </div>
-              </ResizablePanel>
-              <ResizableHandle className="w-px bg-border" />
-            </>
-          )}
+          <ResizablePanel
+            ref={gitPanelRef}
+            defaultSize={22}
+            minSize={15}
+            maxSize={35}
+            collapsible
+            collapsedSize={0}
+            onCollapse={() => setShowGitPanel(false)}
+            onExpand={() => setShowGitPanel(true)}
+            className="overflow-hidden"
+          >
+            <div className="flex h-full flex-col select-none overflow-hidden">
+              <GitPanel
+                projectPath={currentProject.path}
+                projectName={currentProject.name}
+                onRefresh={refreshGitData}
+              />
+            </div>
+          </ResizablePanel>
+          <ResizableHandle className="w-px bg-border" />
 
           {/* Center - Terminal area */}
-          {showAssistantPanel && (
-            <>
-              <ResizablePanel defaultSize={56} minSize={30}>
-                <div className="flex h-full flex-col select-none">
+          <ResizablePanel
+            ref={assistantPanelRef}
+            defaultSize={45}
+            minSize={20}
+            maxSize={70}
+            collapsible
+            collapsedSize={0}
+            onCollapse={() => setShowAssistantPanel(false)}
+            onExpand={() => setShowAssistantPanel(true)}
+            className="overflow-hidden"
+          >
+            <div className="flex h-full flex-col select-none overflow-hidden">
           {/* Tab bar */}
           <div className="flex h-10 items-center border-b border-border">
             <div className="flex flex-1 items-center overflow-x-auto">
@@ -676,13 +721,20 @@ export default function ProjectPage() {
                 </div>
               </ResizablePanel>
               <ResizableHandle className="w-px bg-border" />
-            </>
-          )}
 
           {/* Right sidebar - Utility terminal */}
-          {showShellPanel && (
-            <ResizablePanel defaultSize={22} minSize={15} maxSize={35}>
-              <div className="flex h-full flex-col select-none">
+          <ResizablePanel
+            ref={shellPanelRef}
+            defaultSize={33}
+            minSize={15}
+            maxSize={50}
+            collapsible
+            collapsedSize={0}
+            onCollapse={() => setShowShellPanel(false)}
+            onExpand={() => setShowShellPanel(true)}
+            className="overflow-hidden"
+          >
+            <div className="flex h-full flex-col select-none overflow-hidden">
           {/* Header */}
           <div className="flex h-10 items-center justify-between px-4 border-b border-border">
             <div className="flex items-center gap-2">
@@ -727,9 +779,8 @@ export default function ProjectPage() {
               </div>
             )}
           </div>
-              </div>
-            </ResizablePanel>
-          )}
+            </div>
+          </ResizablePanel>
         </ResizablePanelGroup>
       </div>
 

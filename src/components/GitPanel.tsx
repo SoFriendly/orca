@@ -14,6 +14,8 @@ import {
   Plus,
   Check,
   X,
+  ImageIcon,
+  FileIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -44,7 +46,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -417,6 +418,16 @@ export default function GitPanel({ projectPath, projectName, onRefresh }: GitPan
     const isSelected = selectedFiles.has(diff.path);
     const isExpanded = expandedFiles.has(diff.path);
 
+    // Check if file is an image
+    const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico', '.bmp'];
+    const isImage = imageExtensions.some(ext => diff.path.toLowerCase().endsWith(ext));
+
+    // Check if file has diff content (non-binary)
+    const hasDiff = diff.hunks.length > 0;
+
+    // Can expand if it's an image or has diff content
+    const canExpand = isImage || hasDiff;
+
     return (
       <div className="group">
         {/* File row with context menu */}
@@ -424,15 +435,20 @@ export default function GitPanel({ projectPath, projectName, onRefresh }: GitPan
           <ContextMenuTrigger asChild>
             <div
               className={cn(
-                "relative flex cursor-pointer items-center gap-2 rounded pr-8 py-1.5 transition-colors",
-                isSelected ? "bg-portal-orange/20" : "hover:bg-muted/50"
+                "relative flex items-center gap-2 rounded pr-8 py-1.5 transition-colors",
+                canExpand ? "cursor-pointer" : "cursor-default",
+                isSelected ? "bg-portal-orange/20" : canExpand ? "hover:bg-muted/50" : ""
               )}
               onClick={(e) => handleFileClick(diff.path, index, e)}
             >
-              {isExpanded ? (
-                <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+              {canExpand ? (
+                isExpanded ? (
+                  <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+                )
               ) : (
-                <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+                <span className="h-3 w-3 shrink-0" /> // Placeholder for alignment
               )}
               <span className={cn("h-2 w-2 shrink-0 rounded-sm", getStatusColor(diff.status))} />
               <div className="flex-1 min-w-0 overflow-hidden">
@@ -463,85 +479,115 @@ export default function GitPanel({ projectPath, projectName, onRefresh }: GitPan
           </ContextMenuContent>
         </ContextMenu>
 
-        {/* Inline diff view with per-hunk context menus */}
+        {/* Inline diff view / image preview / binary indicator */}
         {isExpanded && (
           <div className="ml-5 mt-1 overflow-hidden rounded bg-[#0d0d0d]">
             <div className="p-2 select-text">
-              <div className="font-mono text-[10px] leading-relaxed">
-                {diff.hunks.map((hunk, hi) => (
-                  <ContextMenu key={hi}>
-                    <ContextMenuTrigger asChild>
-                      <div className="rounded hover:bg-white/5 -mx-1 px-1">
-                        <div className="text-muted-foreground">
-                          @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
-                        </div>
-                        {hunk.lines.map((line, li) => {
-                          const isEditable = line.type !== "deletion" && line.newLineNo;
-                          const isEditing = editingLine?.filePath === diff.path && editingLine?.lineNo === line.newLineNo;
+              {isImage ? (
+                /* Image preview */
+                <div className="flex flex-col items-center gap-2 py-2">
+                  <img
+                    src={`asset://localhost/${projectPath}/${diff.path}`}
+                    alt={diff.path}
+                    className="max-w-full max-h-48 rounded border border-border object-contain"
+                    onError={(e) => {
+                      // Hide broken image and show placeholder
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                    }}
+                  />
+                  <div className="hidden flex-col items-center gap-1 text-muted-foreground">
+                    <ImageIcon className="h-8 w-8" />
+                    <span className="text-xs">Image preview unavailable</span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">
+                    {diff.status === "added" ? "New image" : diff.status === "deleted" ? "Deleted image" : "Modified image"}
+                  </span>
+                </div>
+              ) : hasDiff ? (
+                /* Text diff */
+                <div className="font-mono text-[10px] leading-relaxed">
+                  {diff.hunks.map((hunk, hi) => (
+                    <ContextMenu key={hi}>
+                      <ContextMenuTrigger asChild>
+                        <div className="rounded hover:bg-white/5 -mx-1 px-1">
+                          <div className="text-muted-foreground">
+                            @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
+                          </div>
+                          {hunk.lines.map((line, li) => {
+                            const isEditable = line.type !== "deletion" && line.newLineNo;
+                            const isEditing = editingLine?.filePath === diff.path && editingLine?.lineNo === line.newLineNo;
 
-                          return (
-                            <div
-                              key={li}
-                              className={cn(
-                                "whitespace-pre-wrap break-words group/line",
-                                line.type === "addition" && "bg-green-500/10 text-green-400",
-                                line.type === "deletion" && "bg-red-500/10 text-red-400 cursor-not-allowed",
-                                line.type === "context" && "text-muted-foreground",
-                                isEditable && !isEditing && "cursor-text hover:bg-white/5"
-                              )}
-                              onClick={() => {
-                                if (isEditable && !isEditing && line.newLineNo) {
-                                  setEditingLine({ filePath: diff.path, lineNo: line.newLineNo, content: line.content });
-                                }
-                              }}
-                            >
-                              {line.type === "addition" && "+"}
-                              {line.type === "deletion" && "-"}
-                              {line.type === "context" && " "}
-                              {isEditing ? (
-                                <input
-                                  type="text"
-                                  autoFocus
-                                  defaultValue={line.content}
-                                  className="bg-blue-500/20 border-none outline-none ring-1 ring-blue-500/50 rounded px-1 -mx-1 w-full text-inherit font-mono"
-                                  style={{ fontSize: 'inherit' }}
-                                  onBlur={(e) => handleEditLine(diff.path, line.newLineNo!, e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                      handleEditLine(diff.path, line.newLineNo!, e.currentTarget.value);
-                                    } else if (e.key === "Escape") {
-                                      setEditingLine(null);
-                                    }
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              ) : (
-                                line.content
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent>
-                      <ContextMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setHunkToDiscard({ filePath: diff.path, hunk })}
-                      >
-                        <Undo2 className="mr-2 h-4 w-4" />
-                        Discard this change
-                      </ContextMenuItem>
-                      <ContextMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setFileToDiscard(diff.path)}
-                      >
-                        <Undo2 className="mr-2 h-4 w-4" />
-                        Discard all changes to file
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
-                ))}
-              </div>
+                            return (
+                              <div
+                                key={li}
+                                className={cn(
+                                  "whitespace-pre-wrap break-words group/line",
+                                  line.type === "addition" && "bg-green-500/10 text-green-400",
+                                  line.type === "deletion" && "bg-red-500/10 text-red-400 cursor-not-allowed",
+                                  line.type === "context" && "text-muted-foreground",
+                                  isEditable && !isEditing && "cursor-text hover:bg-white/5"
+                                )}
+                                onClick={() => {
+                                  if (isEditable && !isEditing && line.newLineNo) {
+                                    setEditingLine({ filePath: diff.path, lineNo: line.newLineNo, content: line.content });
+                                  }
+                                }}
+                              >
+                                {line.type === "addition" && "+"}
+                                {line.type === "deletion" && "-"}
+                                {line.type === "context" && " "}
+                                {isEditing ? (
+                                  <input
+                                    type="text"
+                                    autoFocus
+                                    defaultValue={line.content}
+                                    className="bg-blue-500/20 border-none outline-none ring-1 ring-blue-500/50 rounded px-1 -mx-1 w-full text-inherit font-mono"
+                                    style={{ fontSize: 'inherit' }}
+                                    onBlur={(e) => handleEditLine(diff.path, line.newLineNo!, e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        handleEditLine(diff.path, line.newLineNo!, e.currentTarget.value);
+                                      } else if (e.key === "Escape") {
+                                        setEditingLine(null);
+                                      }
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                ) : (
+                                  line.content
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent>
+                        <ContextMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setHunkToDiscard({ filePath: diff.path, hunk })}
+                        >
+                          <Undo2 className="mr-2 h-4 w-4" />
+                          Discard this change
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setFileToDiscard(diff.path)}
+                        >
+                          <Undo2 className="mr-2 h-4 w-4" />
+                          Discard all changes to file
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
+                  ))}
+                </div>
+              ) : (
+                /* Binary file with no diff */
+                <div className="flex items-center gap-2 py-2 text-muted-foreground">
+                  <FileIcon className="h-4 w-4" />
+                  <span className="text-xs">Binary file changed</span>
+                </div>
+              )}
             </div>
           </div>
         )}

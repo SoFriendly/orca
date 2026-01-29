@@ -117,7 +117,7 @@ impl GitService {
                     .unwrap_or_default();
 
                 let status = match delta.status() {
-                    git2::Delta::Added => "added",
+                    git2::Delta::Added | git2::Delta::Untracked => "added",
                     git2::Delta::Deleted => "deleted",
                     git2::Delta::Modified => "modified",
                     git2::Delta::Renamed => "renamed",

@@ -1,0 +1,20 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" rx="108" fill="#0D0D0D"/>
+
+  <!-- Terminal prompt > on the left -->
+  <path
+    d="M96 176L192 256L96 336"
+    stroke="#FF6B00"
+    stroke-width="40"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+
+  <!-- 4 nodes forming a C shape -->
+  <circle cx="416" cy="112" r="48" fill="#FF6B00"/>
+  <circle cx="288" cy="176" r="48" fill="#FF6B00"/>
+  <circle cx="288" cy="336" r="48" fill="#FF6B00"/>
+  <circle cx="416" cy="400" r="48" fill="#FF6B00"/>
+</svg>
