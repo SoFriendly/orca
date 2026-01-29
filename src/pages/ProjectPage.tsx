@@ -432,7 +432,9 @@ export default function ProjectPage() {
             name = assistant.name;
             const argsKey = targetAssistant === "claude" ? "claude-code" : targetAssistant;
             const args = assistantArgs[argsKey] || "";
+            invoke("debug_log", { message: `createNewTab - argsKey: ${argsKey}, args: "${args}"` });
             if (args) command = `${command} ${args}`;
+            invoke("debug_log", { message: `createNewTab - final command: "${command}"` });
           }
         } else {
           // Fall back to first installed assistant if default isn't installed

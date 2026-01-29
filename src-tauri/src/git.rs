@@ -350,13 +350,33 @@ impl GitService {
 
     pub fn discard_file(repo_path: &str, file_path: &str) -> Result<(), String> {
         let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
+        let full_path = std::path::Path::new(repo_path).join(file_path);
 
-        let mut checkout_builder = git2::build::CheckoutBuilder::new();
-        checkout_builder.path(file_path);
-        checkout_builder.force();
+        // Check if file is untracked (not in HEAD)
+        let head = repo.head().ok().and_then(|h| h.peel_to_tree().ok());
+        let is_untracked = match &head {
+            Some(tree) => tree.get_path(std::path::Path::new(file_path)).is_err(),
+            None => true, // No HEAD means all files are untracked
+        };
 
-        repo.checkout_head(Some(&mut checkout_builder))
-            .map_err(|e| e.to_string())?;
+        if is_untracked {
+            // For untracked files, just delete them
+            if full_path.exists() {
+                if full_path.is_dir() {
+                    std::fs::remove_dir_all(&full_path).map_err(|e| e.to_string())?;
+                } else {
+                    std::fs::remove_file(&full_path).map_err(|e| e.to_string())?;
+                }
+            }
+        } else {
+            // For tracked files, restore from HEAD
+            let mut checkout_builder = git2::build::CheckoutBuilder::new();
+            checkout_builder.path(file_path);
+            checkout_builder.force();
+
+            repo.checkout_head(Some(&mut checkout_builder))
+                .map_err(|e| e.to_string())?;
+        }
 
         Ok(())
     }

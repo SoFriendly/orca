@@ -281,6 +281,7 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
 
     const spawnTerminal = async () => {
       try {
+        await invoke("debug_log", { message: `Terminal spawning with command: "${command}"` });
         const newId = await invoke<string>("spawn_terminal", {
           shell: command,
           cwd,

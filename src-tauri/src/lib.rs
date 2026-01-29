@@ -111,6 +111,12 @@ struct AppState {
     database: Mutex<Database>,
 }
 
+// Debug command to print to terminal
+#[tauri::command]
+fn debug_log(message: String) {
+    println!("[DEBUG] {}", message);
+}
+
 // Terminal commands
 #[tauri::command]
 fn spawn_terminal(
@@ -136,6 +142,8 @@ fn spawn_terminal(
             pixel_height: 0,
         })
         .map_err(|e| e.to_string())?;
+
+    println!("DEBUG spawn_terminal - shell: {:?}", shell);
 
     let mut cmd = if shell.is_empty() {
         // Use default shell
@@ -734,6 +742,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(state)
         .invoke_handler(tauri::generate_handler![
+            // Debug
+            debug_log,
             // Terminal
             spawn_terminal,
             write_terminal,
