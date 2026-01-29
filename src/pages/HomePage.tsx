@@ -556,7 +556,15 @@ export default function HomePage() {
       </Dialog>
 
       {/* Settings Sheet */}
-      <SettingsSheet open={showSettings} onOpenChange={setShowSettings} />
+      <SettingsSheet
+        open={showSettings}
+        onOpenChange={(open) => {
+          setShowSettings(open);
+          if (!open) {
+            setActiveSidebarItem("home");
+          }
+        }}
+      />
     </div>
   );
 }
