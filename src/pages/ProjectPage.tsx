@@ -9,6 +9,9 @@ import {
   HelpCircle,
   Plus,
   Bot,
+  GitBranch,
+  PanelLeftClose,
+  PanelRightClose,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -53,7 +56,15 @@ export default function ProjectPage() {
   const navigate = useNavigate();
   const { projects, openTab } = useProjectStore();
   const { setStatus, setDiffs, setBranches, setHistory, setLoading } = useGitStore();
-  const { assistantArgs, defaultAssistant, autoFetchRemote } = useSettingsStore();
+  const { assistantArgs, defaultAssistant, autoFetchRemote, theme } = useSettingsStore();
+
+  // Terminal background colors per theme
+  const terminalBgColors: Record<string, string> = {
+    dark: "#0d0d0d",
+    tokyo: "#1a1b26",
+    light: "#fafafa",
+  };
+  const terminalBg = terminalBgColors[theme] || terminalBgColors.dark;
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [terminalTabs, setTerminalTabs] = useState<TerminalTab[]>([]);
@@ -63,6 +74,28 @@ export default function ProjectPage() {
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editingTabName, setEditingTabName] = useState("");
   const [installedAssistants, setInstalledAssistants] = useState<string[]>([]);
+  const [showGitPanel, setShowGitPanel] = useState(true);
+  const [showAssistantPanel, setShowAssistantPanel] = useState(true);
+  const [showShellPanel, setShowShellPanel] = useState(true);
+
+  // Count visible panels - must always have at least one
+  const visiblePanelCount = [showGitPanel, showAssistantPanel, showShellPanel].filter(Boolean).length;
+
+  // Toggle handlers that prevent hiding the last panel
+  const toggleGitPanel = () => {
+    if (showGitPanel && visiblePanelCount <= 1) return;
+    setShowGitPanel(!showGitPanel);
+  };
+
+  const toggleAssistantPanel = () => {
+    if (showAssistantPanel && visiblePanelCount <= 1) return;
+    setShowAssistantPanel(!showAssistantPanel);
+  };
+
+  const toggleShellPanel = () => {
+    if (showShellPanel && visiblePanelCount <= 1) return;
+    setShowShellPanel(!showShellPanel);
+  };
   const terminalsStarted = useRef(false);
   const tabCounter = useRef(1);
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -426,8 +459,78 @@ export default function ProjectPage() {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Bottom icons */}
+        {/* Panel toggle icons */}
         <div className="flex flex-col items-center gap-1">
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={toggleGitPanel}
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+                  showGitPanel
+                    ? "text-foreground"
+                    : "text-muted-foreground/50 hover:text-muted-foreground",
+                  // Dim the button if it's the last visible panel
+                  showGitPanel && visiblePanelCount <= 1 && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <GitBranch className="h-5 w-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {showGitPanel && visiblePanelCount <= 1
+                ? "Can't hide last panel"
+                : showGitPanel ? "Hide Git Panel" : "Show Git Panel"}
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={toggleAssistantPanel}
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+                  showAssistantPanel
+                    ? "text-foreground"
+                    : "text-muted-foreground/50 hover:text-muted-foreground",
+                  showAssistantPanel && visiblePanelCount <= 1 && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <Bot className="h-5 w-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {showAssistantPanel && visiblePanelCount <= 1
+                ? "Can't hide last panel"
+                : showAssistantPanel ? "Hide Assistant" : "Show Assistant"}
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={toggleShellPanel}
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+                  showShellPanel
+                    ? "text-foreground"
+                    : "text-muted-foreground/50 hover:text-muted-foreground",
+                  showShellPanel && visiblePanelCount <= 1 && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <PanelRightClose className="h-5 w-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {showShellPanel && visiblePanelCount <= 1
+                ? "Can't hide last panel"
+                : showShellPanel ? "Hide Shell" : "Show Shell"}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* Bottom icons */}
+        <div className="flex flex-col items-center gap-1 mt-2">
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
               <button
@@ -446,133 +549,142 @@ export default function ProjectPage() {
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal">
           {/* Left sidebar - Git panel */}
-          <ResizablePanel defaultSize={22} minSize={18} maxSize={35}>
-            <div className="flex h-full flex-col">
-              <GitPanel
-                projectPath={currentProject.path}
-                projectName={currentProject.name}
-                onRefresh={refreshGitData}
-              />
-            </div>
-          </ResizablePanel>
+          {showGitPanel && (
+            <>
+              <ResizablePanel defaultSize={22} minSize={18} maxSize={35}>
+                <div className="flex h-full flex-col">
+                  <GitPanel
+                    projectPath={currentProject.path}
+                    projectName={currentProject.name}
+                    onRefresh={refreshGitData}
+                  />
+                </div>
+              </ResizablePanel>
 
-          <ResizableHandle className="w-px bg-border" />
+              <ResizableHandle className="w-px bg-border" />
+            </>
+          )}
 
           {/* Center - Terminal area */}
-          <ResizablePanel defaultSize={56} minSize={35}>
-            <div className="flex h-full flex-col">
-              {/* Tab bar */}
-              <div className="flex h-10 items-center">
-                <div className="flex flex-1 items-center overflow-x-auto">
+          {showAssistantPanel && (
+            <>
+              <ResizablePanel defaultSize={showGitPanel && showShellPanel ? 56 : showGitPanel || showShellPanel ? 78 : 100} minSize={35}>
+                <div className="flex h-full flex-col">
+                  {/* Tab bar */}
+                  <div className="flex h-10 items-center">
+                    <div className="flex flex-1 items-center overflow-x-auto">
+                      {terminalTabs.map((tab) => (
+                        <div
+                          key={tab.id}
+                          className={cn(
+                            "group flex items-center gap-1 border-r border-border px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
+                            activeTabId === tab.id
+                              ? "border-b-2 border-b-portal-orange bg-muted/50 text-foreground"
+                              : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                          )}
+                          onClick={() => setActiveTabId(tab.id)}
+                        >
+                          <TerminalIcon className="h-3.5 w-3.5 shrink-0" />
+                          {editingTabId === tab.id ? (
+                            <Input
+                              ref={editInputRef}
+                              value={editingTabName}
+                              onChange={(e) => setEditingTabName(e.target.value)}
+                              onBlur={finishEditingTab}
+                              onKeyDown={handleTabNameKeyDown}
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-5 w-24 px-1 py-0 text-sm"
+                            />
+                          ) : (
+                            <span
+                              className="truncate max-w-[120px] cursor-text"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startEditingTab(tab);
+                              }}
+                            >
+                              {tab.name}
+                            </span>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              closeTab(tab.id);
+                            }}
+                            className="ml-1 rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          className="flex h-full items-center px-3 py-2 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {assistantOptions.map((assistant) => (
+                          <DropdownMenuItem
+                            key={assistant.id}
+                            onClick={() => currentProject && createNewTab(currentProject.path, assistant.id)}
+                            disabled={!assistant.installed}
+                            className="flex items-center gap-2"
+                          >
+                            {assistant.icon}
+                            <span>{assistant.name}</span>
+                            {!assistant.installed && (
+                              <span className="text-xs text-muted-foreground ml-auto">(not installed)</span>
+                            )}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  {/* Tab content - keep all terminals mounted, hide with CSS */}
                   {terminalTabs.map((tab) => (
                     <div
                       key={tab.id}
                       className={cn(
-                        "group flex items-center gap-1 border-r border-border px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
-                        activeTabId === tab.id
-                          ? "border-b-2 border-b-portal-orange bg-muted/50 text-foreground"
-                          : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                        "flex flex-1 flex-col overflow-hidden",
+                        activeTabId !== tab.id && "hidden"
                       )}
-                      onClick={() => setActiveTabId(tab.id)}
                     >
-                      <TerminalIcon className="h-3.5 w-3.5 shrink-0" />
-                      {editingTabId === tab.id ? (
-                        <Input
-                          ref={editInputRef}
-                          value={editingTabName}
-                          onChange={(e) => setEditingTabName(e.target.value)}
-                          onBlur={finishEditingTab}
-                          onKeyDown={handleTabNameKeyDown}
-                          onClick={(e) => e.stopPropagation()}
-                          className="h-5 w-24 px-1 py-0 text-sm"
-                        />
-                      ) : (
-                        <span
-                          className="truncate max-w-[120px] cursor-text"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startEditingTab(tab);
-                          }}
-                        >
-                          {tab.name}
-                        </span>
-                      )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          closeTab(tab.id);
-                        }}
-                        className="ml-1 rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
+                      <div className="flex-1 overflow-hidden" style={{ backgroundColor: terminalBg }}>
+                        {tab.terminalId ? (
+                          <Terminal id={tab.terminalId} cwd={currentProject.path} />
+                        ) : (
+                          <div className="flex h-full items-center justify-center">
+                            <p className="text-sm text-muted-foreground">
+                              Starting terminal...
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className="flex h-full items-center px-3 py-2 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {assistantOptions.map((assistant) => (
-                      <DropdownMenuItem
-                        key={assistant.id}
-                        onClick={() => currentProject && createNewTab(currentProject.path, assistant.id)}
-                        disabled={!assistant.installed}
-                        className="flex items-center gap-2"
-                      >
-                        {assistant.icon}
-                        <span>{assistant.name}</span>
-                        {!assistant.installed && (
-                          <span className="text-xs text-muted-foreground ml-auto">(not installed)</span>
-                        )}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
 
-              {/* Tab content - keep all terminals mounted, hide with CSS */}
-              {terminalTabs.map((tab) => (
-                <div
-                  key={tab.id}
-                  className={cn(
-                    "flex flex-1 flex-col overflow-hidden",
-                    activeTabId !== tab.id && "hidden"
+                  {/* Empty state when no tabs */}
+                  {terminalTabs.length === 0 && (
+                    <div className="flex flex-1 flex-col items-center justify-center gap-3" style={{ backgroundColor: terminalBg }}>
+                      <TerminalIcon className="h-8 w-8 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">Starting AI assistant...</p>
+                    </div>
                   )}
-                >
-                  <div className="flex-1 overflow-hidden bg-[#0d0d0d]">
-                    {tab.terminalId ? (
-                      <Terminal id={tab.terminalId} cwd={currentProject.path} />
-                    ) : (
-                      <div className="flex h-full items-center justify-center">
-                        <p className="text-sm text-muted-foreground">
-                          Starting terminal...
-                        </p>
-                      </div>
-                    )}
-                  </div>
                 </div>
-              ))}
+              </ResizablePanel>
 
-              {/* Empty state when no tabs */}
-              {terminalTabs.length === 0 && (
-                <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-[#0d0d0d]">
-                  <TerminalIcon className="h-8 w-8 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Starting AI assistant...</p>
-                </div>
-              )}
-            </div>
-          </ResizablePanel>
-
-          <ResizableHandle className="w-px bg-border" />
+              {showShellPanel && <ResizableHandle className="w-px bg-border" />}
+            </>
+          )}
 
           {/* Right sidebar - Utility terminal */}
-          <ResizablePanel defaultSize={22} minSize={15} maxSize={40}>
+          {showShellPanel && (
+            <ResizablePanel defaultSize={showGitPanel && showAssistantPanel ? 22 : showGitPanel || showAssistantPanel ? 50 : 100} minSize={15} maxSize={showAssistantPanel ? 40 : 100}>
             <div className="flex h-full flex-col">
               {/* Header */}
               <div className="flex h-10 items-center justify-between px-4">
@@ -596,7 +708,7 @@ export default function ProjectPage() {
               </div>
 
               {/* Utility terminal content */}
-              <div className="flex-1 overflow-hidden bg-[#0d0d0d]">
+              <div className="flex-1 overflow-hidden" style={{ backgroundColor: terminalBg }}>
                 {utilityTerminalId ? (
                   <Terminal id={utilityTerminalId} cwd={currentProject.path} />
                 ) : (
@@ -620,6 +732,7 @@ export default function ProjectPage() {
               </div>
             </div>
           </ResizablePanel>
+          )}
         </ResizablePanelGroup>
       </div>
 

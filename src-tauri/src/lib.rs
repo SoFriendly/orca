@@ -6,7 +6,7 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 use uuid::Uuid;
 
 mod database;
@@ -139,6 +139,12 @@ fn spawn_terminal(
 
     cmd.cwd(&cwd);
 
+    // Set UTF-8 locale for proper Unicode rendering
+    cmd.env("LANG", "en_US.UTF-8");
+    cmd.env("LC_ALL", "en_US.UTF-8");
+    cmd.env("TERM", "xterm-256color");
+    cmd.env("COLORTERM", "truecolor");
+
     let mut child = pty_pair
         .slave
         .spawn_command(cmd)
@@ -269,6 +275,19 @@ fn get_history(repo_path: String, limit: u32) -> Result<Vec<Commit>, String> {
 #[tauri::command]
 fn discard_file(repo_path: String, file_path: String) -> Result<(), String> {
     GitService::discard_file(&repo_path, &file_path)
+}
+
+#[tauri::command]
+fn discard_hunk(
+    repo_path: String,
+    file_path: String,
+    old_start: i32,
+    old_lines: i32,
+    new_start: i32,
+    new_lines: i32,
+    lines: Vec<String>,
+) -> Result<(), String> {
+    GitService::discard_hunk(&repo_path, &file_path, old_start, old_lines, new_start, new_lines, lines)
 }
 
 #[tauri::command]
@@ -567,6 +586,7 @@ pub fn run() {
             create_branch,
             get_history,
             discard_file,
+            discard_hunk,
             checkout_commit,
             reset_to_commit,
             init_repo,

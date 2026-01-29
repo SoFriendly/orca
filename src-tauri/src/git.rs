@@ -361,6 +361,61 @@ impl GitService {
         Ok(())
     }
 
+    /// Discard a specific hunk by applying its reverse patch
+    pub fn discard_hunk(
+        repo_path: &str,
+        file_path: &str,
+        old_start: i32,
+        old_lines: i32,
+        new_start: i32,
+        new_lines: i32,
+        lines: Vec<String>,
+    ) -> Result<(), String> {
+        // Build the patch content for this specific hunk
+        let mut patch = format!("--- a/{}\n+++ b/{}\n", file_path, file_path);
+        patch.push_str(&format!(
+            "@@ -{},{} +{},{} @@\n",
+            old_start, old_lines, new_start, new_lines
+        ));
+        for line in &lines {
+            patch.push_str(line);
+            patch.push('\n');
+        }
+
+        // Apply the patch in reverse using git command
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("apply")
+            .arg("--reverse")
+            .arg("--unidiff-zero")
+            .arg("-")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        use std::io::Write;
+        output
+            .stdin
+            .as_ref()
+            .ok_or("Failed to open stdin")?
+            .write_all(patch.as_bytes())
+            .map_err(|e| format!("Failed to write patch: {}", e))?;
+
+        let result = output
+            .wait_with_output()
+            .map_err(|e| format!("Failed to wait for git: {}", e))?;
+
+        if !result.status.success() {
+            let stderr = String::from_utf8_lossy(&result.stderr);
+            return Err(format!("git apply failed: {}", stderr.trim()));
+        }
+
+        Ok(())
+    }
+
     pub fn checkout_commit(repo_path: &str, commit_id: &str) -> Result<(), String> {
         let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
 

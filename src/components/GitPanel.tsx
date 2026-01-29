@@ -13,6 +13,7 @@ import {
   GitBranch,
   Plus,
   Check,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -46,10 +47,16 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { useGitStore } from "@/stores/gitStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { cn } from "@/lib/utils";
-import type { FileDiff } from "@/types";
+import type { FileDiff, DiffHunk } from "@/types";
 
 // Groq API key for AI commit messages
 const GROQ_API_KEY = "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";
@@ -63,6 +70,11 @@ interface GitPanelProps {
 interface CommitSuggestion {
   subject: string;
   description: string;
+}
+
+interface HunkToDiscard {
+  filePath: string;
+  hunk: DiffHunk;
 }
 
 export default function GitPanel({ projectPath, projectName, onRefresh }: GitPanelProps) {
@@ -354,83 +366,135 @@ export default function GitPanel({ projectPath, projectName, onRefresh }: GitPan
     }
   };
 
+  const [fileToDiscard, setFileToDiscard] = useState<string | null>(null);
+  const [hunkToDiscard, setHunkToDiscard] = useState<HunkToDiscard | null>(null);
+
+  const handleDiscardHunk = async (filePath: string, hunk: DiffHunk) => {
+    try {
+      // Convert hunk lines to the format expected by the backend
+      const lines = hunk.lines.map(line => {
+        const prefix = line.type === 'addition' ? '+' : line.type === 'deletion' ? '-' : ' ';
+        return prefix + line.content;
+      });
+
+      await invoke("discard_hunk", {
+        repoPath: projectPath,
+        filePath,
+        oldStart: hunk.oldStart,
+        oldLines: hunk.oldLines,
+        newStart: hunk.newStart,
+        newLines: hunk.newLines,
+        lines,
+      });
+      toast.success("Hunk discarded");
+      onRefresh();
+    } catch (error) {
+      toast.error(`Failed to discard hunk: ${error}`);
+    }
+  };
+
   const FileItem = ({ diff, index }: { diff: FileDiff; index: number }) => {
     const isSelected = selectedFiles.has(diff.path);
+    const isExpanded = expandedFiles.has(diff.path);
 
     return (
       <div className="group">
-        <div
-          className={cn(
-            "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 transition-colors",
-            isSelected ? "bg-portal-orange/20" : "hover:bg-muted/50"
-          )}
-          onClick={(e) => handleFileClick(diff.path, index, e)}
-        >
-          {expandedFiles.has(diff.path) ? (
-            <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-          )}
-          <span className={cn("h-2 w-2 shrink-0 rounded-sm", getStatusColor(diff.status))} />
-          <span className="flex-1 truncate font-mono text-xs">{diff.path}</span>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+        {/* File row with context menu */}
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div
+              className={cn(
+                "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 transition-colors",
+                isSelected ? "bg-portal-orange/20" : "hover:bg-muted/50"
+              )}
+              onClick={(e) => handleFileClick(diff.path, index, e)}
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+              )}
+              <span className={cn("h-2 w-2 shrink-0 rounded-sm", getStatusColor(diff.status))} />
+              <div className="flex-1 overflow-x-auto scrollbar-none">
+                <span className="whitespace-nowrap font-mono text-xs">{diff.path}</span>
+              </div>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-5 w-5 opacity-0 group-hover:opacity-100"
-                onClick={(e) => e.stopPropagation()}
+                className={cn(
+                  "h-5 w-5 shrink-0",
+                  isExpanded ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFileToDiscard(diff.path);
+                }}
               >
                 <Undo2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Discard changes?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will discard all changes to {diff.path}. This cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => handleDiscardFile(diff.path)}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Discard
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => setFileToDiscard(diff.path)}
+            >
+              <Undo2 className="mr-2 h-4 w-4" />
+              Discard changes
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
 
-        {/* Inline diff view */}
-        {expandedFiles.has(diff.path) && (
-          <div className="ml-5 mt-1 rounded bg-[#0d0d0d] p-2">
-            <pre className="overflow-x-auto font-mono text-[10px] leading-relaxed">
-              {diff.hunks.map((hunk, hi) => (
-                <div key={hi}>
-                  <div className="text-muted-foreground">
-                    @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
-                  </div>
-                  {hunk.lines.map((line, li) => (
-                    <div
-                      key={li}
-                      className={cn(
-                        line.type === "addition" && "bg-green-500/10 text-green-400",
-                        line.type === "deletion" && "bg-red-500/10 text-red-400",
-                        line.type === "context" && "text-muted-foreground"
-                      )}
-                    >
-                      {line.type === "addition" && "+"}
-                      {line.type === "deletion" && "-"}
-                      {line.type === "context" && " "}
-                      {line.content}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </pre>
+        {/* Inline diff view with per-hunk context menus */}
+        {isExpanded && (
+          <div className="ml-5 mt-1 overflow-hidden rounded bg-[#0d0d0d]">
+            <div className="overflow-x-auto p-2">
+              <div className="font-mono text-[10px] leading-relaxed">
+                {diff.hunks.map((hunk, hi) => (
+                  <ContextMenu key={hi}>
+                    <ContextMenuTrigger asChild>
+                      <div className="rounded hover:bg-white/5 -mx-1 px-1">
+                        <div className="text-muted-foreground whitespace-nowrap">
+                          @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
+                        </div>
+                        {hunk.lines.map((line, li) => (
+                          <div
+                            key={li}
+                            className={cn(
+                              "whitespace-pre",
+                              line.type === "addition" && "bg-green-500/10 text-green-400",
+                              line.type === "deletion" && "bg-red-500/10 text-red-400",
+                              line.type === "context" && "text-muted-foreground"
+                            )}
+                          >
+                            {line.type === "addition" && "+"}
+                            {line.type === "deletion" && "-"}
+                            {line.type === "context" && " "}
+                            {line.content}
+                          </div>
+                        ))}
+                      </div>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent>
+                      <ContextMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setHunkToDiscard({ filePath: diff.path, hunk })}
+                      >
+                        <Undo2 className="mr-2 h-4 w-4" />
+                        Discard this change
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setFileToDiscard(diff.path)}
+                      >
+                        <Undo2 className="mr-2 h-4 w-4" />
+                        Discard all changes to file
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -555,29 +619,25 @@ export default function GitPanel({ projectPath, projectName, onRefresh }: GitPan
 
           {/* Selection actions */}
           {selectedFiles.size > 0 && (
-            <div className="mb-3 flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
-              <span className="text-xs text-muted-foreground">
+            <div className="mb-3 flex items-center gap-2 rounded-lg bg-muted/50 px-2 py-2">
+              <button
+                onClick={clearSelection}
+                className="flex h-5 w-5 items-center justify-center rounded hover:bg-muted"
+              >
+                <X className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+              <span className="flex-1 text-xs text-muted-foreground">
                 {selectedFiles.size} file{selectedFiles.size > 1 ? 's' : ''} selected
               </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-xs"
-                  onClick={clearSelection}
-                >
-                  Clear
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-xs text-destructive hover:text-destructive"
-                  onClick={() => setShowDiscardSelectedDialog(true)}
-                >
-                  <Undo2 className="mr-1 h-3 w-3" />
-                  Discard
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+                onClick={() => setShowDiscardSelectedDialog(true)}
+              >
+                <Undo2 className="mr-1 h-3 w-3" />
+                Discard
+              </Button>
             </div>
           )}
 
@@ -720,6 +780,58 @@ export default function GitPanel({ projectPath, projectName, onRefresh }: GitPan
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isDiscardingSelected ? "Discarding..." : "Discard All"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Discard single file dialog (from context menu) */}
+      <AlertDialog open={!!fileToDiscard} onOpenChange={(open) => !open && setFileToDiscard(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will discard all changes to <span className="font-mono">{fileToDiscard}</span>. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (fileToDiscard) {
+                  handleDiscardFile(fileToDiscard);
+                  setFileToDiscard(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Discard single hunk dialog (from context menu) */}
+      <AlertDialog open={!!hunkToDiscard} onOpenChange={(open) => !open && setHunkToDiscard(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard this change?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will discard the selected change in <span className="font-mono">{hunkToDiscard?.filePath}</span>. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (hunkToDiscard) {
+                  handleDiscardHunk(hunkToDiscard.filePath, hunkToDiscard.hunk);
+                  setHunkToDiscard(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Discard
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

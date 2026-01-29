@@ -164,6 +164,16 @@
   -webkit-user-select: none;
 }
 
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* Section headers */
 .section-header {
   @apply text-[11px] font-medium uppercase tracking-wider text-muted-foreground;
