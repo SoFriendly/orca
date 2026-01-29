@@ -18,6 +18,9 @@ impl GitService {
             .map(|s| s.to_string())
             .unwrap_or_else(|| "HEAD".to_string());
 
+        // Calculate ahead/behind counts relative to upstream
+        let (ahead, behind) = Self::get_ahead_behind(&repo, &branch).unwrap_or((0, 0));
+
         let mut opts = StatusOptions::new();
         opts.include_untracked(true);
         opts.recurse_untracked_dirs(true);
@@ -49,12 +52,40 @@ impl GitService {
 
         Ok(GitStatus {
             branch,
-            ahead: 0,
-            behind: 0,
+            ahead,
+            behind,
             staged,
             unstaged,
             untracked,
         })
+    }
+
+    fn get_ahead_behind(repo: &Repository, branch: &str) -> Result<(u32, u32), String> {
+        // Get the local branch reference
+        let local_branch = repo
+            .find_branch(branch, git2::BranchType::Local)
+            .map_err(|e| e.to_string())?;
+
+        // Get the upstream branch
+        let upstream = local_branch
+            .upstream()
+            .map_err(|_| "No upstream branch".to_string())?;
+
+        let local_oid = local_branch
+            .get()
+            .target()
+            .ok_or("Could not get local branch target")?;
+
+        let upstream_oid = upstream
+            .get()
+            .target()
+            .ok_or("Could not get upstream branch target")?;
+
+        let (ahead, behind) = repo
+            .graph_ahead_behind(local_oid, upstream_oid)
+            .map_err(|e| e.to_string())?;
+
+        Ok((ahead as u32, behind as u32))
     }
 
     pub fn get_diff(repo_path: &str) -> Result<Vec<FileDiff>, String> {

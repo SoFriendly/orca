@@ -64,7 +64,7 @@ interface CommitSuggestion {
 }
 
 export default function GitPanel({ projectPath, onRefresh }: GitPanelProps) {
-  const { diffs, branches, loading } = useGitStore();
+  const { diffs, branches, loading, status } = useGitStore();
   const [commitSubject, setCommitSubject] = useState("");
   const [commitDescription, setCommitDescription] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
@@ -393,7 +393,7 @@ export default function GitPanel({ projectPath, onRefresh }: GitPanelProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className={cn("h-7 w-7", isPulling && "text-portal-orange")}
+                className={cn("h-7 w-7 relative", isPulling && "text-portal-orange")}
                 onClick={handlePull}
                 disabled={isPulling}
               >
@@ -402,9 +402,16 @@ export default function GitPanel({ projectPath, onRefresh }: GitPanelProps) {
                 ) : (
                   <ArrowDownToLine className="h-3.5 w-3.5" />
                 )}
+                {!isPulling && status && status.behind > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500 px-1 text-[9px] font-medium text-white">
+                    {status.behind}
+                  </span>
+                )}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{isPulling ? "Pulling..." : "Pull"}</TooltipContent>
+            <TooltipContent>
+              {isPulling ? "Pulling..." : status && status.behind > 0 ? `Pull (${status.behind} behind)` : "Pull"}
+            </TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -412,7 +419,7 @@ export default function GitPanel({ projectPath, onRefresh }: GitPanelProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className={cn("h-7 w-7", isPushing && "text-portal-orange")}
+                className={cn("h-7 w-7 relative", isPushing && "text-portal-orange")}
                 onClick={handlePush}
                 disabled={isPushing}
               >
@@ -421,9 +428,16 @@ export default function GitPanel({ projectPath, onRefresh }: GitPanelProps) {
                 ) : (
                   <ArrowUpFromLine className="h-3.5 w-3.5" />
                 )}
+                {!isPushing && status && status.ahead > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-portal-orange px-1 text-[9px] font-medium text-white">
+                    {status.ahead}
+                  </span>
+                )}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{isPushing ? "Pushing..." : "Push"}</TooltipContent>
+            <TooltipContent>
+              {isPushing ? "Pushing..." : status && status.ahead > 0 ? `Push (${status.ahead} ahead)` : "Push"}
+            </TooltipContent>
           </Tooltip>
 
           <Tooltip>

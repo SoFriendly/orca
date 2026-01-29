@@ -28,6 +28,12 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { cn } from "@/lib/utils";
 import type { Project, GitStatus, FileDiff, Branch, Commit } from "@/types";
 
+interface TerminalTab {
+  id: string;
+  name: string;
+  terminalId: string | null;
+}
+
 export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
@@ -36,11 +42,12 @@ export default function ProjectPage() {
   const { assistantArgs } = useSettingsStore();
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [terminalId, setTerminalId] = useState<string | null>(null);
+  const [terminalTabs, setTerminalTabs] = useState<TerminalTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [utilityTerminalId, setUtilityTerminalId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"terminal" | "history" | "settings">("terminal");
   const [activeSidebarItem, setActiveSidebarItem] = useState<"terminal" | "settings">("terminal");
   const terminalsStarted = useRef(false);
+  const tabCounter = useRef(1);
 
   useEffect(() => {
     const project = projects.find((p) => p.id === projectId);
@@ -61,6 +68,70 @@ export default function ProjectPage() {
     }
   }, [currentProject]);
 
+  const getAssistantCommand = async (): Promise<{ command: string; name: string }> => {
+    const installed = await invoke<string[]>("check_installed_assistants");
+
+    if (installed.includes("claude")) {
+      let command = "claude";
+      const args = assistantArgs["claude-code"] || "";
+      if (args) command = `${command} ${args}`;
+      return { command, name: "Claude Code" };
+    } else if (installed.includes("aider")) {
+      let command = "aider";
+      const args = assistantArgs["aider"] || "";
+      if (args) command = `${command} ${args}`;
+      return { command, name: "Aider" };
+    }
+
+    return { command: "", name: "Shell" };
+  };
+
+  const createNewTab = async (projectPath: string) => {
+    try {
+      const { command, name } = await getAssistantCommand();
+      const terminalId = await invoke<string>("spawn_terminal", {
+        shell: command,
+        cwd: projectPath,
+      });
+
+      const tabId = `tab-${Date.now()}`;
+      const tabNumber = tabCounter.current++;
+      const newTab: TerminalTab = {
+        id: tabId,
+        name: tabNumber === 1 ? name : `${name} ${tabNumber}`,
+        terminalId,
+      };
+
+      setTerminalTabs(prev => [...prev, newTab]);
+      setActiveTabId(tabId);
+
+      if (command) {
+        toast.success(`${newTab.name} started`);
+      }
+
+      return newTab;
+    } catch (error) {
+      console.error("Failed to create terminal tab:", error);
+      return null;
+    }
+  };
+
+  const closeTab = async (tabId: string) => {
+    const tab = terminalTabs.find(t => t.id === tabId);
+    if (tab?.terminalId) {
+      await invoke("kill_terminal", { id: tab.terminalId });
+    }
+
+    setTerminalTabs(prev => {
+      const newTabs = prev.filter(t => t.id !== tabId);
+      // If we closed the active tab, switch to the last remaining tab
+      if (activeTabId === tabId && newTabs.length > 0) {
+        setActiveTabId(newTabs[newTabs.length - 1].id);
+      }
+      return newTabs;
+    });
+  };
+
   const startTerminals = async (projectPath: string) => {
     try {
       // Start utility terminal (plain shell)
@@ -70,35 +141,8 @@ export default function ProjectPage() {
       });
       setUtilityTerminalId(utilityId);
 
-      // Check for installed assistants and start the default one
-      const installed = await invoke<string[]>("check_installed_assistants");
-
-      // Priority: claude-code > aider > shell
-      let command = "";
-      let assistantName = "Shell";
-
-      if (installed.includes("claude")) {
-        command = "claude";
-        assistantName = "Claude Code";
-        const args = assistantArgs["claude-code"] || "";
-        if (args) command = `${command} ${args}`;
-      } else if (installed.includes("aider")) {
-        command = "aider";
-        assistantName = "Aider";
-        const args = assistantArgs["aider"] || "";
-        if (args) command = `${command} ${args}`;
-      }
-
-      // Start the main terminal with the assistant
-      const mainId = await invoke<string>("spawn_terminal", {
-        shell: command,
-        cwd: projectPath,
-      });
-      setTerminalId(mainId);
-
-      if (command) {
-        toast.success(`${assistantName} started`);
-      }
+      // Create the first AI terminal tab
+      await createNewTab(projectPath);
     } catch (error) {
       console.error("Failed to start terminals:", error);
     }
@@ -277,69 +321,75 @@ export default function ProjectPage() {
             <div className="flex h-full flex-col">
               {/* Tab bar */}
               <div className="flex items-center border-b border-border">
-                <button
-                  onClick={() => setActiveTab("terminal")}
-                  className={cn(
-                    "px-4 py-2.5 text-sm font-medium transition-colors",
-                    activeTab === "terminal"
-                      ? "border-b-2 border-portal-orange text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  Terminal
-                </button>
-                <button
-                  onClick={() => setActiveTab("history")}
-                  className={cn(
-                    "px-4 py-2.5 text-sm font-medium transition-colors",
-                    activeTab === "history"
-                      ? "border-b-2 border-portal-orange text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  History
-                </button>
-                <button
-                  onClick={() => setActiveTab("settings")}
-                  className={cn(
-                    "px-4 py-2.5 text-sm font-medium transition-colors",
-                    activeTab === "settings"
-                      ? "border-b-2 border-portal-orange text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  Settings
-                </button>
-              </div>
-
-              {/* Tab content - keep terminal mounted, hide with CSS */}
-              <div className={cn("flex flex-1 flex-col overflow-hidden", activeTab !== "terminal" && "hidden")}>
-                <div className="flex-1 overflow-hidden bg-[#0d0d0d]">
-                  {terminalId ? (
-                    <Terminal id={terminalId} cwd={currentProject.path} />
-                  ) : (
-                    <div className="flex h-full items-center justify-center">
-                      <p className="text-sm text-muted-foreground">
-                        Starting terminal...
-                      </p>
+                <div className="flex flex-1 items-center overflow-x-auto">
+                  {terminalTabs.map((tab) => (
+                    <div
+                      key={tab.id}
+                      className={cn(
+                        "group flex items-center gap-1 border-r border-border px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
+                        activeTabId === tab.id
+                          ? "border-b-2 border-b-portal-orange bg-muted/50 text-foreground"
+                          : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                      )}
+                      onClick={() => setActiveTabId(tab.id)}
+                    >
+                      <TerminalIcon className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate max-w-[120px]">{tab.name}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          closeTab(tab.id);
+                        }}
+                        className="ml-1 rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </div>
-                  )}
+                  ))}
                 </div>
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => currentProject && createNewTab(currentProject.path)}
+                      className="flex h-full items-center px-3 py-2 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>New AI Terminal</TooltipContent>
+                </Tooltip>
               </div>
 
-              <div className={cn("flex-1 overflow-auto p-6", activeTab !== "history" && "hidden")}>
-                <h2 className="mb-4 text-lg font-semibold">Commit History</h2>
-                <p className="text-sm text-muted-foreground">
-                  Coming soon...
-                </p>
-              </div>
+              {/* Tab content - keep all terminals mounted, hide with CSS */}
+              {terminalTabs.map((tab) => (
+                <div
+                  key={tab.id}
+                  className={cn(
+                    "flex flex-1 flex-col overflow-hidden",
+                    activeTabId !== tab.id && "hidden"
+                  )}
+                >
+                  <div className="flex-1 overflow-hidden bg-[#0d0d0d]">
+                    {tab.terminalId ? (
+                      <Terminal id={tab.terminalId} cwd={currentProject.path} />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <p className="text-sm text-muted-foreground">
+                          Starting terminal...
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
 
-              <div className={cn("flex-1 overflow-auto p-6", activeTab !== "settings" && "hidden")}>
-                <h2 className="mb-4 text-lg font-semibold">Project Settings</h2>
-                <p className="text-sm text-muted-foreground">
-                  Path: {currentProject.path}
-                </p>
-              </div>
+              {/* Empty state when no tabs */}
+              {terminalTabs.length === 0 && (
+                <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-[#0d0d0d]">
+                  <TerminalIcon className="h-8 w-8 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Starting AI assistant...</p>
+                </div>
+              )}
             </div>
           </ResizablePanel>
 
