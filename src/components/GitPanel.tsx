@@ -372,6 +372,22 @@ export default function GitPanel({ projectPath, projectName, onRefresh }: GitPan
 
   const [fileToDiscard, setFileToDiscard] = useState<string | null>(null);
   const [hunkToDiscard, setHunkToDiscard] = useState<HunkToDiscard | null>(null);
+  const [editingLine, setEditingLine] = useState<{ filePath: string; lineNo: number; content: string } | null>(null);
+
+  const handleEditLine = async (filePath: string, lineNo: number, newContent: string) => {
+    try {
+      const fullPath = `${projectPath}/${filePath}`;
+      await invoke("edit_file_line", {
+        filePath: fullPath,
+        lineNumber: lineNo,
+        newContent,
+      });
+      setEditingLine(null);
+      onRefresh();
+    } catch (error) {
+      toast.error(`Failed to edit line: ${error}`);
+    }
+  };
 
   const handleDiscardHunk = async (filePath: string, hunk: DiffHunk) => {
     try {
@@ -450,7 +466,7 @@ export default function GitPanel({ projectPath, projectName, onRefresh }: GitPan
         {/* Inline diff view with per-hunk context menus */}
         {isExpanded && (
           <div className="ml-5 mt-1 overflow-hidden rounded bg-[#0d0d0d]">
-            <div className="p-2">
+            <div className="p-2 select-text">
               <div className="font-mono text-[10px] leading-relaxed">
                 {diff.hunks.map((hunk, hi) => (
                   <ContextMenu key={hi}>
@@ -459,22 +475,52 @@ export default function GitPanel({ projectPath, projectName, onRefresh }: GitPan
                         <div className="text-muted-foreground">
                           @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
                         </div>
-                        {hunk.lines.map((line, li) => (
-                          <div
-                            key={li}
-                            className={cn(
-                              "whitespace-pre-wrap break-words",
-                              line.type === "addition" && "bg-green-500/10 text-green-400",
-                              line.type === "deletion" && "bg-red-500/10 text-red-400",
-                              line.type === "context" && "text-muted-foreground"
-                            )}
-                          >
-                            {line.type === "addition" && "+"}
-                            {line.type === "deletion" && "-"}
-                            {line.type === "context" && " "}
-                            {line.content}
-                          </div>
-                        ))}
+                        {hunk.lines.map((line, li) => {
+                          const isEditable = line.type !== "deletion" && line.newLineNo;
+                          const isEditing = editingLine?.filePath === diff.path && editingLine?.lineNo === line.newLineNo;
+
+                          return (
+                            <div
+                              key={li}
+                              className={cn(
+                                "whitespace-pre-wrap break-words group/line",
+                                line.type === "addition" && "bg-green-500/10 text-green-400",
+                                line.type === "deletion" && "bg-red-500/10 text-red-400 cursor-not-allowed",
+                                line.type === "context" && "text-muted-foreground",
+                                isEditable && !isEditing && "cursor-text hover:bg-white/5"
+                              )}
+                              onClick={() => {
+                                if (isEditable && !isEditing && line.newLineNo) {
+                                  setEditingLine({ filePath: diff.path, lineNo: line.newLineNo, content: line.content });
+                                }
+                              }}
+                            >
+                              {line.type === "addition" && "+"}
+                              {line.type === "deletion" && "-"}
+                              {line.type === "context" && " "}
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  defaultValue={line.content}
+                                  className="bg-blue-500/20 border-none outline-none ring-1 ring-blue-500/50 rounded px-1 -mx-1 w-full text-inherit font-mono"
+                                  style={{ fontSize: 'inherit' }}
+                                  onBlur={(e) => handleEditLine(diff.path, line.newLineNo!, e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      handleEditLine(diff.path, line.newLineNo!, e.currentTarget.value);
+                                    } else if (e.key === "Escape") {
+                                      setEditingLine(null);
+                                    }
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              ) : (
+                                line.content
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </ContextMenuTrigger>
                     <ContextMenuContent>

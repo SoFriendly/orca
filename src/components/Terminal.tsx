@@ -3,6 +3,8 @@ import { Terminal as XTerm, ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { WebglAddon } from "@xterm/addon-webgl";
+import { CanvasAddon } from "@xterm/addon-canvas";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -174,6 +176,18 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
 
     terminal.open(containerRef.current);
 
+    // Use WebGL for GPU-accelerated rendering, fall back to Canvas
+    try {
+      terminal.loadAddon(new WebglAddon());
+    } catch (e) {
+      console.warn("WebGL addon failed, falling back to Canvas:", e);
+      try {
+        terminal.loadAddon(new CanvasAddon());
+      } catch (e2) {
+        console.warn("Canvas addon also failed, using DOM renderer:", e2);
+      }
+    }
+
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
@@ -232,9 +246,11 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
         try {
           fitAddon.fit();
           const { cols, rows } = terminal;
+          console.log(`[Terminal] Initial fit: ${cols}x${rows}, container: ${containerRef.current?.offsetWidth}x${containerRef.current?.offsetHeight}`);
           setInitialDimensions({ cols, rows });
         } catch (e) {
           // Fallback dimensions
+          console.warn("[Terminal] Fit failed, using fallback 80x24:", e);
           setInitialDimensions({ cols: 80, rows: 24 });
         }
       });
@@ -284,11 +300,12 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
     const fitAddon = fitAddonRef.current;
 
     // Safe fit function that checks if terminal is ready
-    const safeFit = () => {
+    const safeFit = (source?: string) => {
       try {
         if (containerRef.current && containerRef.current.offsetWidth > 0 && containerRef.current.offsetHeight > 0) {
           fitAddon.fit();
           const { cols, rows } = terminal;
+          console.log(`[Terminal] safeFit(${source || 'unknown'}): ${cols}x${rows}, container: ${containerRef.current.offsetWidth}x${containerRef.current.offsetHeight}`);
           invoke("resize_terminal", { id: terminalId, cols, rows }).catch(console.error);
           return true;
         }
@@ -315,7 +332,7 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
 
     // Handle window resize
     const handleResize = () => {
-      safeFit();
+      safeFit("window-resize");
     };
     window.addEventListener("resize", handleResize);
 
@@ -323,7 +340,7 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
-          safeFit();
+          safeFit("resize-observer");
         }
       }
     });
@@ -335,7 +352,7 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
     const intersectionObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting) {
-          setTimeout(() => safeFit(), 10);
+          setTimeout(() => safeFit("intersection"), 10);
         }
       }
     });
@@ -347,7 +364,7 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
     // Claude Code gets SIGWINCH and redraws with correct dimensions.
     // The layout may still be settling when we first connect.
     const resizeTimers = [100, 300, 500, 1000].map(delay =>
-      setTimeout(() => safeFit(), delay)
+      setTimeout(() => safeFit(`delayed-${delay}ms`), delay)
     );
 
     return () => {
@@ -371,6 +388,7 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
           const terminal = terminalRef.current;
           if (terminal) {
             const { cols, rows } = terminal;
+            console.log(`[Terminal] visibility fit: ${cols}x${rows}, container: ${containerRef.current?.offsetWidth}x${containerRef.current?.offsetHeight}`);
             invoke("resize_terminal", { id: terminalId, cols, rows }).catch(console.error);
           }
         } catch (e) {

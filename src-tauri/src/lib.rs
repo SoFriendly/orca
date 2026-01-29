@@ -307,6 +307,33 @@ fn reset_to_commit(repo_path: String, commit_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn edit_file_line(file_path: String, line_number: usize, new_content: String) -> Result<(), String> {
+    use std::fs;
+    use std::path::Path;
+
+    let path = Path::new(&file_path);
+    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let mut lines: Vec<&str> = content.lines().collect();
+
+    if line_number == 0 || line_number > lines.len() {
+        return Err(format!("Line number {} out of range (1-{})", line_number, lines.len()));
+    }
+
+    // Convert to 0-indexed
+    let idx = line_number - 1;
+
+    // Create a new vector with the updated line
+    let mut new_lines: Vec<String> = lines.iter().map(|s| s.to_string()).collect();
+    new_lines[idx] = new_content;
+
+    // Write back with proper line endings
+    let new_content = new_lines.join("\n");
+    fs::write(path, new_content).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
 fn init_repo(path: String) -> Result<(), String> {
     GitService::init_repo(&path)
 }
@@ -593,6 +620,7 @@ pub fn run() {
             get_history,
             discard_file,
             discard_hunk,
+            edit_file_line,
             checkout_commit,
             reset_to_commit,
             init_repo,
