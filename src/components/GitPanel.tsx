@@ -483,8 +483,8 @@ export default function GitPanel({ projectPath, projectName, onRefresh }: GitPan
                 <span className="h-3 w-3 shrink-0" /> // Placeholder for alignment
               )}
               <span className={cn("h-2 w-2 shrink-0 rounded-sm", getStatusColor(diff.status))} />
-              <div className="flex-1 min-w-0 overflow-hidden">
-                <span className="block break-words font-mono text-xs">{diff.path}</span>
+              <div className="flex-1 min-w-0">
+                <span className="block break-all font-mono text-xs">{diff.path}</span>
               </div>
               {/* Discard button - shows on hover, positioned over content on right */}
               <Button
@@ -874,7 +874,7 @@ export default function GitPanel({ projectPath, projectName, onRefresh }: GitPan
             placeholder="Summary (required)"
             value={commitSubject}
             onChange={(e) => setCommitSubject(e.target.value)}
-            className="bg-muted/50 text-sm pr-8"
+            className={cn("bg-muted/50 text-sm", isGenerating && "pr-8")}
             disabled={isGenerating}
           />
           {isGenerating && (

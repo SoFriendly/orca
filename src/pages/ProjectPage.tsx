@@ -18,11 +18,6 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from "@/components/ui/resizable";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -86,9 +81,15 @@ export default function ProjectPage() {
   // Count visible panels - must always have at least one
   const visiblePanelCount = [showGitPanel, showAssistantPanel, showShellPanel].filter(Boolean).length;
 
-  // Simple toggle handlers - just set state, CSS handles the hiding
+  // Toggle handlers
   const toggleGitPanel = () => {
     if (showGitPanel && visiblePanelCount <= 1) return;
+    if (showGitPanel) {
+      savedGitWidth.current = gitPanelWidth;
+      setGitPanelWidth(0);
+    } else {
+      setGitPanelWidth(savedGitWidth.current);
+    }
     setShowGitPanel(!showGitPanel);
   };
 
@@ -99,12 +100,56 @@ export default function ProjectPage() {
 
   const toggleShellPanel = () => {
     if (showShellPanel && visiblePanelCount <= 1) return;
+    if (showShellPanel) {
+      savedShellWidth.current = shellPanelWidth;
+      setShellPanelWidth(0);
+    } else {
+      setShellPanelWidth(savedShellWidth.current);
+    }
     setShowShellPanel(!showShellPanel);
+  };
+
+  // Resize handle drag handler
+  const handleResizeStart = (e: React.MouseEvent, panel: 'git' | 'shell') => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startGitWidth = gitPanelWidth;
+    const startShellWidth = shellPanelWidth;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - startX;
+      if (panel === 'git') {
+        const newWidth = Math.max(200, Math.min(500, startGitWidth + delta));
+        setGitPanelWidth(newWidth);
+      } else {
+        const newWidth = Math.max(200, Math.min(600, startShellWidth - delta));
+        setShellPanelWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
   };
   const terminalsStarted = useRef(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const assistantPanelRef = useRef<HTMLDivElement>(null);
   const shellPanelRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Panel widths in pixels (null means use flex)
+  const [gitPanelWidth, setGitPanelWidth] = useState(280);
+  const [shellPanelWidth, setShellPanelWidth] = useState(400);
+  const savedGitWidth = useRef(280);
+  const savedShellWidth = useRef(400);
 
 
   useEffect(() => {
@@ -630,32 +675,31 @@ export default function ProjectPage() {
       </div>
 
       {/* Main content area */}
-      <div className="flex-1 overflow-hidden">
-        <ResizablePanelGroup direction="horizontal">
-          {/* Left sidebar - Git panel */}
-          <ResizablePanel
-            defaultSize={20}
-            minSize={showGitPanel ? 15 : 0}
-            maxSize={35}
-            className={cn("overflow-hidden", !showGitPanel && "!min-w-0 !w-0")}
-          >
-            <div className={cn("h-full flex flex-col", !showGitPanel && "hidden")}>
-              <GitPanel
-                projectPath={currentProject.path}
-                projectName={currentProject.name}
-                onRefresh={refreshGitData}
-              />
-            </div>
-          </ResizablePanel>
-          <ResizableHandle className={cn("w-px bg-border", !showGitPanel && "hidden")} />
+      <div ref={containerRef} className="flex-1 flex overflow-hidden">
+        {/* Left sidebar - Git panel */}
+        <div
+          className={cn("h-full flex flex-col overflow-hidden transition-all duration-200", !showGitPanel && "hidden")}
+          style={{ width: showGitPanel ? gitPanelWidth : 0 }}
+        >
+          <GitPanel
+            projectPath={currentProject.path}
+            projectName={currentProject.name}
+            onRefresh={refreshGitData}
+          />
+        </div>
+        {/* Resize handle for git panel */}
+        {showGitPanel && (
+          <div
+            className="w-1 hover:w-1.5 bg-border hover:bg-primary/50 cursor-col-resize transition-all shrink-0"
+            onMouseDown={(e) => handleResizeStart(e, 'git')}
+          />
+        )}
 
-          {/* Center - Terminal area */}
-          <ResizablePanel
-            defaultSize={50}
-            minSize={showAssistantPanel ? 20 : 0}
-            className={cn("overflow-hidden", !showAssistantPanel && "!min-w-0 !w-0")}
-          >
-            <div ref={assistantPanelRef} className="h-full">
+        {/* Center - Terminal area */}
+        <div
+          ref={assistantPanelRef}
+          className={cn("flex-1 h-full overflow-hidden min-w-0", !showAssistantPanel && "hidden")}
+        >
           <div className="flex h-full flex-col select-none overflow-hidden">
           {/* Tab bar */}
           <div className="flex h-10 items-center border-b border-border">
@@ -760,20 +804,23 @@ export default function ProjectPage() {
               <TerminalIcon className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">Starting AI assistant...</p>
             </div>
-          )}
+                )}
           </div>
-          </div>
-          </ResizablePanel>
-          <ResizableHandle className={cn("w-px bg-border", !showAssistantPanel && "hidden")} />
+        </div>
+        {/* Resize handle for shell panel */}
+        {showShellPanel && (
+          <div
+            className="w-1 hover:w-1.5 bg-border hover:bg-primary/50 cursor-col-resize transition-all shrink-0"
+            onMouseDown={(e) => handleResizeStart(e, 'shell')}
+          />
+        )}
 
-          {/* Right sidebar - Utility terminal */}
-          <ResizablePanel
-            defaultSize={30}
-            minSize={showShellPanel ? 15 : 0}
-            maxSize={50}
-            className={cn("overflow-hidden", !showShellPanel && "!min-w-0 !w-0")}
-          >
-            <div ref={shellPanelRef} className={cn("flex flex-col h-full", !showShellPanel && "hidden")}>
+        {/* Right sidebar - Utility terminal */}
+        <div
+          ref={shellPanelRef}
+          className={cn("h-full flex flex-col overflow-hidden transition-all duration-200", !showShellPanel && "hidden")}
+          style={{ width: showShellPanel ? shellPanelWidth : 0 }}
+        >
           {/* Header */}
           <div className="flex h-10 items-center justify-between px-2 border-b border-border">
             <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -845,11 +892,9 @@ export default function ProjectPage() {
                   Start Shell
                 </Button>
               </div>
-            )}
+              )}
           </div>
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+        </div>
       </div>
 
       {/* Settings Sheet */}
