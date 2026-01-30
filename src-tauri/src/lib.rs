@@ -561,6 +561,50 @@ fn list_directories(path: String) -> Result<Vec<String>, String> {
     Ok(dirs)
 }
 
+// Read shell history
+#[tauri::command]
+fn get_shell_history(limit: Option<usize>) -> Result<Vec<String>, String> {
+    let home = std::env::var("HOME").map_err(|_| "Could not find HOME directory")?;
+    let limit = limit.unwrap_or(500);
+
+    // Try zsh history first, then bash
+    let history_paths = vec![
+        format!("{}/.zsh_history", home),
+        format!("{}/.bash_history", home),
+    ];
+
+    for history_path in history_paths {
+        let path = std::path::Path::new(&history_path);
+        if path.exists() {
+            let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+            let mut commands: Vec<String> = content
+                .lines()
+                .filter_map(|line| {
+                    // zsh history format: ": timestamp:0;command" or just "command"
+                    let cmd = if line.starts_with(':') {
+                        line.splitn(2, ';').nth(1).map(|s| s.to_string())
+                    } else {
+                        Some(line.to_string())
+                    };
+                    cmd.filter(|s| !s.trim().is_empty())
+                })
+                .collect();
+
+            // Remove duplicates while preserving order (keep last occurrence)
+            let mut seen = std::collections::HashSet::new();
+            commands.reverse();
+            commands.retain(|cmd| seen.insert(cmd.clone()));
+            commands.reverse();
+
+            // Return most recent commands (up to limit)
+            let start = commands.len().saturating_sub(limit);
+            return Ok(commands[start..].to_vec());
+        }
+    }
+
+    Ok(Vec::new())
+}
+
 // Assistant commands
 #[tauri::command]
 fn check_installed_assistants() -> Result<Vec<String>, String> {
@@ -786,6 +830,7 @@ pub fn run() {
             open_folder_dialog,
             open_in_finder,
             list_directories,
+            get_shell_history,
             get_file_tree,
             delete_file,
             rename_file,

@@ -15,6 +15,7 @@ import {
   PanelRightClose,
   Folder,
   ChevronDown,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import Terminal from "@/components/Terminal";
 import GitPanel from "@/components/GitPanel";
 import SettingsSheet from "@/components/SettingsSheet";
@@ -78,6 +87,8 @@ export default function ProjectPage() {
   const [showShellPanel, setShowShellPanel] = useState(true);
   const [shellCwd, setShellCwd] = useState<string>("");
   const [shellDirs, setShellDirs] = useState<string[]>([]);
+  const [showHistorySearch, setShowHistorySearch] = useState(false);
+  const [shellHistory, setShellHistory] = useState<string[]>([]);
 
   // Count visible panels - must always have at least one
   const visiblePanelCount = [showGitPanel, showAssistantPanel, showShellPanel].filter(Boolean).length;
@@ -290,6 +301,22 @@ export default function ProjectPage() {
       console.error("Failed to list directories:", error);
       setShellDirs([]);
     }
+  };
+
+  const loadShellHistory = async () => {
+    try {
+      const history = await invoke<string[]>("get_shell_history", { limit: 500 });
+      setShellHistory(history.reverse()); // Most recent first
+    } catch (error) {
+      console.error("Failed to load shell history:", error);
+      setShellHistory([]);
+    }
+  };
+
+  const handleHistorySelect = (command: string) => {
+    if (!utilityTerminalId || utilityTerminalId === "closed") return;
+    invoke("write_terminal", { id: utilityTerminalId, data: command });
+    setShowHistorySearch(false);
   };
 
   const handleShellCd = async (dirName: string) => {
@@ -969,19 +996,39 @@ export default function ProjectPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            {utilityTerminalId && utilityTerminalId !== "closed" && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 shrink-0"
-                onClick={() => {
-                  invoke("kill_terminal", { id: utilityTerminalId });
-                  setUtilityTerminalId("closed");
-                }}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            )}
+            <div className="flex items-center gap-1">
+              {utilityTerminalId && utilityTerminalId !== "closed" && (
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 shrink-0"
+                      onClick={() => {
+                        loadShellHistory();
+                        setShowHistorySearch(true);
+                      }}
+                    >
+                      <Search className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Search history (Ctrl+R)</TooltipContent>
+                </Tooltip>
+              )}
+              {utilityTerminalId && utilityTerminalId !== "closed" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 shrink-0"
+                  onClick={() => {
+                    invoke("kill_terminal", { id: utilityTerminalId });
+                    setUtilityTerminalId("closed");
+                  }}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Utility terminal content */}
@@ -1023,6 +1070,26 @@ export default function ProjectPage() {
           }
         }}
       />
+
+      {/* Shell History Search */}
+      <CommandDialog open={showHistorySearch} onOpenChange={setShowHistorySearch}>
+        <CommandInput placeholder="Search shell history..." />
+        <CommandList>
+          <CommandEmpty>No commands found.</CommandEmpty>
+          <CommandGroup heading="Recent Commands">
+            {shellHistory.map((cmd, index) => (
+              <CommandItem
+                key={`${cmd}-${index}`}
+                value={cmd}
+                onSelect={() => handleHistorySelect(cmd)}
+                className="font-mono text-xs"
+              >
+                {cmd}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
     </div>
   );
 }
