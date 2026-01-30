@@ -177,6 +177,66 @@ fn spawn_terminal(
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
 
+    // Build a comprehensive PATH that includes common tool locations
+    // This ensures brew, nvm, pyenv, etc. are available when .zshrc sources them
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/Users".to_string());
+    let current_path = std::env::var("PATH").unwrap_or_default();
+
+    #[cfg(target_os = "macos")]
+    {
+        let extra_paths = vec![
+            format!("{}/bin", home),
+            format!("{}/.local/bin", home),
+            format!("{}/.cargo/bin", home),
+            format!("{}/.pyenv/bin", home),
+            format!("{}/.pyenv/shims", home),
+            format!("{}/.nvm/versions/node/default/bin", home),
+            "/opt/homebrew/bin".to_string(),
+            "/opt/homebrew/sbin".to_string(),
+            "/usr/local/bin".to_string(),
+            "/usr/local/sbin".to_string(),
+        ];
+        let new_path = format!("{}:{}", extra_paths.join(":"), current_path);
+        cmd.env("PATH", new_path);
+
+        // Set HOMEBREW_PREFIX for brew shellenv
+        if std::path::Path::new("/opt/homebrew").exists() {
+            cmd.env("HOMEBREW_PREFIX", "/opt/homebrew");
+            cmd.env("HOMEBREW_CELLAR", "/opt/homebrew/Cellar");
+            cmd.env("HOMEBREW_REPOSITORY", "/opt/homebrew");
+        } else if std::path::Path::new("/usr/local/Homebrew").exists() {
+            cmd.env("HOMEBREW_PREFIX", "/usr/local");
+            cmd.env("HOMEBREW_CELLAR", "/usr/local/Cellar");
+            cmd.env("HOMEBREW_REPOSITORY", "/usr/local/Homebrew");
+        }
+
+        // Set NVM_DIR if it exists
+        let nvm_dir = format!("{}/.nvm", home);
+        if std::path::Path::new(&nvm_dir).exists() {
+            cmd.env("NVM_DIR", &nvm_dir);
+        }
+
+        // Set PYENV_ROOT if it exists
+        let pyenv_root = format!("{}/.pyenv", home);
+        if std::path::Path::new(&pyenv_root).exists() {
+            cmd.env("PYENV_ROOT", &pyenv_root);
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let extra_paths = vec![
+            format!("{}/bin", home),
+            format!("{}/.local/bin", home),
+            format!("{}/.cargo/bin", home),
+            format!("{}/.pyenv/bin", home),
+            format!("{}/.pyenv/shims", home),
+            "/usr/local/bin".to_string(),
+        ];
+        let new_path = format!("{}:{}", extra_paths.join(":"), current_path);
+        cmd.env("PATH", new_path);
+    }
+
     let mut child = pty_pair
         .slave
         .spawn_command(cmd)

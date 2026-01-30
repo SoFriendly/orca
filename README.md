@@ -293,6 +293,96 @@ Per-assistant launch flags configurable in settings. Example: Claude Code can be
 
 ---
 
+## Development
+
+### Prerequisites
+
+- Node.js 18+
+- pnpm
+- Rust toolchain
+- Xcode Command Line Tools (macOS)
+
+### Setup
+
+```bash
+# Install dependencies
+pnpm install
+
+# Run in development mode
+pnpm tauri dev
+```
+
+### Building & Releasing
+
+Chell uses platform-specific build scripts with automatic version bumping and Cloudflare R2 for hosting updates.
+
+#### Build Scripts
+
+```bash
+# Build without version bump
+./scripts/build-macos.sh
+./scripts/build-linux.sh
+
+# Build with version bump (patch: 0.1.0 → 0.1.1)
+./scripts/build-macos.sh patch
+
+# Build with minor bump (0.1.0 → 0.2.0)
+./scripts/build-macos.sh minor
+
+# Build with major bump (0.1.0 → 1.0.0)
+./scripts/build-macos.sh major
+```
+
+Windows (PowerShell):
+```powershell
+.\scripts\build-windows.ps1
+.\scripts\build-windows.ps1 -BumpType patch
+```
+
+#### Uploading Releases
+
+After building, upload artifacts to Cloudflare R2:
+
+```bash
+./scripts/upload-to-cloudflare.sh
+```
+
+This uploads:
+- macOS: `.dmg` and `.app.tar.gz`
+- Linux: `.AppImage` and `.deb`
+- Windows: `.msi` and `.exe`
+
+And generates `latest.json` for the auto-updater.
+
+#### Full Release Workflow
+
+```bash
+# 1. Bump version and build
+./scripts/build-macos.sh patch
+
+# 2. Upload to Cloudflare
+./scripts/upload-to-cloudflare.sh
+```
+
+#### Environment Variables
+
+Create `.env.local` from the example:
+
+```bash
+cp .env.local.example .env.local
+```
+
+Required variables:
+- `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` - macOS notarization
+- `TAURI_SIGNING_PRIVATE_KEY` - Update signing
+- `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_R2_ACCESS_KEY`, `CLOUDFLARE_R2_SECRET_KEY` - R2 uploads
+
+#### Auto-Updates
+
+The app checks for updates at `https://releases.chell.app/latest.json` on startup. Users are prompted to download and install new versions.
+
+---
+
 ## Future Scope
 
 ### Mobile Companion App (v2+)

@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import {
-  Circle,
+  Settings,
   Palette,
   Sparkles,
   Keyboard,
@@ -12,6 +14,7 @@ import {
   Download,
   Bot,
   ExternalLink,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -34,7 +37,7 @@ interface SettingsSheetProps {
 type SettingsTab = "general" | "assistants" | "appearance" | "ai" | "keyboard" | "about";
 
 const NAV_ITEMS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-  { id: "general", label: "General", icon: <Circle className="h-4 w-4" /> },
+  { id: "general", label: "General", icon: <Settings className="h-4 w-4" /> },
   { id: "assistants", label: "Assistants", icon: <Bot className="h-4 w-4" /> },
   { id: "appearance", label: "Appearance", icon: <Palette className="h-4 w-4" /> },
   { id: "ai", label: "AI Behavior", icon: <Sparkles className="h-4 w-4" /> },
@@ -118,6 +121,8 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
     "gemini": assistantArgs["gemini"] || "",
     "codex": assistantArgs["codex"] || "",
   });
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<string | null>(null);
 
   // Update local state when store changes
   useEffect(() => {
@@ -190,6 +195,40 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
   const copyInstallCommand = (command: string) => {
     navigator.clipboard.writeText(command);
     toast.success("Install command copied to clipboard");
+  };
+
+  const checkForUpdates = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateStatus(null);
+    try {
+      const update = await check();
+      if (update) {
+        setUpdateStatus(`Version ${update.version} available`);
+        toast.success(`Update available: v${update.version}`, {
+          action: {
+            label: "Install",
+            onClick: async () => {
+              try {
+                await update.downloadAndInstall();
+                toast.success("Update installed! Restarting...");
+                await relaunch();
+              } catch (e) {
+                toast.error("Failed to install update");
+              }
+            },
+          },
+        });
+      } else {
+        setUpdateStatus("You're on the latest version");
+        toast.success("You're on the latest version");
+      }
+    } catch (error) {
+      console.error("Failed to check for updates:", error);
+      setUpdateStatus("Failed to check for updates");
+      toast.error("Failed to check for updates");
+    } finally {
+      setIsCheckingUpdate(false);
+    }
   };
 
   return (
@@ -527,17 +566,17 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                   <section>
                     <h2 className="text-lg font-semibold">About Chell</h2>
                     <p className="text-sm text-muted-foreground mb-6">
-                      A visual git client designed for AI coding assistants.
+                      Think in changes, not commands.
                     </p>
 
                     <div className="space-y-4">
                       <div className="flex items-center justify-between py-2">
                         <p className="text-sm text-muted-foreground">Version</p>
-                        <p className="text-sm font-mono">0.1.0</p>
+                        <p className="text-sm font-mono">0.1.1</p>
                       </div>
                       <div className="flex items-center justify-between py-2">
                         <p className="text-sm text-muted-foreground">Build</p>
-                        <p className="text-sm font-mono">2026.01.29</p>
+                        <p className="text-sm font-mono">2026.01.30</p>
                       </div>
                       <div className="flex items-center justify-between py-2">
                         <p className="text-sm text-muted-foreground">License</p>
@@ -545,11 +584,37 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                       </div>
                     </div>
 
+                    <div className="mt-6 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Updates</p>
+                        {updateStatus && (
+                          <p className="text-xs text-muted-foreground">{updateStatus}</p>
+                        )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={checkForUpdates}
+                        disabled={isCheckingUpdate}
+                      >
+                        {isCheckingUpdate ? (
+                          <>
+                            <RefreshCw className="mr-2 h-3 w-3 animate-spin" />
+                            Checking...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="mr-2 h-3 w-3" />
+                            Check for Updates
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
                     <div className="mt-8 rounded-lg border border-border bg-muted/30 p-4">
                       <p className="text-xs text-muted-foreground">
-                        Named after the protagonist of Portal—the silent character who escapes
-                        through portals. Thematically aligned with the concept of portals between
-                        your ideas and your code.
+                        Chell brings git, a terminal, and AI coding into one place. Visually track
+                        what your agent changes in real-time and commit often with confidence.
                       </p>
                     </div>
                   </section>
