@@ -266,6 +266,35 @@ impl GitService {
     pub fn checkout_branch(repo_path: &str, branch: &str) -> Result<(), String> {
         let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
 
+        // First, try to find a local branch with this name
+        if let Ok(local_branch) = repo.find_branch(branch, git2::BranchType::Local) {
+            // Local branch exists, check it out
+            let refname = local_branch.get().name().ok_or("Invalid branch name")?;
+            let obj = local_branch.get().peel(git2::ObjectType::Commit).map_err(|e| e.to_string())?;
+            repo.checkout_tree(&obj, None).map_err(|e| e.to_string())?;
+            repo.set_head(refname).map_err(|e| e.to_string())?;
+            return Ok(());
+        }
+
+        // No local branch, check if there's a remote branch with this name
+        let remote_name = format!("origin/{}", branch);
+        if let Ok(remote_branch) = repo.find_branch(&remote_name, git2::BranchType::Remote) {
+            // Create a local tracking branch from the remote
+            let commit = remote_branch.get().peel_to_commit().map_err(|e| e.to_string())?;
+            let mut local_branch = repo.branch(branch, &commit, false).map_err(|e| e.to_string())?;
+
+            // Set the upstream to track the remote branch
+            local_branch.set_upstream(Some(&remote_name)).map_err(|e| e.to_string())?;
+
+            // Now checkout the new local branch
+            let refname = local_branch.get().name().ok_or("Invalid branch name")?;
+            let obj = local_branch.get().peel(git2::ObjectType::Commit).map_err(|e| e.to_string())?;
+            repo.checkout_tree(&obj, None).map_err(|e| e.to_string())?;
+            repo.set_head(refname).map_err(|e| e.to_string())?;
+            return Ok(());
+        }
+
+        // Fallback: try revparse for other refs (tags, commit hashes, etc.)
         let (object, reference) = repo
             .revparse_ext(branch)
             .map_err(|e| e.to_string())?;
