@@ -96,6 +96,13 @@ const ASSISTANTS: AssistantInfo[] = [
     installCommand: "npm install -g @openai/codex",
     docsUrl: "https://platform.openai.com/docs",
   },
+  {
+    id: "opencode",
+    name: "OpenCode",
+    description: "OpenCode AI coding assistant",
+    installCommand: "curl -fsSL https://opencode.ai/install | bash",
+    docsUrl: "https://opencode.ai/docs",
+  },
 ];
 
 export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
@@ -126,6 +133,7 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
     "aider": assistantArgs["aider"] || "",
     "gemini": assistantArgs["gemini"] || "",
     "codex": assistantArgs["codex"] || "",
+    "opencode": assistantArgs["opencode"] || "",
   });
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<string | null>(null);
@@ -141,6 +149,7 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
       "aider": assistantArgs["aider"] || "",
       "gemini": assistantArgs["gemini"] || "",
       "codex": assistantArgs["codex"] || "",
+      "opencode": assistantArgs["opencode"] || "",
     });
   }, [assistantArgs]);
 

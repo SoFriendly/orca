@@ -422,6 +422,13 @@ export default function ProjectPage() {
         installed: installedAssistants.includes("codex"),
       },
       {
+        id: "opencode",
+        name: "OpenCode",
+        command: "opencode",
+        icon: <Bot className="h-4 w-4" />,
+        installed: installedAssistants.includes("opencode"),
+      },
+      {
         id: "shell",
         name: "Shell",
         command: "",

@@ -798,6 +798,11 @@ fn check_installed_assistants() -> Result<Vec<String>, String> {
         installed.push("codex".to_string());
     }
 
+    // Check for OpenCode CLI
+    if command_exists("opencode") {
+        installed.push("opencode".to_string());
+    }
+
     Ok(installed)
 }
 
@@ -808,6 +813,7 @@ fn install_assistant(command: String) -> Result<String, String> {
         "aider" => "pip install aider-chat",
         "gemini" => "npm install -g @anthropic-ai/gemini-cli",
         "codex" => "npm install -g @openai/codex",
+        "opencode" => "curl -fsSL https://opencode.ai/install | bash",
         _ => return Err(format!("Unknown assistant: {}", command)),
     };
 
