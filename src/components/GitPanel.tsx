@@ -132,6 +132,7 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
 
   const currentBranch = branches.find((b) => b.isHead);
   const localBranches = branches.filter((b) => !b.isRemote);
+  const remoteBranches = branches.filter((b) => b.isRemote && !b.name.includes("HEAD"));
 
   // Separate staged and unstaged changes (for now, treating all as unstaged)
   const unstagedChanges = diffs;
@@ -1019,7 +1020,12 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto">
+                {localBranches.length > 0 && (
+                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                    Local
+                  </div>
+                )}
                 {localBranches.map((branch) => (
                   <DropdownMenuItem
                     key={branch.name}
@@ -1030,6 +1036,23 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
                     {branch.isHead && <Check className="h-3 w-3 text-primary" />}
                   </DropdownMenuItem>
                 ))}
+                {remoteBranches.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                      Remote
+                    </div>
+                    {remoteBranches.map((branch) => (
+                      <DropdownMenuItem
+                        key={branch.name}
+                        onClick={() => handleSwitchBranch(branch.name.replace(/^origin\//, ""))}
+                        className="flex items-center justify-between text-muted-foreground"
+                      >
+                        <span className="truncate">{branch.name}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setShowBranchDialog(true)}>
                   <Plus className="mr-2 h-3 w-3" />
