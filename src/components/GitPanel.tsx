@@ -1234,7 +1234,9 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
           onClick={handleCommit}
           disabled={isCommitting || !commitSubject.trim() || diffs.length === 0}
         >
-          {isCommitting ? "Committing..." : `Commit to ${currentBranch?.name || "main"}`}
+          <span className="truncate">
+            {isCommitting ? "Committing..." : `Commit to ${currentBranch?.name || "main"}`}
+          </span>
         </Button>
       </div>
 
