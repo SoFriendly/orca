@@ -3,8 +3,31 @@
 @tailwind utilities;
 
 @layer base {
-  /* Chell Dark Theme - matches desktop */
+  /* Light Theme (default root) */
   :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+  }
+
+  /* Chell Dark Theme */
+  .dark {
     --background: 0 0% 7%;
     --foreground: 0 0% 90%;
     --card: 0 0% 9%;
@@ -24,5 +47,28 @@
     --border: 0 0% 18%;
     --input: 0 0% 18%;
     --ring: 24 100% 50%;
+  }
+
+  /* Tokyo Night Theme */
+  .tokyo {
+    --background: 228 18% 12%;
+    --foreground: 225 27% 88%;
+    --card: 228 18% 14%;
+    --card-foreground: 225 27% 88%;
+    --popover: 228 18% 14%;
+    --popover-foreground: 225 27% 88%;
+    --primary: 252 87% 67%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 228 18% 18%;
+    --secondary-foreground: 225 27% 88%;
+    --muted: 228 18% 20%;
+    --muted-foreground: 225 15% 55%;
+    --accent: 228 18% 20%;
+    --accent-foreground: 225 27% 88%;
+    --destructive: 353 80% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 228 18% 22%;
+    --input: 228 18% 22%;
+    --ring: 252 87% 67%;
   }
 }

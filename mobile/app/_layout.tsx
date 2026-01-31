@@ -3,14 +3,18 @@ import { useEffect } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View } from "react-native";
+import { ThemeProvider, useTheme } from "~/components/ThemeProvider";
 import { useConnectionStore } from "~/stores/connectionStore";
+import { useThemeStore } from "~/stores/themeStore";
 import type { WSMessage, TerminalOutputMessage } from "~/types";
 import { useTerminalStore } from "~/stores/terminalStore";
 import { getWebSocket } from "~/lib/websocket";
 
-export default function RootLayout() {
+function RootLayoutContent() {
   const { status, connect, wsUrl } = useConnectionStore();
   const { appendOutput } = useTerminalStore();
+  const { setTheme, syncWithDesktop } = useThemeStore();
+  const { theme, colors } = useTheme();
 
   // Auto-connect on app start if URL is configured
   useEffect(() => {
@@ -19,16 +23,25 @@ export default function RootLayout() {
     }
   }, [wsUrl]);
 
-  // Listen for terminal output messages
+  // Listen for messages from desktop
   useEffect(() => {
     if (status !== "connected") return;
 
     try {
       const ws = getWebSocket();
       const unsubscribe = ws.onMessage((message: WSMessage) => {
+        // Handle terminal output
         if (message.type === "terminal_output") {
           const termMsg = message as TerminalOutputMessage;
           appendOutput(termMsg.terminalId, termMsg.data);
+        }
+
+        // Handle theme sync from desktop
+        if (message.type === "status_update" && syncWithDesktop) {
+          const statusMsg = message as any;
+          if (statusMsg.theme && ["dark", "tokyo", "light"].includes(statusMsg.theme)) {
+            setTheme(statusMsg.theme);
+          }
         }
       });
 
@@ -36,22 +49,22 @@ export default function RootLayout() {
     } catch {
       // WebSocket not initialized yet
     }
-  }, [status]);
+  }, [status, syncWithDesktop]);
 
   return (
-    <View className="flex-1 bg-background">
-      <StatusBar style="light" />
+    <>
+      <StatusBar style={theme === "light" ? "dark" : "light"} />
       <Stack
         screenOptions={{
           headerStyle: {
-            backgroundColor: "#121212",
+            backgroundColor: colors.background,
           },
-          headerTintColor: "#e5e5e5",
+          headerTintColor: colors.foreground,
           headerTitleStyle: {
             fontWeight: "600",
           },
           contentStyle: {
-            backgroundColor: "#121212",
+            backgroundColor: colors.background,
           },
         }}
       >
@@ -75,6 +88,14 @@ export default function RootLayout() {
           }}
         />
       </Stack>
-    </View>
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <RootLayoutContent />
+    </ThemeProvider>
   );
 }

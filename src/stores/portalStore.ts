@@ -277,15 +277,18 @@ export const usePortalStore = create<PortalState>()(
           }
 
           case "request_status": {
-            // Send current status to mobile
-            const statusUpdate = {
-              type: "status_update",
-              id: crypto.randomUUID(),
-              timestamp: Date.now(),
-              connectionStatus: "connected",
-              // These would be populated from other stores
-            };
-            get().sendMessage(statusUpdate);
+            // Send current status to mobile including theme
+            import("@/stores/settingsStore").then(({ useSettingsStore }) => {
+              const { theme } = useSettingsStore.getState();
+              const statusUpdate = {
+                type: "status_update",
+                id: crypto.randomUUID(),
+                timestamp: Date.now(),
+                connectionStatus: "connected",
+                theme: theme === "custom" ? "dark" : theme, // Custom theme falls back to dark on mobile
+              };
+              get().sendMessage(statusUpdate);
+            });
             break;
           }
 
