@@ -1,0 +1,40 @@
+FROM rust:1.88-bookworm
+
+# Install system dependencies for Tauri
+RUN apt-get update && apt-get install -y \
+    libwebkit2gtk-4.1-dev \
+    libssl-dev \
+    libayatana-appindicator3-dev \
+    librsvg2-dev \
+    libgtk-3-dev \
+    libsoup-3.0-dev \
+    curl \
+    wget \
+    file \
+    xdg-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 20
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pnpm
+RUN npm install -g pnpm
+
+WORKDIR /app
+
+# Copy package files first for better caching
+COPY package.json pnpm-lock.yaml* ./
+
+# Install JS dependencies
+RUN pnpm install --frozen-lockfile || pnpm install
+
+# Copy Cargo files for Rust dependency caching
+COPY src-tauri/Cargo.toml src-tauri/Cargo.lock ./src-tauri/
+
+# Copy the rest of the source
+COPY . .
+
+# Build the app
+CMD ["pnpm", "tauri", "build"]
