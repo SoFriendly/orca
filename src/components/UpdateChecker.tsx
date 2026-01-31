@@ -102,7 +102,7 @@ export default function UpdateChecker() {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Download className="h-5 w-5 text-portal-orange" />
+            <Download className="h-5 w-5 text-primary" />
             Update Available
           </DialogTitle>
           <DialogDescription>
@@ -122,7 +122,7 @@ export default function UpdateChecker() {
           <div className="space-y-2">
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full bg-portal-orange transition-all duration-300"
+                className="h-full bg-primary transition-all duration-300"
                 style={{ width: `${downloadProgress}%` }}
               />
             </div>
@@ -146,7 +146,7 @@ export default function UpdateChecker() {
           <Button
             onClick={handleDownloadAndInstall}
             disabled={isDownloading || isInstalling}
-            className="bg-portal-orange hover:bg-portal-orange/90"
+            className="bg-primary hover:bg-primary/90"
           >
             {isDownloading ? "Downloading..." : "Update Now"}
           </Button>

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Settings, AIProvider, Snippet, ThemeOption } from '@/types';
+import type { Settings, AIProvider, Snippet, ThemeOption, CustomThemeColors } from '@/types';
+import { generateCustomThemeCSS, getThemeDefaultsAsHex } from '@/lib/colorUtils';
 
 interface SettingsState extends Settings {
   defaultAssistant: string;
@@ -17,15 +18,32 @@ interface SettingsState extends Settings {
   setAutoCommitMessage: (enabled: boolean) => void;
   setAutoFetchRemote: (enabled: boolean) => void;
   setHasSeenOnboarding: (seen: boolean) => void;
+  // Custom theme actions
+  setCustomTheme: (theme: CustomThemeColors | undefined) => void;
+  setCustomThemeColor: (colorKey: keyof CustomThemeColors['colors'], value: string) => void;
+  initializeCustomTheme: (baseTheme: 'dark' | 'tokyo' | 'light') => void;
 }
 
 // Apply theme to document
-export const applyTheme = (theme: ThemeOption) => {
+export const applyTheme = (theme: ThemeOption, customColors?: CustomThemeColors) => {
   const root = document.documentElement;
   // Remove all theme classes
-  root.classList.remove('dark', 'tokyo', 'light');
+  root.classList.remove('dark', 'tokyo', 'light', 'custom');
 
-  if (theme === 'light') {
+  // Remove existing custom style element
+  const existingStyle = document.getElementById('custom-theme-style');
+  if (existingStyle) {
+    existingStyle.remove();
+  }
+
+  if (theme === 'custom' && customColors) {
+    // Inject custom CSS
+    const style = document.createElement('style');
+    style.id = 'custom-theme-style';
+    style.textContent = generateCustomThemeCSS(customColors.colors);
+    document.head.appendChild(style);
+    root.classList.add('custom');
+  } else if (theme === 'light') {
     // Light mode - no class needed (uses :root)
   } else {
     // Add the theme class
@@ -35,8 +53,9 @@ export const applyTheme = (theme: ThemeOption) => {
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       theme: 'dark',
+      customTheme: undefined,
       aiProvider: undefined,
       assistantArgs: {},
       globalSnippets: [],
@@ -47,7 +66,8 @@ export const useSettingsStore = create<SettingsState>()(
       hasSeenOnboarding: false,
 
       setTheme: (theme) => {
-        applyTheme(theme);
+        const customTheme = get().customTheme;
+        applyTheme(theme, customTheme);
         set({ theme });
       },
 
@@ -80,13 +100,45 @@ export const useSettingsStore = create<SettingsState>()(
       setAutoFetchRemote: (enabled) => set({ autoFetchRemote: enabled }),
 
       setHasSeenOnboarding: (seen) => set({ hasSeenOnboarding: seen }),
+
+      setCustomTheme: (customTheme) => {
+        set({ customTheme });
+        const theme = get().theme;
+        if (theme === 'custom' && customTheme) {
+          applyTheme('custom', customTheme);
+        }
+      },
+
+      setCustomThemeColor: (colorKey, value) => {
+        const currentCustomTheme = get().customTheme;
+        if (!currentCustomTheme) return;
+
+        const updatedCustomTheme: CustomThemeColors = {
+          ...currentCustomTheme,
+          colors: {
+            ...currentCustomTheme.colors,
+            [colorKey]: value,
+          },
+        };
+        set({ customTheme: updatedCustomTheme });
+        applyTheme('custom', updatedCustomTheme);
+      },
+
+      initializeCustomTheme: (baseTheme) => {
+        const customTheme: CustomThemeColors = {
+          baseTheme,
+          colors: getThemeDefaultsAsHex(baseTheme),
+        };
+        set({ customTheme, theme: 'custom' });
+        applyTheme('custom', customTheme);
+      },
     }),
     {
       name: 'chell-settings',
       onRehydrateStorage: () => (state) => {
         // Apply saved theme on load
         if (state?.theme) {
-          applyTheme(state.theme);
+          applyTheme(state.theme, state.customTheme);
         }
       },
     }

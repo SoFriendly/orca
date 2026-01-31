@@ -540,7 +540,7 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
       case "deleted":
         return "bg-red-500";
       default:
-        return "bg-portal-orange";
+        return "bg-primary";
     }
   };
 
@@ -610,7 +610,7 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
               className={cn(
                 "relative flex items-center gap-2 rounded pr-8 py-1.5 transition-colors",
                 canExpand ? "cursor-pointer" : "cursor-default",
-                isSelected ? "bg-portal-orange/20" : canExpand ? "hover:bg-muted/50" : ""
+                isSelected ? "bg-primary/20" : canExpand ? "hover:bg-muted/50" : ""
               )}
               onClick={(e) => handleFileClick(diff.path, index, e)}
             >
@@ -817,7 +817,7 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
                 ) : (
                   <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
                 )}
-                <Folder className="h-3.5 w-3.5 text-portal-orange shrink-0" />
+                <Folder className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span className="text-xs truncate">{node.name}</span>
               </div>
               {expandedDirs.has(node.path) && node.children && (
@@ -904,7 +904,7 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
               <Button
                 variant="ghost"
                 size="icon"
-                className={cn("h-7 w-7 relative", isPulling && "text-portal-orange")}
+                className={cn("h-7 w-7 relative", isPulling && "text-primary")}
                 onClick={handlePull}
                 disabled={isPulling}
               >
@@ -930,7 +930,7 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
               <Button
                 variant="ghost"
                 size="icon"
-                className={cn("h-7 w-7 relative", isPushing && "text-portal-orange")}
+                className={cn("h-7 w-7 relative", isPushing && "text-primary")}
                 onClick={handlePush}
                 disabled={isPushing}
               >
@@ -940,7 +940,7 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
                   <ArrowUpFromLine className="h-3.5 w-3.5" />
                 )}
                 {!isPushing && status && status.ahead > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-portal-orange px-1 text-[9px] font-medium text-white">
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-medium text-primary-foreground">
                     {status.ahead}
                   </span>
                 )}
@@ -1027,7 +1027,7 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
                     className="flex items-center justify-between"
                   >
                     <span className="truncate">{branch.name}</span>
-                    {branch.isHead && <Check className="h-3 w-3 text-portal-orange" />}
+                    {branch.isHead && <Check className="h-3 w-3 text-primary" />}
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
@@ -1117,7 +1117,7 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
                       <div className="group flex flex-col gap-0.5 rounded px-2 py-1.5 hover:bg-muted/50 cursor-pointer">
                         <div className="flex items-center gap-2">
                           <GitCommit className="h-3 w-3 shrink-0 text-muted-foreground" />
-                          <span className="font-mono text-[10px] text-portal-orange">{commit.shortId}</span>
+                          <span className="font-mono text-[10px] text-primary">{commit.shortId}</span>
                           <span className="text-xs truncate flex-1">{commit.message.split('\n')[0]}</span>
                         </div>
                         <div className="ml-5 flex items-center gap-2 text-[10px] text-muted-foreground">
@@ -1201,7 +1201,7 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
             disabled={isGenerating}
           />
           {isGenerating && (
-            <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-portal-orange" />
+            <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />
           )}
         </div>
 
@@ -1230,7 +1230,7 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
 
         {/* Commit button */}
         <Button
-          className="w-full bg-portal-orange hover:bg-portal-orange/90 text-white font-medium"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
           onClick={handleCommit}
           disabled={isCommitting || !commitSubject.trim() || diffs.length === 0}
         >
@@ -1353,7 +1353,7 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
           <AlertDialogHeader>
             <AlertDialogTitle>Reset to this commit?</AlertDialogTitle>
             <AlertDialogDescription>
-              Choose how you want to reset to commit <span className="font-mono text-portal-orange">{commitToReset?.slice(0, 7)}</span>:
+              Choose how you want to reset to commit <span className="font-mono text-primary">{commitToReset?.slice(0, 7)}</span>:
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-2 py-2">

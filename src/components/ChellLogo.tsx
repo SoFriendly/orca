@@ -13,7 +13,7 @@ export default function ChellLogo({ className, size = 32 }: ChellLogoProps) {
       viewBox="0 0 32 32"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={cn("text-portal-orange", className)}
+      className={cn("text-primary", className)}
     >
       {/* Terminal prompt > on the left */}
       <path

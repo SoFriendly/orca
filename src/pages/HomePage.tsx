@@ -283,7 +283,7 @@ export default function HomePage() {
                 className={cn(
                   "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
                   activeSidebarItem === "home"
-                    ? "bg-portal-orange/20 text-portal-orange"
+                    ? "bg-primary/20 text-primary"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
@@ -315,7 +315,7 @@ export default function HomePage() {
                 className={cn(
                   "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
                   activeSidebarItem === "settings"
-                    ? "bg-portal-orange/20 text-portal-orange"
+                    ? "bg-primary/20 text-primary"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
@@ -352,7 +352,7 @@ export default function HomePage() {
             <div className="mx-auto max-w-md space-y-8">
               {/* Hero */}
               <div className="text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-portal-orange/20 to-orange-600/20 border border-portal-orange/30">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30">
                   <ChellLogo size={36} />
                 </div>
                 <h2 className="text-xl font-semibold">Welcome to Chell</h2>
@@ -365,10 +365,10 @@ export default function HomePage() {
               <div className="space-y-3">
                 <button
                   onClick={() => setShowCloneDialog(true)}
-                  className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-all hover:border-portal-orange/50 hover:bg-muted/50"
+                  className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-all hover:border-primary/50 hover:bg-muted/50"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                    <Download className="h-5 w-5 text-muted-foreground group-hover:text-portal-orange" />
+                    <Download className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium">Clone repository</p>
@@ -381,10 +381,10 @@ export default function HomePage() {
 
                 <button
                   onClick={handleOpenProject}
-                  className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-all hover:border-portal-orange/50 hover:bg-muted/50"
+                  className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-all hover:border-primary/50 hover:bg-muted/50"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                    <FolderOpen className="h-5 w-5 text-muted-foreground group-hover:text-portal-orange" />
+                    <FolderOpen className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium">Open existing repository</p>
@@ -397,10 +397,10 @@ export default function HomePage() {
 
                 <button
                   onClick={() => setShowCreateDialog(true)}
-                  className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-all hover:border-portal-orange/50 hover:bg-muted/50"
+                  className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-all hover:border-primary/50 hover:bg-muted/50"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                    <Plus className="h-5 w-5 text-muted-foreground group-hover:text-portal-orange" />
+                    <Plus className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium">Create new repository</p>
@@ -426,7 +426,7 @@ export default function HomePage() {
                             className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
                             onClick={() => handleProjectClick(project)}
                           >
-                            <FolderGit2 className="h-4 w-4 shrink-0 text-portal-orange" />
+                            <FolderGit2 className="h-4 w-4 shrink-0 text-primary" />
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-medium">{project.name}</p>
                               <p className="truncate text-[11px] text-muted-foreground font-mono">
@@ -503,7 +503,7 @@ export default function HomePage() {
             <Button
               onClick={handleCloneRepo}
               disabled={isCloning}
-              className="bg-portal-orange hover:bg-portal-orange/90"
+              className="bg-primary hover:bg-primary/90"
             >
               {isCloning ? "Cloning..." : "Clone"}
             </Button>
@@ -551,7 +551,7 @@ export default function HomePage() {
           <DialogFooter>
             <Button
               onClick={handleCreateRepo}
-              className="bg-portal-orange hover:bg-portal-orange/90"
+              className="bg-primary hover:bg-primary/90"
             >
               Create
             </Button>

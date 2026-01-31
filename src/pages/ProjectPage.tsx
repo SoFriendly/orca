@@ -684,7 +684,7 @@ export default function ProjectPage() {
                 className={cn(
                   "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
                   activeSidebarItem === "terminal"
-                    ? "bg-portal-orange/20 text-portal-orange"
+                    ? "bg-primary/20 text-primary"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
@@ -716,7 +716,7 @@ export default function ProjectPage() {
                 className={cn(
                   "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
                   activeSidebarItem === "settings"
-                    ? "bg-portal-orange/20 text-portal-orange"
+                    ? "bg-primary/20 text-primary"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
@@ -861,7 +861,7 @@ export default function ProjectPage() {
                   className={cn(
                     "group flex items-center gap-1 border-r border-border px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
                     activeTabId === tab.id
-                      ? "border-b-2 border-b-portal-orange bg-muted/50 text-foreground"
+                      ? "border-b-2 border-b-primary bg-muted/50 text-foreground"
                       : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                   )}
                   onClick={() => setActiveTabId(tab.id)}
@@ -947,6 +947,7 @@ export default function ProjectPage() {
                   cwd={currentProject.path}
                   onTerminalReady={(terminalId) => handleTerminalReady(tab.id, terminalId)}
                   visible={showAssistantPanel && activeTabId === tab.id}
+                  autoFocusOnWindowFocus
                 />
               </div>
             </div>
@@ -983,7 +984,7 @@ export default function ProjectPage() {
           {/* Header */}
           <div className="flex h-10 items-center justify-between px-2 border-b border-border">
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <TerminalIcon className="h-4 w-4 shrink-0 text-portal-orange" />
+              <TerminalIcon className="h-4 w-4 shrink-0 text-primary" />
               <DropdownMenu onOpenChange={(open) => open && loadShellDirectories(shellCwd)}>
                 <DropdownMenuTrigger asChild>
                   <Button

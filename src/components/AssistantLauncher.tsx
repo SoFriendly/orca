@@ -120,7 +120,7 @@ export default function AssistantLauncher({
   return (
     <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-2">
       <div className="flex items-center gap-2">
-        <Bot className="h-4 w-4 text-portal-orange" />
+        <Bot className="h-4 w-4 text-primary" />
         <span className="text-xs font-medium text-muted-foreground">Assistant</span>
       </div>
 
@@ -155,7 +155,7 @@ export default function AssistantLauncher({
         size="sm"
         onClick={handleLaunch}
         disabled={isLaunching || !selectedAssistantData?.installed}
-        className="h-8 bg-portal-orange hover:bg-portal-orange/90 text-white"
+        className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground"
       >
         <Play className="mr-1.5 h-3 w-3" />
         {isLaunching ? "Starting..." : "Launch"}

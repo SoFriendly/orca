@@ -7,6 +7,7 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { CanvasAddon } from "@xterm/addon-canvas";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-shell";
 import { useSettingsStore } from "@/stores/settingsStore";
 import "@xterm/xterm/css/xterm.css";
@@ -17,6 +18,7 @@ interface TerminalProps {
   cwd: string;
   onTerminalReady?: (terminalId: string) => void;  // Called when terminal is spawned
   visible?: boolean;  // Trigger resize when visibility changes
+  autoFocusOnWindowFocus?: boolean;  // Auto-focus when app window gains focus
 }
 
 // Terminal themes matching app themes
@@ -92,7 +94,7 @@ const TERMINAL_THEMES: Record<string, ITheme> = {
   },
 };
 
-export default function Terminal({ id, command = "", cwd, onTerminalReady, visible = true }: TerminalProps) {
+export default function Terminal({ id, command = "", cwd, onTerminalReady, visible = true, autoFocusOnWindowFocus = false }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -498,6 +500,21 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
       return () => clearTimeout(timer);
     }
   }, [visible, terminalId]);
+
+  // Focus terminal when window gains focus (so user can type immediately after switching to app)
+  useEffect(() => {
+    if (!autoFocusOnWindowFocus || !visible || !terminalRef.current) return;
+
+    const unlisten = getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+      if (focused && terminalRef.current) {
+        terminalRef.current.focus();
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [visible, autoFocusOnWindowFocus]);
 
   // Focus terminal on click
   const handleClick = () => {

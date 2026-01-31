@@ -143,7 +143,7 @@ function MockGitPanel({ showDiff, showRevert }: { showDiff?: boolean; showRevert
               ) : (
                 <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
               )}
-              <div className="h-2.5 w-2.5 rounded-sm bg-portal-orange" />
+              <div className="h-2.5 w-2.5 rounded-sm bg-primary" />
               <File className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="flex-1 truncate text-xs">App.tsx</span>
             </div>
@@ -189,7 +189,7 @@ function MockGitPanel({ showDiff, showRevert }: { showDiff?: boolean; showRevert
           {/* Another modified file */}
           <div className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/50">
             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-            <div className="h-2.5 w-2.5 rounded-sm bg-portal-orange" />
+            <div className="h-2.5 w-2.5 rounded-sm bg-primary" />
             <File className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="flex-1 truncate text-xs">styles.css</span>
           </div>
@@ -215,7 +215,7 @@ function MockAssistantPanel() {
       <div className="flex h-10 items-center border-b border-border">
         <div className="flex flex-1 items-center overflow-x-auto">
           {/* Active tab */}
-          <div className="group flex items-center gap-1 border-r border-border px-3 py-2 text-sm font-medium border-b-2 border-b-portal-orange bg-muted/50 text-foreground">
+          <div className="group flex items-center gap-1 border-r border-border px-3 py-2 text-sm font-medium border-b-2 border-b-primary bg-muted/50 text-foreground">
             <TerminalIcon className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate max-w-[120px]">Claude Code</span>
             <button className="ml-1 rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity">
@@ -251,7 +251,7 @@ function MockAssistantPanel() {
         </div>
         <div className="mt-3 text-yellow-400">Writing src/contexts/ThemeContext.tsx...</div>
         <div className="text-green-400">✓ Created ThemeContext.tsx</div>
-        <div className="mt-1 animate-pulse text-portal-orange">█</div>
+        <div className="mt-1 animate-pulse text-primary">█</div>
       </div>
     </div>
   );
@@ -264,7 +264,7 @@ function MockShellPanel() {
       {/* Header - exact match */}
       <div className="flex h-10 items-center justify-between px-2 border-b border-border">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <TerminalIcon className="h-4 w-4 shrink-0 text-portal-orange" />
+          <TerminalIcon className="h-4 w-4 shrink-0 text-primary" />
           <Button
             variant="ghost"
             size="sm"
@@ -298,7 +298,7 @@ function MockShellPanel() {
         <div className="text-red-400 pl-4">modified: src/App.tsx</div>
         <div className="mt-2">
           <span className="text-green-400">➜</span> <span className="text-blue-400">my-app</span>
-          <span className="animate-pulse text-portal-orange ml-1">█</span>
+          <span className="animate-pulse text-primary ml-1">█</span>
         </div>
       </div>
     </div>
@@ -344,7 +344,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
           <div className="flex flex-1 flex-col items-center mt-[9px] pt-3">
             {/* Top icons */}
             <div className="flex flex-col items-center gap-1">
-              <button className="flex h-9 w-9 items-center justify-center rounded-lg bg-portal-orange/20 text-portal-orange">
+              <button className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/20 text-primary">
                 <TerminalIcon className="h-5 w-5" />
               </button>
               <button className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
@@ -361,19 +361,19 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             <div className="flex flex-col items-center gap-1">
               <button className={cn(
                 "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
-                step.highlight === "git" ? "text-portal-orange" : "text-foreground"
+                step.highlight === "git" ? "text-primary" : "text-foreground"
               )}>
                 <GitBranch className="h-5 w-5" />
               </button>
               <button className={cn(
                 "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
-                step.highlight === "assistant" ? "text-portal-orange" : "text-foreground"
+                step.highlight === "assistant" ? "text-primary" : "text-foreground"
               )}>
                 <Bot className="h-5 w-5" />
               </button>
               <button className={cn(
                 "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
-                step.highlight === "shell" ? "text-portal-orange" : "text-foreground"
+                step.highlight === "shell" ? "text-primary" : "text-foreground"
               )}>
                 <PanelRightClose className="h-5 w-5" />
               </button>
@@ -466,7 +466,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
           {/* Progress bar */}
           <div className="h-1 bg-muted">
             <div
-              className="h-full bg-portal-orange transition-all duration-300"
+              className="h-full bg-primary transition-all duration-300"
               style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
             />
           </div>
@@ -484,13 +484,13 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
               >
                 {/* Icon */}
                 <div className="flex justify-center mb-6">
-                  <div className="p-4 rounded-2xl bg-portal-orange/10 text-portal-orange">
+                  <div className="p-4 rounded-2xl bg-primary/10 text-primary">
                     {step.icon}
                   </div>
                 </div>
 
                 {/* Text */}
-                <p className="text-xs font-medium uppercase tracking-wider text-portal-orange mb-2">
+                <p className="text-xs font-medium uppercase tracking-wider text-primary mb-2">
                   {step.subtitle}
                 </p>
                 <h2 className="text-2xl font-bold mb-4">{step.title}</h2>
@@ -512,7 +512,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                   className={cn(
                     "w-2 h-2 rounded-full transition-all",
                     index === currentStep
-                      ? "bg-portal-orange w-6"
+                      ? "bg-primary w-6"
                       : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
                   )}
                 />
@@ -538,7 +538,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
               <Button
                 onClick={handleNext}
-                className="bg-portal-orange hover:bg-portal-orange/90 text-white"
+                className="bg-primary hover:bg-primary/90 text-white"
               >
                 {isLast ? (
                   <>

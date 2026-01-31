@@ -27,6 +27,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { cn } from "@/lib/utils";
+import { CustomThemeEditor } from "@/components/CustomThemeEditor";
 import type { ThemeOption } from "@/types";
 
 interface SettingsSheetProps {
@@ -55,6 +56,7 @@ const THEMES: ThemeInfo[] = [
   { id: "dark", name: "Chell Dark", gradient: "from-portal-orange/60 to-neutral-900" },
   { id: "tokyo", name: "Tokyo Night", gradient: "from-indigo-500/60 to-slate-900" },
   { id: "light", name: "Light", gradient: "from-slate-200 to-slate-100" },
+  { id: "custom", name: "Custom", gradient: "from-purple-500/60 via-pink-500/60 to-orange-500/60" },
 ];
 
 interface AssistantInfo {
@@ -100,6 +102,8 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
   const {
     theme,
     setTheme,
+    customTheme,
+    initializeCustomTheme,
     assistantArgs,
     setAssistantArgs,
     defaultClonePath,
@@ -179,7 +183,16 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
   };
 
   const handleThemeChange = (newTheme: ThemeOption) => {
-    setTheme(newTheme);
+    if (newTheme === 'custom') {
+      // If no custom theme exists, initialize with dark as base
+      if (!customTheme) {
+        initializeCustomTheme('dark');
+      } else {
+        setTheme('custom');
+      }
+    } else {
+      setTheme(newTheme);
+    }
     toast.success(`Theme set to ${THEMES.find(t => t.id === newTheme)?.name}`);
   };
 
@@ -245,11 +258,11 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                   className={cn(
                     "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                     activeTab === item.id
-                      ? "bg-portal-orange/10 text-portal-orange"
+                      ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   )}
                 >
-                  <span className={activeTab === item.id ? "text-portal-orange" : ""}>
+                  <span className={activeTab === item.id ? "text-primary" : ""}>
                     {item.icon}
                   </span>
                   {item.label}
@@ -339,7 +352,7 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                             key={assistant.id}
                             className={cn(
                               "rounded-lg border p-4 transition-colors",
-                              isDefault ? "border-portal-orange bg-portal-orange/5" : "border-border"
+                              isDefault ? "border-primary bg-primary/5" : "border-border"
                             )}
                           >
                             <div className="flex items-start justify-between">
@@ -360,7 +373,7 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                                       </span>
                                     )}
                                     {isDefault && (
-                                      <span className="rounded bg-portal-orange/20 px-1.5 py-0.5 text-[10px] font-medium text-portal-orange">
+                                      <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                                         DEFAULT
                                       </span>
                                     )}
@@ -377,7 +390,7 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                                     size="sm"
                                     onClick={() => handleSetDefaultAssistant(assistant.id)}
                                     disabled={isDefault}
-                                    className={isDefault ? "bg-portal-orange hover:bg-portal-orange" : ""}
+                                    className={isDefault ? "bg-primary hover:bg-primary" : ""}
                                   >
                                     {isDefault ? "Default" : "Set Default"}
                                   </Button>
@@ -445,7 +458,7 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                       Customize the look and feel of your terminal environment.
                     </p>
 
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-4 gap-3">
                       {THEMES.map((t) => (
                         <button
                           key={t.id}
@@ -453,13 +466,13 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                           className={cn(
                             "group relative rounded-lg border-2 p-1 transition-all",
                             theme === t.id
-                              ? "border-portal-orange"
+                              ? "border-primary"
                               : "border-transparent hover:border-muted"
                           )}
                         >
                           <div
                             className={cn(
-                              "h-20 rounded-md bg-gradient-to-br",
+                              "h-16 rounded-md bg-gradient-to-br",
                               t.gradient
                             )}
                           />
@@ -467,14 +480,24 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                             {t.name}
                           </p>
                           {theme === t.id && (
-                            <div className="absolute top-3 right-3 flex h-5 w-5 items-center justify-center rounded-full bg-portal-orange">
-                              <Check className="h-3 w-3 text-white" />
+                            <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary">
+                              <Check className="h-3 w-3 text-primary-foreground" />
                             </div>
                           )}
                         </button>
                       ))}
                     </div>
                   </section>
+
+                  {theme === "custom" && (
+                    <section>
+                      <h2 className="text-lg font-semibold">Customize Theme</h2>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Set your own colors using hex values.
+                      </p>
+                      <CustomThemeEditor />
+                    </section>
+                  )}
                 </div>
               )}
 

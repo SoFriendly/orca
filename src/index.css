@@ -146,13 +146,15 @@
 
 /* Custom scrollbar for dark mode */
 .dark ::-webkit-scrollbar,
-.tokyo ::-webkit-scrollbar {
+.tokyo ::-webkit-scrollbar,
+.custom ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 .dark ::-webkit-scrollbar-track,
-.tokyo ::-webkit-scrollbar-track {
+.tokyo ::-webkit-scrollbar-track,
+.custom ::-webkit-scrollbar-track {
   background: transparent;
 }
 
@@ -172,6 +174,15 @@
 
 .tokyo ::-webkit-scrollbar-thumb:hover {
   background: hsl(228 18% 38%);
+}
+
+.custom ::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 3px;
+}
+
+.custom ::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
 }
 
 /* Prevent text selection in UI elements */
@@ -197,7 +208,7 @@
 
 /* File status indicators */
 .status-modified {
-  @apply bg-portal-orange;
+  @apply bg-primary;
 }
 
 .status-added {
@@ -218,7 +229,7 @@
 }
 
 .progress-bar-fill-orange {
-  @apply bg-portal-orange;
+  @apply bg-primary;
 }
 
 .progress-bar-fill-green {
@@ -237,7 +248,7 @@
 
 /* AI suggestion card */
 .ai-card {
-  @apply border-l-2 border-l-portal-orange bg-card;
+  @apply border-l-2 border-l-primary bg-card;
 }
 
 /* Tab styling overrides */
@@ -246,5 +257,5 @@
 }
 
 .tab-trigger {
-  @apply text-muted-foreground data-[state=active]:text-foreground data-[state=active]:border-b-2 data-[state=active]:border-portal-orange;
+  @apply text-muted-foreground data-[state=active]:text-foreground data-[state=active]:border-b-2 data-[state=active]:border-primary;
 }
