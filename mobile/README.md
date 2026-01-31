@@ -25,6 +25,7 @@ The mobile app doesn't run any commands locally. Instead:
 - **AI Assistant**: Launch Claude Code, Aider, OpenCode, or shell; Smart Shell for natural language commands
 - **Theme Sync**: Automatically matches your desktop theme (Dark, Tokyo Night, Light, Custom)
 - **Multi-Desktop**: Link multiple desktop machines and switch between them
+- **Project Switching**: See all projects opened on desktop and switch between them from mobile
 
 ## Prerequisites
 
@@ -75,6 +76,8 @@ npx expo start --android
 4. A QR code will appear
 5. On mobile, go to Settings tab and tap "Scan QR Code"
 6. Scan the QR code to pair
+
+**Note:** The desktop app runs in the background when you close the window (minimizes to system tray). Click the tray icon to reopen, or right-click for Show/Quit options.
 
 ## Project Structure
 
@@ -166,6 +169,16 @@ When `syncWithDesktop` is enabled:
 2. Desktop responds with current theme (including custom theme colors if applicable)
 3. Mobile applies the theme using NativeWind CSS classes
 4. Custom themes convert HSL colors to hex for React Native compatibility
+
+### Project Switching
+
+The mobile app can see and switch between all projects opened on the desktop:
+
+1. Desktop sends list of projects with each `status_update`
+2. Mobile displays projects in Settings > Projects section
+3. Tapping a project sends `select_project` message to desktop
+4. Desktop opens/switches to that project tab
+5. Desktop confirms with `project_changed` message
 
 ## UI Components
 
