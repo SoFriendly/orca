@@ -17,6 +17,7 @@ import {
   Folder,
   ChevronDown,
   Search,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import Terminal from "@/components/Terminal";
+import SmartShell from "@/components/SmartShell";
 import GitPanel from "@/components/GitPanel";
 import SettingsSheet from "@/components/SettingsSheet";
 import { useProjectStore } from "@/stores/projectStore";
@@ -90,6 +92,7 @@ export default function ProjectPage() {
   const [shellDirs, setShellDirs] = useState<string[]>([]);
   const [showHistorySearch, setShowHistorySearch] = useState(false);
   const [shellHistory, setShellHistory] = useState<string[]>([]);
+  const [showNlt, setShowNlt] = useState(false);
 
   // Count visible panels - must always have at least one
   const visiblePanelCount = [showGitPanel, showAssistantPanel, showShellPanel].filter(Boolean).length;
@@ -1018,22 +1021,40 @@ export default function ProjectPage() {
             </div>
             <div className="flex items-center gap-1">
               {utilityTerminalId && utilityTerminalId !== "closed" && (
-                <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 shrink-0"
-                      onClick={() => {
-                        loadShellHistory();
-                        setShowHistorySearch(true);
-                      }}
-                    >
-                      <Search className="h-3 w-3" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Search history (Ctrl+R)</TooltipContent>
-                </Tooltip>
+                <>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "h-6 w-6 shrink-0",
+                          showNlt && "text-primary"
+                        )}
+                        onClick={() => setShowNlt(!showNlt)}
+                      >
+                        <Sparkles className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Natural Language Terminal</TooltipContent>
+                  </Tooltip>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 shrink-0"
+                        onClick={() => {
+                          loadShellHistory();
+                          setShowHistorySearch(true);
+                        }}
+                      >
+                        <Search className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Search history (Ctrl+R)</TooltipContent>
+                  </Tooltip>
+                </>
               )}
               {utilityTerminalId !== "closed" && (
                 <Button
@@ -1053,18 +1074,19 @@ export default function ProjectPage() {
             </div>
           </div>
 
-          {/* Utility terminal content */}
+          {/* Utility terminal content with AI */}
           <div
             className={cn("flex-1 overflow-hidden", isDraggingFile && "pointer-events-none")}
             style={{ backgroundColor: terminalBg }}
           >
             {utilityTerminalId !== "closed" ? (
-              <Terminal
-                id={utilityTerminalId || undefined}
-                command=""
+              <SmartShell
                 cwd={currentProject.path}
+                terminalId={utilityTerminalId}
                 onTerminalReady={(id) => setUtilityTerminalId(id)}
                 visible={showShellPanel}
+                showNlt={showNlt}
+                onNltVisibilityChange={setShowNlt}
               />
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-3">

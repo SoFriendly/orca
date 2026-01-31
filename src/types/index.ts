@@ -139,4 +139,5 @@ export interface Settings {
   defaultClonePath?: string;
   autoCommitMessage: boolean;
   autoFetchRemote: boolean;
+  groqApiKey?: string;
 }

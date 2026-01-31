@@ -114,6 +114,8 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
     setAutoCommitMessage,
     autoFetchRemote,
     setAutoFetchRemote,
+    groqApiKey,
+    setGroqApiKey,
   } = useSettingsStore();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
@@ -505,9 +507,42 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
               {activeTab === "ai" && (
                 <div className="space-y-8">
                   <section>
-                    <h2 className="text-lg font-semibold">AI Assistant Behavior</h2>
+                    <h2 className="text-lg font-semibold">AI Shell</h2>
                     <p className="text-sm text-muted-foreground mb-6">
-                      Tune how the AI interacts with your workflow and code.
+                      Configure the AI-powered shell command assistant.
+                    </p>
+
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Groq API Key</p>
+                          <p className="text-xs text-muted-foreground">
+                            Required for AI shell commands. Get a free key at{" "}
+                            <a
+                              href="https://console.groq.com/keys"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline"
+                            >
+                              console.groq.com
+                            </a>
+                          </p>
+                        </div>
+                        <Input
+                          type="password"
+                          value={groqApiKey || ""}
+                          onChange={(e) => setGroqApiKey(e.target.value || undefined)}
+                          placeholder="gsk_..."
+                          className="w-56 h-9 bg-muted/50 font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h2 className="text-lg font-semibold">AI Behavior</h2>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Tune how AI interacts with your workflow and code.
                     </p>
 
                     <div className="space-y-6">

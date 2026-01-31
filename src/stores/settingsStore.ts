@@ -18,6 +18,7 @@ interface SettingsState extends Settings {
   setAutoCommitMessage: (enabled: boolean) => void;
   setAutoFetchRemote: (enabled: boolean) => void;
   setHasSeenOnboarding: (seen: boolean) => void;
+  setGroqApiKey: (key: string | undefined) => void;
   // Custom theme actions
   setCustomTheme: (theme: CustomThemeColors | undefined) => void;
   setCustomThemeColor: (colorKey: keyof CustomThemeColors['colors'], value: string) => void;
@@ -64,6 +65,7 @@ export const useSettingsStore = create<SettingsState>()(
       autoCommitMessage: true,
       autoFetchRemote: false,
       hasSeenOnboarding: false,
+      groqApiKey: undefined,
 
       setTheme: (theme) => {
         const customTheme = get().customTheme;
@@ -100,6 +102,8 @@ export const useSettingsStore = create<SettingsState>()(
       setAutoFetchRemote: (enabled) => set({ autoFetchRemote: enabled }),
 
       setHasSeenOnboarding: (seen) => set({ hasSeenOnboarding: seen }),
+
+      setGroqApiKey: (key) => set({ groqApiKey: key }),
 
       setCustomTheme: (customTheme) => {
         set({ customTheme });

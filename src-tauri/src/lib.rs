@@ -846,6 +846,20 @@ struct CommitSuggestion {
     description: String,
 }
 
+// AI Shell types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectContext {
+    #[serde(rename = "projectType")]
+    pub project_type: String,
+    #[serde(rename = "packageManager")]
+    pub package_manager: Option<String>,
+    pub scripts: Option<Vec<String>>,
+    #[serde(rename = "hasDocker")]
+    pub has_docker: bool,
+    #[serde(rename = "hasMakefile")]
+    pub has_makefile: bool,
+}
+
 #[tauri::command]
 async fn generate_commit_message(
     diffs: Vec<FileDiff>,
@@ -937,6 +951,215 @@ fn test_ai_connection(
     Ok(())
 }
 
+// Helper function to detect project context from filesystem
+fn detect_project_context(path: &std::path::Path) -> ProjectContext {
+    use std::fs;
+
+    // Check for package.json (Node.js project)
+    let package_json_path = path.join("package.json");
+    if package_json_path.exists() {
+        let content = fs::read_to_string(&package_json_path).unwrap_or_default();
+        let pkg: serde_json::Value = serde_json::from_str(&content).unwrap_or(serde_json::Value::Null);
+
+        let scripts = pkg.get("scripts")
+            .and_then(|s| s.as_object())
+            .map(|s| s.keys().cloned().collect::<Vec<String>>());
+
+        // Detect package manager by lockfile
+        let package_manager = if path.join("bun.lockb").exists() {
+            Some("bun".to_string())
+        } else if path.join("pnpm-lock.yaml").exists() {
+            Some("pnpm".to_string())
+        } else if path.join("yarn.lock").exists() {
+            Some("yarn".to_string())
+        } else {
+            Some("npm".to_string())
+        };
+
+        return ProjectContext {
+            project_type: "node".to_string(),
+            package_manager,
+            scripts,
+            has_docker: path.join("Dockerfile").exists() || path.join("docker-compose.yml").exists(),
+            has_makefile: path.join("Makefile").exists(),
+        };
+    }
+
+    // Check for Cargo.toml (Rust project)
+    if path.join("Cargo.toml").exists() {
+        return ProjectContext {
+            project_type: "rust".to_string(),
+            package_manager: Some("cargo".to_string()),
+            scripts: Some(vec!["build".to_string(), "run".to_string(), "test".to_string(), "check".to_string()]),
+            has_docker: path.join("Dockerfile").exists() || path.join("docker-compose.yml").exists(),
+            has_makefile: path.join("Makefile").exists(),
+        };
+    }
+
+    // Check for pyproject.toml or requirements.txt (Python project)
+    if path.join("pyproject.toml").exists() || path.join("requirements.txt").exists() {
+        let package_manager = if path.join("poetry.lock").exists() {
+            Some("poetry".to_string())
+        } else if path.join("Pipfile").exists() {
+            Some("pipenv".to_string())
+        } else if path.join("uv.lock").exists() {
+            Some("uv".to_string())
+        } else {
+            Some("pip".to_string())
+        };
+
+        return ProjectContext {
+            project_type: "python".to_string(),
+            package_manager,
+            scripts: None,
+            has_docker: path.join("Dockerfile").exists() || path.join("docker-compose.yml").exists(),
+            has_makefile: path.join("Makefile").exists(),
+        };
+    }
+
+    // Check for go.mod (Go project)
+    if path.join("go.mod").exists() {
+        return ProjectContext {
+            project_type: "go".to_string(),
+            package_manager: Some("go".to_string()),
+            scripts: Some(vec!["build".to_string(), "run".to_string(), "test".to_string()]),
+            has_docker: path.join("Dockerfile").exists() || path.join("docker-compose.yml").exists(),
+            has_makefile: path.join("Makefile").exists(),
+        };
+    }
+
+    // Unknown project type
+    ProjectContext {
+        project_type: "unknown".to_string(),
+        package_manager: None,
+        scripts: None,
+        has_docker: path.join("Dockerfile").exists() || path.join("docker-compose.yml").exists(),
+        has_makefile: path.join("Makefile").exists(),
+    }
+}
+
+#[tauri::command]
+fn scan_project_context(cwd: String, force_refresh: Option<bool>) -> Result<ProjectContext, String> {
+    use std::fs;
+    use std::path::Path;
+
+    let path = Path::new(&cwd);
+    let cache_dir = path.join(".chell");
+    let cache_file = cache_dir.join("context.json");
+
+    // Check if we should use cached context
+    let force = force_refresh.unwrap_or(false);
+    if !force && cache_file.exists() {
+        // Check if cache is recent (less than 1 hour old)
+        if let Ok(metadata) = fs::metadata(&cache_file) {
+            if let Ok(modified) = metadata.modified() {
+                if let Ok(elapsed) = modified.elapsed() {
+                    if elapsed.as_secs() < 3600 {
+                        // Use cached context
+                        if let Ok(content) = fs::read_to_string(&cache_file) {
+                            if let Ok(context) = serde_json::from_str::<ProjectContext>(&content) {
+                                return Ok(context);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Detect context from filesystem
+    let context = detect_project_context(path);
+
+    // Save to cache
+    if let Err(e) = fs::create_dir_all(&cache_dir) {
+        println!("Warning: Failed to create .chell directory: {}", e);
+    } else {
+        let json = serde_json::to_string_pretty(&context).unwrap_or_default();
+        if let Err(e) = fs::write(&cache_file, json) {
+            println!("Warning: Failed to write context cache: {}", e);
+        }
+    }
+
+    Ok(context)
+}
+
+#[tauri::command]
+async fn ai_shell_command(
+    request: String,
+    context: ProjectContext,
+    api_key: String,
+) -> Result<String, String> {
+    if api_key.is_empty() {
+        return Err("No API key provided. Set your Groq API key in Settings.".to_string());
+    }
+
+    // Build the prompt with project context
+    let scripts_info = context.scripts
+        .map(|s| format!("Available scripts/commands: {}", s.join(", ")))
+        .unwrap_or_default();
+
+    let prompt = format!(
+        r#"You are a terminal command assistant. Convert the user's natural language request into a shell command.
+
+Project type: {} ({})
+{}
+Has Docker: {}
+Has Makefile: {}
+
+User request: "{}"
+
+Respond with ONLY the shell command. No explanation, no markdown, no code blocks, no quotes around the command.
+If you're unsure, make your best guess based on common conventions."#,
+        context.project_type,
+        context.package_manager.unwrap_or_else(|| "unknown".to_string()),
+        scripts_info,
+        context.has_docker,
+        context.has_makefile,
+        request
+    );
+
+    let client = reqwest::Client::new();
+    let groq_request = GroqRequest {
+        model: "llama-3.1-8b-instant".to_string(),
+        messages: vec![GroqMessage {
+            role: "user".to_string(),
+            content: prompt,
+        }],
+        temperature: 0.1,  // Low for deterministic output
+        max_tokens: 150,
+    };
+
+    let response = client
+        .post("https://api.groq.com/openai/v1/chat/completions")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&groq_request)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !response.status().is_success() {
+        let error_text = response.text().await.unwrap_or_default();
+        return Err(format!("Groq API error: {}", error_text));
+    }
+
+    let groq_response: GroqResponse = response.json().await.map_err(|e| e.to_string())?;
+
+    if let Some(choice) = groq_response.choices.first() {
+        // Clean up the response - remove any markdown formatting or quotes
+        let command = choice.message.content
+            .trim()
+            .trim_matches('`')
+            .trim_matches('"')
+            .trim_matches('\'')
+            .trim()
+            .to_string();
+        Ok(command)
+    } else {
+        Err("No response from AI".to_string())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::init();
@@ -1009,6 +1232,8 @@ pub fn run() {
             // AI
             generate_commit_message,
             test_ai_connection,
+            scan_project_context,
+            ai_shell_command,
         ])
         .setup(|app| {
             // Warm up the PTY system early to avoid first-spawn delays
