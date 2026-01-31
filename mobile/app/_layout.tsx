@@ -13,7 +13,7 @@ import { getWebSocket } from "~/lib/websocket";
 function RootLayoutContent() {
   const { status, connect, wsUrl } = useConnectionStore();
   const { appendOutput } = useTerminalStore();
-  const { setTheme, syncWithDesktop } = useThemeStore();
+  const { syncFromDesktop, syncWithDesktop } = useThemeStore();
   const { theme, colors } = useTheme();
 
   // Auto-connect on app start if URL is configured
@@ -39,8 +39,9 @@ function RootLayoutContent() {
         // Handle theme sync from desktop
         if (message.type === "status_update" && syncWithDesktop) {
           const statusMsg = message as any;
-          if (statusMsg.theme && ["dark", "tokyo", "light"].includes(statusMsg.theme)) {
-            setTheme(statusMsg.theme);
+          if (statusMsg.theme) {
+            // Use syncFromDesktop to handle both regular and custom themes
+            syncFromDesktop(statusMsg.theme, statusMsg.customTheme);
           }
         }
       });

@@ -277,16 +277,26 @@ export const usePortalStore = create<PortalState>()(
           }
 
           case "request_status": {
-            // Send current status to mobile including theme
+            // Send current status to mobile including theme and custom colors
             import("@/stores/settingsStore").then(({ useSettingsStore }) => {
-              const { theme } = useSettingsStore.getState();
-              const statusUpdate = {
+              const { theme, customTheme } = useSettingsStore.getState();
+
+              const statusUpdate: Record<string, unknown> = {
                 type: "status_update",
                 id: crypto.randomUUID(),
                 timestamp: Date.now(),
                 connectionStatus: "connected",
-                theme: theme === "custom" ? "dark" : theme, // Custom theme falls back to dark on mobile
+                theme,
               };
+
+              // Include custom theme colors if using custom theme
+              if (theme === "custom" && customTheme) {
+                statusUpdate.customTheme = {
+                  baseTheme: customTheme.baseTheme,
+                  colors: customTheme.colors,
+                };
+              }
+
               get().sendMessage(statusUpdate);
             });
             break;

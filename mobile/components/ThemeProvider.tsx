@@ -1,10 +1,10 @@
-import React, { createContext, useContext, useEffect } from "react";
+import React, { createContext, useContext } from "react";
 import { View, useColorScheme } from "react-native";
-import { useThemeStore, THEME_COLORS, ThemeOption } from "~/stores/themeStore";
+import { useThemeStore, THEME_COLORS, ThemeOption, ThemeColors } from "~/stores/themeStore";
 
 interface ThemeContextValue {
   theme: Exclude<ThemeOption, "system">;
-  colors: typeof THEME_COLORS.dark;
+  colors: ThemeColors;
   setTheme: (theme: ThemeOption) => void;
 }
 
@@ -23,7 +23,7 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const { theme, setTheme } = useThemeStore();
+  const { theme, setTheme, customTheme, getColors } = useThemeStore();
   const systemColorScheme = useColorScheme();
 
   // Resolve the theme
@@ -34,12 +34,19 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         : "dark"
       : theme;
 
-  const colors = THEME_COLORS[resolvedTheme];
+  // Get colors - handles custom theme internally
+  const colors = getColors();
+
+  // Get the theme class for NativeWind - for custom themes, use the base theme
+  const themeClass =
+    resolvedTheme === "custom"
+      ? customTheme?.baseTheme || "dark"
+      : resolvedTheme;
 
   return (
     <ThemeContext.Provider value={{ theme: resolvedTheme, colors, setTheme }}>
       <View
-        className={`flex-1 ${resolvedTheme}`}
+        className={`flex-1 ${themeClass}`}
         style={{ backgroundColor: colors.background }}
       >
         {children}
