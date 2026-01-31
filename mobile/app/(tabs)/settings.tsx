@@ -7,6 +7,7 @@ import {
   Pressable,
   Modal,
   Switch,
+  TextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -28,6 +29,9 @@ import {
   Info,
   FolderOpen,
   Folder,
+  GitBranch,
+  Download,
+  Loader2,
 } from "lucide-react-native";
 import { useConnectionStore, LinkedPortal, DesktopProject } from "~/stores/connectionStore";
 import { useThemeStore, ThemeOption } from "~/stores/themeStore";
@@ -61,6 +65,7 @@ export default function SettingsTabPage() {
     disconnect,
     selectProject,
     requestStatus,
+    invoke,
   } = useConnectionStore();
 
   const { theme, setTheme, syncWithDesktop, setSyncWithDesktop } = useThemeStore();
@@ -68,6 +73,12 @@ export default function SettingsTabPage() {
   const [permission, requestPermission] = useCameraPermissions();
   const [showScanner, setShowScanner] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+
+  // Clone repo state
+  const [showCloneModal, setShowCloneModal] = useState(false);
+  const [cloneUrl, setCloneUrl] = useState("");
+  const [clonePath, setClonePath] = useState("");
+  const [isCloning, setIsCloning] = useState(false);
 
   const isConnected = status === "connected";
 
@@ -84,6 +95,71 @@ export default function SettingsTabPage() {
     selectProject(project.id);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
+
+  const handleCloneRepo = async () => {
+    if (!cloneUrl.trim()) {
+      Alert.alert("Error", "Please enter a repository URL");
+      return;
+    }
+
+    if (!clonePath.trim()) {
+      Alert.alert("Error", "Please enter a destination path");
+      return;
+    }
+
+    setIsCloning(true);
+
+    try {
+      const result = await invoke<string>("clone_repo", {
+        url: cloneUrl.trim(),
+        path: clonePath.trim(),
+      });
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Success", `Repository cloned to ${result}`);
+
+      // Clear form and close modal
+      setCloneUrl("");
+      setClonePath("");
+      setShowCloneModal(false);
+
+      // Refresh project list
+      requestStatus();
+    } catch (err) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        "Clone Failed",
+        err instanceof Error ? err.message : "Failed to clone repository"
+      );
+    } finally {
+      setIsCloning(false);
+    }
+  };
+
+  // Extract repo name from URL for suggested path
+  const getSuggestedPath = (url: string): string => {
+    if (!url) return "";
+    try {
+      // Extract repo name from URL (handles both HTTPS and SSH URLs)
+      const match = url.match(/\/([^\/]+?)(\.git)?$/);
+      if (match) {
+        return `~/Projects/${match[1]}`;
+      }
+    } catch {
+      // Ignore
+    }
+    return "";
+  };
+
+  // Auto-suggest path when URL changes
+  useEffect(() => {
+    if (cloneUrl && !clonePath) {
+      const suggested = getSuggestedPath(cloneUrl);
+      if (suggested) {
+        setClonePath(suggested);
+      }
+    }
+  }, [cloneUrl]);
 
   const handleScanQR = async () => {
     if (!permission?.granted) {
@@ -309,6 +385,30 @@ export default function SettingsTabPage() {
         </Card>
       )}
 
+      {/* Clone Repository - only show when connected */}
+      {isConnected && (
+        <Card className="mb-4">
+          <CardHeader>
+            <View className="flex-row items-center">
+              <GitBranch size={18} color="#60a5fa" />
+              <CardTitle className="ml-2">Clone Repository</CardTitle>
+            </View>
+            <CardDescription>
+              Clone a git repository to your desktop
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              onPress={() => setShowCloneModal(true)}
+              icon={<Download size={18} color={colors.foreground} />}
+            >
+              Clone New Repository
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Scan QR Code */}
       <Card className="mb-4">
         <CardHeader>
@@ -523,6 +623,96 @@ export default function SettingsTabPage() {
               <Text className="text-white text-lg">Connecting...</Text>
             </View>
           )}
+        </View>
+      </Modal>
+
+      {/* Clone Repository Modal */}
+      <Modal
+        visible={showCloneModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowCloneModal(false)}
+      >
+        <View className="flex-1 bg-black/50 justify-end">
+          <View
+            className="bg-card rounded-t-3xl p-6"
+            style={{ paddingBottom: 40 }}
+          >
+            <View className="flex-row items-center justify-between mb-6">
+              <View className="flex-row items-center">
+                <GitBranch size={20} color="#60a5fa" />
+                <Text className="text-foreground text-lg font-semibold ml-2">
+                  Clone Repository
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setShowCloneModal(false)}
+                className="p-2"
+              >
+                <X size={20} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+
+            <View className="gap-4">
+              <View>
+                <Text className="text-foreground font-medium mb-2">
+                  Repository URL
+                </Text>
+                <TextInput
+                  className="h-12 rounded-lg border border-input bg-background px-4 text-foreground"
+                  placeholder="https://github.com/user/repo.git"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={cloneUrl}
+                  onChangeText={setCloneUrl}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                />
+              </View>
+
+              <View>
+                <Text className="text-foreground font-medium mb-2">
+                  Destination Path
+                </Text>
+                <TextInput
+                  className="h-12 rounded-lg border border-input bg-background px-4 text-foreground"
+                  placeholder="~/Projects/repo-name"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={clonePath}
+                  onChangeText={setClonePath}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <Text className="text-muted-foreground text-xs mt-1">
+                  Path on your desktop where the repo will be cloned
+                </Text>
+              </View>
+
+              <View className="flex-row gap-3 mt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onPress={() => setShowCloneModal(false)}
+                  disabled={isCloning}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1"
+                  onPress={handleCloneRepo}
+                  loading={isCloning}
+                  disabled={!cloneUrl.trim() || !clonePath.trim()}
+                  icon={
+                    isCloning ? undefined : (
+                      <Download size={16} color="#000" />
+                    )
+                  }
+                >
+                  {isCloning ? "Cloning..." : "Clone"}
+                </Button>
+              </View>
+            </View>
+          </View>
         </View>
       </Modal>
     </ScrollView>
