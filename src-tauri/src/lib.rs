@@ -980,6 +980,12 @@ pub fn run() {
             test_ai_connection,
         ])
         .setup(|app| {
+            // Warm up the PTY system early to avoid first-spawn delays
+            // This initializes the native PTY interface before any terminal is created
+            std::thread::spawn(|| {
+                let _ = native_pty_system();
+            });
+
             // Create custom macOS menu with proper app name
             #[cfg(target_os = "macos")]
             {

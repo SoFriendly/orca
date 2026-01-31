@@ -549,6 +549,14 @@ export default function ProjectPage() {
 
   const startTerminals = async (projectPath: string) => {
     try {
+      // In production builds, the Tauri backend may not be fully ready when the
+      // page first loads. Wait a moment for the backend to initialize.
+      // This ping also ensures IPC is working before we try to spawn terminals.
+      await invoke("debug_log", { message: "Backend ready check" });
+
+      // Small additional delay to ensure window is visible and layout has settled
+      await new Promise(resolve => setTimeout(resolve, 150));
+
       // Utility terminal will spawn itself when its Terminal component mounts
       // Just create the first AI terminal tab
       await createNewTab(projectPath);

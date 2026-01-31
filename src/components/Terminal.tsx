@@ -475,10 +475,13 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
     };
   }, [terminalId]);
 
-  // Resize when visibility changes
+  // Resize and focus when visibility changes
   useEffect(() => {
     if (visible && terminalRef.current && fitAddonRef.current && terminalId) {
-      // Delay to allow CSS transition to complete
+      // Focus immediately when becoming visible
+      terminalRef.current.focus();
+
+      // Delay resize to allow CSS transition to complete
       const timer = setTimeout(() => {
         try {
           fitAddonRef.current?.fit();
