@@ -258,9 +258,14 @@ export default function HomePage() {
 
   return (
     <div className="relative flex h-full bg-background">
-      {/* Left icon sidebar */}
+      {/* Top drag region for window dragging */}
       <div
         data-tauri-drag-region
+        className="fixed inset-x-0 top-0 h-8 z-50"
+      />
+
+      {/* Left icon sidebar */}
+      <div
         className="flex w-12 flex-col items-center bg-background pt-8 pb-3"
       >
           {/* Top icons */}
@@ -353,22 +358,6 @@ export default function HomePage() {
               {/* Quick actions */}
               <div className="space-y-3">
                 <button
-                  onClick={handleOpenProject}
-                  className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-all hover:border-portal-orange/50 hover:bg-muted/50"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                    <FolderOpen className="h-5 w-5 text-muted-foreground group-hover:text-portal-orange" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Open existing repository</p>
-                    <p className="text-xs text-muted-foreground">
-                      Browse to a local git repository
-                    </p>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                </button>
-
-                <button
                   onClick={() => setShowCloneDialog(true)}
                   className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-all hover:border-portal-orange/50 hover:bg-muted/50"
                 >
@@ -379,6 +368,22 @@ export default function HomePage() {
                     <p className="text-sm font-medium">Clone repository</p>
                     <p className="text-xs text-muted-foreground">
                       Clone from GitHub, GitLab, or any URL
+                    </p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                </button>
+
+                <button
+                  onClick={handleOpenProject}
+                  className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-all hover:border-portal-orange/50 hover:bg-muted/50"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                    <FolderOpen className="h-5 w-5 text-muted-foreground group-hover:text-portal-orange" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Open existing repository</p>
+                    <p className="text-xs text-muted-foreground">
+                      Browse to a local git repository
                     </p>
                   </div>
                   <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />

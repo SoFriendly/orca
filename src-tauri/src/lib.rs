@@ -665,28 +665,87 @@ fn get_shell_history(limit: Option<usize>) -> Result<Vec<String>, String> {
     Ok(Vec::new())
 }
 
+// Helper function to check if a command exists either in PATH or at common install locations
+fn command_exists(cmd: &str) -> bool {
+    // First try the standard which lookup
+    if which::which(cmd).is_ok() {
+        return true;
+    }
+
+    // On macOS, GUI apps don't inherit shell profile paths, so check common locations
+    #[cfg(target_os = "macos")]
+    {
+        use std::path::Path;
+
+        // Get home directory
+        if let Some(home) = std::env::var_os("HOME") {
+            let home = Path::new(&home);
+
+            // Common installation paths for npm/node-based CLIs
+            let common_paths = [
+                home.join(".local/bin").join(cmd),
+                home.join(".npm-global/bin").join(cmd),
+                home.join(".nvm/versions/node").join("current/bin").join(cmd),
+            ];
+
+            for path in &common_paths {
+                if path.exists() {
+                    return true;
+                }
+            }
+
+            // Check nvm versions directory for any installed node version
+            let nvm_versions = home.join(".nvm/versions/node");
+            if nvm_versions.exists() {
+                if let Ok(entries) = std::fs::read_dir(&nvm_versions) {
+                    for entry in entries.flatten() {
+                        let bin_path = entry.path().join("bin").join(cmd);
+                        if bin_path.exists() {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // System-wide paths that might not be in GUI app PATH
+        let system_paths = [
+            Path::new("/usr/local/bin").join(cmd),
+            Path::new("/opt/homebrew/bin").join(cmd),
+        ];
+
+        for path in &system_paths {
+            if path.exists() {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
 // Assistant commands
 #[tauri::command]
 fn check_installed_assistants() -> Result<Vec<String>, String> {
     let mut installed = Vec::new();
 
     // Check for Claude Code
-    if which::which("claude").is_ok() {
+    if command_exists("claude") {
         installed.push("claude".to_string());
     }
 
     // Check for Aider
-    if which::which("aider").is_ok() {
+    if command_exists("aider") {
         installed.push("aider".to_string());
     }
 
     // Check for Gemini CLI
-    if which::which("gemini").is_ok() {
+    if command_exists("gemini") {
         installed.push("gemini".to_string());
     }
 
     // Check for OpenAI Codex CLI
-    if which::which("codex").is_ok() {
+    if command_exists("codex") {
         installed.push("codex".to_string());
     }
 

@@ -644,6 +644,12 @@ export default function ProjectPage() {
 
   return (
     <div className="relative flex h-full bg-background">
+      {/* Top drag region for window dragging */}
+      <div
+        data-tauri-drag-region
+        className="fixed inset-x-0 top-0 h-10 z-50"
+      />
+
       {/* Single horizontal divider line spanning full width */}
       <div className="absolute left-0 right-0 top-10 h-px bg-border" />
       {/* Vertical divider for sidebar */}
@@ -651,7 +657,6 @@ export default function ProjectPage() {
 
       {/* Left icon sidebar */}
       <div
-        data-tauri-drag-region
         className="flex w-12 flex-col bg-background pt-8 pb-3"
       >
         {/* Inner container */}
