@@ -948,9 +948,9 @@ export default function ProjectPage() {
           {terminalTabs.length === 0 && (
             <div className="flex flex-1 flex-col items-center justify-center gap-3" style={{ backgroundColor: terminalBg }}>
               <TerminalIcon className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Starting AI assistant...</p>
+              <p className="text-sm text-muted-foreground">Create a new assistant tab to start coding...</p>
             </div>
-                )}
+          )}
           </div>
         </div>
         {/* Resize handle for shell panel */}
