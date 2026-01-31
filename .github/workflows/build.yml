@@ -62,7 +62,7 @@ jobs:
           targets: ${{ matrix.rust_target }}
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build Tauri app
         run: pnpm tauri build
@@ -125,7 +125,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build Tauri app
         run: pnpm tauri build
