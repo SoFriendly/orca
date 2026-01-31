@@ -188,8 +188,12 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
     // switching to dashboard view when terminal loses focus.
     // See: https://github.com/anthropics/claude-code/issues/22086
     terminal.parser.registerCsiHandler({ prefix: "?", final: "h" }, (params) => {
-      if (params.includes(1004)) {
-        return true; // Block mode 1004, don't let terminal enable focus reporting
+      // Check if mode 1004 is in the params
+      for (let i = 0; i < params.length; i++) {
+        const param = params[i];
+        if (param === 1004 || (Array.isArray(param) && param.includes(1004))) {
+          return true; // Block mode 1004, don't let terminal enable focus reporting
+        }
       }
       return false; // Let default handler process other modes
     });
