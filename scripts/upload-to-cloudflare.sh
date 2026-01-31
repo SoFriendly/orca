@@ -48,13 +48,13 @@ echo "=== Uploading macOS artifacts ==="
 DMG_FILE=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" 2>/dev/null | head -1)
 [ -n "$DMG_FILE" ] && upload_file "$DMG_FILE" "v${VERSION}/Chell_${VERSION}_aarch64.dmg"
 
-# macOS app bundle (for updates)
-APP_DIR=$(find src-tauri/target/release/bundle/macos -name "*.app" -type d 2>/dev/null | head -1)
-if [ -n "$APP_DIR" ]; then
-  TAR_FILE="src-tauri/target/release/bundle/Chell_${VERSION}_darwin-aarch64.app.tar.gz"
-  tar -czf "$TAR_FILE" -C "$(dirname "$APP_DIR")" "$(basename "$APP_DIR")"
+# macOS app bundle (for updates) - tar.gz is created and signed by build-macos.sh
+TAR_FILE="src-tauri/target/release/bundle/Chell_${VERSION}_darwin-aarch64.app.tar.gz"
+if [ -f "$TAR_FILE" ]; then
   upload_file "$TAR_FILE" "v${VERSION}/Chell_${VERSION}_darwin-aarch64.app.tar.gz"
   [ -f "${TAR_FILE}.sig" ] && upload_file "${TAR_FILE}.sig" "v${VERSION}/Chell_${VERSION}_darwin-aarch64.app.tar.gz.sig"
+else
+  echo "Warning: $TAR_FILE not found - run build-macos.sh first"
 fi
 
 echo ""

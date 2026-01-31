@@ -84,8 +84,10 @@ export default function UpdateChecker() {
       await relaunch();
     } catch (error) {
       console.error("Failed to download/install update:", error);
-      toast.error("Failed to install update");
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(`Failed to install update: ${errorMessage}`);
       setIsDownloading(false);
+      setIsInstalling(false);
     }
   };
 

@@ -15,7 +15,6 @@
     "opener:default",
     "dialog:default",
     "updater:default",
-    "updater:allow-download-and-install",
     "process:allow-restart",
     "process:allow-exit"
   ]
