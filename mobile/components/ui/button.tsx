@@ -78,7 +78,7 @@ const Button = React.forwardRef<View, ButtonProps>(
       >
         {loading ? (
           <ActivityIndicator
-            color={variant === "default" ? "#000" : "#fff"}
+            color={variant === "default" || variant === "destructive" ? "#fff" : "#e5e5e5"}
             size="small"
           />
         ) : (

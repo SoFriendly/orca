@@ -5,11 +5,11 @@ export default function ProjectLayout() {
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: "#0d0d0d",
+          backgroundColor: "#121212",
         },
-        headerTintColor: "#fff",
+        headerTintColor: "#e5e5e5",
         contentStyle: {
-          backgroundColor: "#0d0d0d",
+          backgroundColor: "#121212",
         },
       }}
     >
