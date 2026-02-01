@@ -800,7 +800,7 @@ export default function ProjectPage() {
                 <ChellIcon className="h-5 w-5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">Terminal</TooltipContent>
+            <TooltipContent side="right">{currentProject?.name}</TooltipContent>
           </Tooltip>
 
           <Tooltip delayDuration={0}>
@@ -812,7 +812,7 @@ export default function ProjectPage() {
                 <Plus className="h-5 w-5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">Open New Window</TooltipContent>
+            <TooltipContent side="right">New Workspace</TooltipContent>
           </Tooltip>
 
           <Tooltip delayDuration={0}>
