@@ -49,9 +49,11 @@ const ASSISTANT_OPTIONS: AssistantOption[] = [
 ];
 
 export default function AssistantTabPage() {
+  console.log("[Assistant] Component rendering");
   const router = useRouter();
   const { colors } = useTheme();
   const { status, activeProject, invoke } = useConnectionStore();
+  console.log("[Assistant] Status:", status, "activeProject:", activeProject?.name);
   const {
     spawnTerminal,
     killTerminal,
@@ -75,34 +77,69 @@ export default function AssistantTabPage() {
 
   // Check installed assistants
   useEffect(() => {
+    let mounted = true;
+    let timeoutId: ReturnType<typeof setTimeout>;
+
     const checkInstalled = async () => {
+      console.log("[Assistant] checkInstalled called, isConnected:", isConnected);
       if (!isConnected) {
-        setIsCheckingInstalled(false);
+        console.log("[Assistant] Not connected, skipping check");
+        if (mounted) setIsCheckingInstalled(false);
         return;
       }
-      setIsCheckingInstalled(true);
+
+      if (mounted) setIsCheckingInstalled(true);
+
+      // Safety timeout - if the command takes too long, use fallback
+      timeoutId = setTimeout(() => {
+        if (mounted) {
+          console.log("[Assistant] Check timed out, using fallback");
+          setInstalledCommands(["claude", "aider", "gemini", "codex", "opencode"]);
+          setIsCheckingInstalled(false);
+        }
+      }, 10000);
+
+      console.log("[Assistant] Calling check_installed_assistants...");
       try {
         const installed = await invoke<string[]>("check_installed_assistants");
         console.log("[Assistant] Installed commands:", installed);
-        setInstalledCommands(installed);
+        if (mounted) setInstalledCommands(installed);
       } catch (err) {
-        console.error("Failed to check installed assistants:", err);
+        console.error("[Assistant] Failed to check installed assistants:", err);
         // Default to allowing all if check fails
-        setInstalledCommands(["claude", "aider", "gemini", "codex", "opencode"]);
+        console.log("[Assistant] Using fallback assistant list");
+        if (mounted) setInstalledCommands(["claude", "aider", "gemini", "codex", "opencode"]);
       } finally {
-        setIsCheckingInstalled(false);
+        console.log("[Assistant] Check complete, setting isCheckingInstalled to false");
+        clearTimeout(timeoutId);
+        if (mounted) setIsCheckingInstalled(false);
       }
     };
     checkInstalled();
+
+    return () => {
+      mounted = false;
+      clearTimeout(timeoutId);
+    };
   }, [isConnected, invoke]);
 
   // Auto-launch default assistant (claude) when first opening
   useEffect(() => {
+    console.log("[Assistant] Auto-launch check:", {
+      projectPath: !!projectPath,
+      isConnected,
+      hasAutoLaunched,
+      installedCommandsLength: installedCommands.length,
+      isCheckingInstalled,
+    });
+
     if (projectPath && isConnected && !hasAutoLaunched && installedCommands.length > 0) {
       // Default to claude if installed, otherwise first installed
       const defaultCommand = installedCommands.includes("claude")
         ? "claude"
         : installedCommands[0] || "";
+
+      console.log("[Assistant] Auto-launching:", defaultCommand);
 
       if (defaultCommand) {
         const option = ASSISTANT_OPTIONS.find((o) => o.command === defaultCommand);
