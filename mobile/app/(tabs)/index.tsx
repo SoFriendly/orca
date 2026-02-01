@@ -110,7 +110,10 @@ export default function GitTabPage() {
   }, [projectPath, isConnected]);
 
   const handleGenerateMessage = async () => {
-    console.log("[Git] handleGenerateMessage called, diffs:", diffs.length);
+    console.log("[Git] handleGenerateMessage called, diffs:", diffs.length, "gitStatus:", gitStatus);
+
+    // Give immediate haptic feedback so user knows button was pressed
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     // Use diffs if available, otherwise create fallback
     if (diffs.length === 0) {
@@ -120,15 +123,13 @@ export default function GitTabPage() {
       if (allFiles.length > 0) {
         const fileNames = allFiles.map(f => f.split('/').pop()).slice(0, 3).join(', ');
         setCommitSubject(`Update ${fileNames}${allFiles.length > 3 ? '...' : ''}`);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } else {
-        Alert.alert("No Changes", "No changes to generate a message for");
+        Alert.alert("No Changes", "No changes detected. Make sure you're connected to your desktop and have uncommitted changes.");
       }
       return;
     }
 
     setIsGenerating(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     console.log("[Git] Calling generateCommitMessage with", diffs.length, "diffs");
     try {
       const { subject, description } = await generateCommitMessage(diffs);
@@ -138,6 +139,7 @@ export default function GitTabPage() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error("[Git] Failed to generate commit message:", err);
+      Alert.alert("AI Error", err instanceof Error ? err.message : "Failed to generate commit message");
       // Fallback to simple message
       const fileNames = diffs.map(d => d.path.split('/').pop()).join(', ');
       setCommitSubject(`Update ${fileNames}`);

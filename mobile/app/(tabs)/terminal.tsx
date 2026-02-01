@@ -376,7 +376,7 @@ export default function TerminalTabPage() {
             .map((line, index) => (
               <Text
                 key={index}
-                style={{ color: colors.terminal, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }}
+                style={{ color: colors.foreground, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }}
                 className="text-sm leading-5"
                 selectable
               >
@@ -527,7 +527,7 @@ export default function TerminalTabPage() {
 
       {/* Input */}
       <View className="flex-row items-center border-t border-border bg-card p-2">
-        <Text style={{ color: colors.terminal, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }} className="mr-2">
+        <Text style={{ color: colors.primary, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }} className="mr-2">
           $
         </Text>
         <TextInput
@@ -550,7 +550,7 @@ export default function TerminalTabPage() {
           onPress={handleSend}
           disabled={!input.trim()}
         >
-          <Send size={18} color={input.trim() ? colors.success : colors.mutedForeground} />
+          <Send size={18} color={input.trim() ? colors.primary : colors.mutedForeground} />
         </Button>
       </View>
     </KeyboardAvoidingView>

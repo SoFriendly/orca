@@ -3,14 +3,11 @@ import { GitBranch, Terminal, Bot, Home, Settings } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "~/components/ThemeProvider";
 import { useConnectionStore } from "~/stores/connectionStore";
-import { View, Text, Pressable } from "react-native";
+import { Pressable } from "react-native";
 
 export default function TabsLayout() {
   const { colors } = useTheme();
-  const { status } = useConnectionStore();
   const insets = useSafeAreaInsets();
-
-  const isConnected = status === "connected";
 
   return (
     <Tabs
@@ -21,6 +18,12 @@ export default function TabsLayout() {
         headerTintColor: colors.foreground,
         headerTitleStyle: {
           fontWeight: "600",
+        },
+        headerLeftContainerStyle: {
+          paddingLeft: 8,
+        },
+        headerRightContainerStyle: {
+          paddingRight: 8,
         },
         headerLeft: () => (
           <Pressable
@@ -33,7 +36,7 @@ export default function TabsLayout() {
                 router.replace("/");
               }
             }}
-            className="p-2 ml-2"
+            style={{ padding: 8 }}
           >
             <Home size={22} color={colors.foreground} />
           </Pressable>
@@ -41,7 +44,7 @@ export default function TabsLayout() {
         headerRight: () => (
           <Pressable
             onPress={() => router.push("/settings")}
-            className="p-2 mr-2"
+            style={{ padding: 8 }}
           >
             <Settings size={22} color={colors.foreground} />
           </Pressable>
@@ -69,22 +72,6 @@ export default function TabsLayout() {
           headerTitle: "Git Panel",
           tabBarIcon: ({ color, size }) => (
             <GitBranch size={size} color={color} />
-          ),
-          headerRight: () => (
-            <View className="flex-row items-center">
-              {!isConnected && (
-                <View className="flex-row items-center mr-2">
-                  <View className="w-2 h-2 rounded-full bg-destructive mr-2" />
-                  <Text className="text-destructive text-xs">Offline</Text>
-                </View>
-              )}
-              <Pressable
-                onPress={() => router.push("/settings")}
-                className="p-2 mr-2"
-              >
-                <Settings size={22} color={colors.foreground} />
-              </Pressable>
-            </View>
           ),
         }}
       />
