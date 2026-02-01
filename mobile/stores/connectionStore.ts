@@ -429,8 +429,12 @@ export const useConnectionStore = create<ConnectionStore>()(
       },
 
       sendTerminalInput: (terminalId: string, data: string) => {
-        const ws = getWebSocket();
-        ws.sendTerminalInput(terminalId, data);
+        try {
+          const ws = getWebSocket();
+          ws.sendTerminalInput(terminalId, data);
+        } catch (err) {
+          console.error("[ConnectionStore] sendTerminalInput failed:", err);
+        }
       },
     }),
     {

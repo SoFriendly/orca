@@ -202,8 +202,20 @@ export default function AssistantTabPage() {
   };
 
   const handleSend = useCallback(() => {
-    if (!activeTab?.terminalId || !input.trim()) return;
-    sendInput(activeTab.terminalId, input + "\n");
+    console.log("[Assistant] handleSend called, activeTab:", activeTab?.id, "terminalId:", activeTab?.terminalId, "input:", input);
+    if (!activeTab?.terminalId) {
+      console.log("[Assistant] handleSend aborted - no terminalId");
+      return;
+    }
+    if (!input.trim()) {
+      console.log("[Assistant] handleSend aborted - empty input");
+      return;
+    }
+    // Use bracketed paste mode escape sequences so TUIs recognize this as input
+    // \x1b[200~ = start paste, \x1b[201~ = end paste, \r = Enter
+    const bracketedInput = `\x1b[200~${input}\x1b[201~\r`;
+    console.log("[Assistant] Sending input to terminal:", activeTab.terminalId);
+    sendInput(activeTab.terminalId, bracketedInput);
     setInput("");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [activeTab, input, sendInput]);

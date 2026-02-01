@@ -133,6 +133,7 @@ export class ChellWebSocket {
 
   private send(message: Omit<WSMessage, "timestamp">): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.error("[ChellWS] send failed - WebSocket not connected, state:", this.ws?.readyState);
       throw new Error("WebSocket not connected");
     }
 
@@ -141,6 +142,7 @@ export class ChellWebSocket {
       timestamp: Date.now(),
     };
 
+    console.log("[ChellWS] Sending message type:", message.type);
     this.ws.send(JSON.stringify(fullMessage));
   }
 
@@ -199,8 +201,11 @@ export class ChellWebSocket {
   // Terminal input
   sendTerminalInput(terminalId: string, data: string): void {
     if (!this.sessionToken) {
+      console.error("[ChellWS] sendTerminalInput called but no sessionToken");
       throw new Error("Not authenticated");
     }
+
+    console.log("[ChellWS] sendTerminalInput:", terminalId, "data:", JSON.stringify(data));
 
     const message: Omit<TerminalInputMessage, "timestamp"> = {
       type: "terminal_input",
@@ -211,6 +216,7 @@ export class ChellWebSocket {
     };
 
     this.send(message);
+    console.log("[ChellWS] terminal_input message sent");
   }
 
   // Request status update from desktop

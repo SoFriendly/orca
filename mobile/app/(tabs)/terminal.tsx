@@ -86,8 +86,10 @@ export default function TerminalTabPage() {
       setHistoryIndex(-1);
     }
 
-    // Send command with newline
-    sendInput(activeTerminalId, input + "\n");
+    // Use bracketed paste mode escape sequences so TUIs recognize this as input
+    // \x1b[200~ = start paste, \x1b[201~ = end paste, \r = Enter
+    const bracketedInput = `\x1b[200~${input}\x1b[201~\r`;
+    sendInput(activeTerminalId, bracketedInput);
     setInput("");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [activeTerminalId, input, sendInput]);
@@ -172,7 +174,9 @@ export default function TerminalTabPage() {
   const handleRunGeneratedCommand = async () => {
     if (!generatedCommand || !activeTerminalId) return;
 
-    sendInput(activeTerminalId, generatedCommand + "\n");
+    // Use bracketed paste mode for generated commands too
+    const bracketedInput = `\x1b[200~${generatedCommand}\x1b[201~\r`;
+    sendInput(activeTerminalId, bracketedInput);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setAiInput("");
     setGeneratedCommand(null);

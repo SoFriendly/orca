@@ -298,8 +298,16 @@ export const usePortalStore = create<PortalState>()(
               data: string;
             };
 
+            console.log("[Portal] Received terminal_input for", terminalId, "data:", JSON.stringify(inputData));
+
             import("@tauri-apps/api/core").then(({ invoke }) => {
-              invoke("write_terminal", { id: terminalId, data: inputData });
+              invoke("write_terminal", { id: terminalId, data: inputData })
+                .then(() => {
+                  console.log("[Portal] write_terminal success");
+                })
+                .catch((err) => {
+                  console.error("[Portal] write_terminal failed:", err);
+                });
             });
             break;
           }

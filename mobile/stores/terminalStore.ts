@@ -88,6 +88,7 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
   },
 
   sendInput: (terminalId: string, data: string) => {
+    console.log("[TerminalStore] sendInput called:", terminalId, "data:", JSON.stringify(data));
     const { sendTerminalInput } = useConnectionStore.getState();
     sendTerminalInput(terminalId, data);
   },

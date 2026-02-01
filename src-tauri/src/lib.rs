@@ -306,15 +306,26 @@ fn spawn_terminal(
 
 #[tauri::command]
 fn write_terminal(id: String, data: String, state: tauri::State<Arc<AppState>>) -> Result<(), String> {
+    println!("[write_terminal] id: {}, data: {:?}", id, data);
     let mut terminals = state.terminals.lock();
     if let Some(terminal) = terminals.get_mut(&id) {
         terminal
             .writer
             .write_all(data.as_bytes())
-            .map_err(|e| e.to_string())?;
-        terminal.writer.flush().map_err(|e| e.to_string())?;
+            .map_err(|e| {
+                println!("[write_terminal] write_all error: {}", e);
+                e.to_string()
+            })?;
+        terminal.writer.flush().map_err(|e| {
+            println!("[write_terminal] flush error: {}", e);
+            e.to_string()
+        })?;
+        println!("[write_terminal] success");
+        Ok(())
+    } else {
+        println!("[write_terminal] terminal not found: {}", id);
+        Err(format!("Terminal not found: {}", id))
     }
-    Ok(())
 }
 
 #[tauri::command]

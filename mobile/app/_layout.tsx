@@ -5,13 +5,11 @@ import { StatusBar } from "expo-status-bar";
 import { ThemeProvider, useTheme } from "~/components/ThemeProvider";
 import { useConnectionStore } from "~/stores/connectionStore";
 import { useThemeStore } from "~/stores/themeStore";
-import type { WSMessage, TerminalOutputMessage } from "~/types";
-import { useTerminalStore } from "~/stores/terminalStore";
+import type { WSMessage } from "~/types";
 import { getWebSocket } from "~/lib/websocket";
 
 function RootLayoutContent() {
   const { status, connect, wsUrl, requestStatus } = useConnectionStore();
-  const { appendOutput } = useTerminalStore();
   const { syncFromDesktop, syncWithDesktop } = useThemeStore();
   const { theme, colors } = useTheme();
 
@@ -33,19 +31,13 @@ function RootLayoutContent() {
     }
   }, [status]);
 
-  // Listen for messages from desktop
+  // Listen for messages from desktop (theme sync only - terminal output handled in connectionStore)
   useEffect(() => {
     if (status !== "connected") return;
 
     try {
       const ws = getWebSocket();
       const unsubscribe = ws.onMessage((message: WSMessage) => {
-        // Handle terminal output
-        if (message.type === "terminal_output") {
-          const termMsg = message as TerminalOutputMessage;
-          appendOutput(termMsg.terminalId, termMsg.data);
-        }
-
         // Handle theme sync from desktop
         if (message.type === "status_update" && syncWithDesktop) {
           const statusMsg = message as any;
