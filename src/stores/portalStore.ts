@@ -425,6 +425,7 @@ export const usePortalStore = create<PortalState>()(
 // Terminal output forwarding - hook into terminal events
 export function setupTerminalForwarding() {
   import("@tauri-apps/api/event").then(({ listen }) => {
+    const decoders = new Map<string, TextDecoder>();
     // Listen for terminal output events and forward to mobile
     // Only forward output for terminals spawned by mobile, not local desktop terminals
     listen("terminal-output", (event: { payload: { terminalId: string; data: number[] } }) => {
@@ -436,7 +437,14 @@ export function setupTerminalForwarding() {
       // Only forward output for terminals spawned by mobile
       if (!mobileTerminalIds.has(terminalId)) return;
 
-      const text = new TextDecoder().decode(new Uint8Array(data));
+      let decoder = decoders.get(terminalId);
+      if (!decoder) {
+        decoder = new TextDecoder();
+        decoders.set(terminalId, decoder);
+      }
+
+      const text = decoder.decode(new Uint8Array(data), { stream: true });
+      if (!text) return;
 
       sendMessage({
         type: "terminal_output",
