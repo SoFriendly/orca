@@ -24,7 +24,7 @@ export default function TabsLayout() {
         },
         headerLeft: () => (
           <Pressable
-            onPress={() => router.replace("/")}
+            onPress={() => router.dismissAll()}
             className="p-2 ml-2"
           >
             <Home size={22} color={colors.foreground} />
