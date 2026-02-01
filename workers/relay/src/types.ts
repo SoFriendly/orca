@@ -104,6 +104,14 @@ export interface StatusUpdateMessage extends BaseMessage {
     unstaged: string[];
     untracked: string[];
   };
+  projects?: Array<{
+    id: string;
+    name: string;
+    path: string;
+  }>;
+  activeProjectId?: string;
+  theme?: string;
+  customTheme?: Record<string, string>;
 }
 
 // Device list for desktop

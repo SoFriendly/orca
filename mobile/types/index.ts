@@ -124,6 +124,14 @@ export interface StatusUpdateMessage extends BaseMessage {
   connectionStatus: "connected" | "disconnected";
   activeProject?: Project;
   gitStatus?: GitStatus;
+  projects?: Array<{
+    id: string;
+    name: string;
+    path: string;
+  }>;
+  activeProjectId?: string;
+  theme?: string;
+  customTheme?: Record<string, string>;
 }
 
 export interface ErrorMessage extends BaseMessage {

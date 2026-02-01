@@ -80,6 +80,13 @@ function RootLayoutContent() {
         }}
       >
         <Stack.Screen
+          name="index"
+          options={{
+            title: "Chell",
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen
           name="(tabs)"
           options={{
             headerShown: false,
