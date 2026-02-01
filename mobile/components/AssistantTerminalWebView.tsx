@@ -70,6 +70,14 @@ const buildHtml = (css: string, xtermJs: string, fitJs: string) => `<!doctype ht
       fitAddon.fit();
       term.focus();
 
+      // Enable autocorrect on the hidden textarea
+      const textarea = document.querySelector('.xterm-helper-textarea');
+      if (textarea) {
+        textarea.setAttribute('autocorrect', 'on');
+        textarea.setAttribute('autocapitalize', 'sentences');
+        textarea.setAttribute('spellcheck', 'true');
+      }
+
       term.onData((data) => post({ type: "input", data }));
 
       function sendSize() {

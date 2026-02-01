@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import * as Clipboard from "expo-clipboard";
 import {
   Bot,
   Plus,
@@ -20,6 +21,12 @@ import {
   ChevronDown,
   Check,
   Keyboard as KeyboardIcon,
+  ClipboardPaste,
+  CornerDownLeft,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
 } from "lucide-react-native";
 import { useConnectionStore } from "~/stores/connectionStore";
 import { useTerminalStore } from "~/stores/terminalStore";
@@ -238,6 +245,33 @@ export default function AssistantTabPage() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [activeTab, sendInput]);
 
+  const handleArrowLeft = useCallback(() => {
+    if (!activeTab?.terminalId) return;
+    sendInput(activeTab.terminalId, "\x1b[D");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [activeTab, sendInput]);
+
+  const handleArrowRight = useCallback(() => {
+    if (!activeTab?.terminalId) return;
+    sendInput(activeTab.terminalId, "\x1b[C");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [activeTab, sendInput]);
+
+  const handlePaste = useCallback(async () => {
+    if (!activeTab?.terminalId) return;
+    const text = await Clipboard.getStringAsync();
+    if (text) {
+      sendInput(activeTab.terminalId, text);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, [activeTab, sendInput]);
+
+  const handleNewLine = useCallback(() => {
+    if (!activeTab?.terminalId) return;
+    sendInput(activeTab.terminalId, "\n");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [activeTab, sendInput]);
+
   // Not connected state
   if (!isConnected) {
     return (
@@ -399,33 +433,65 @@ export default function AssistantTabPage() {
               variant="ghost"
               size="sm"
               onPress={handleCtrlC}
-              className="mr-1"
+              className="mr-2"
             >
-              <Text style={{ color: "#f87171" }} className="text-sm font-bold font-mono">^C</Text>
+              <Text style={{ color: "#60a5fa", fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", fontWeight: "bold" }} className="text-base">^C</Text>
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onPress={handleEsc}
-              className="mr-1"
+              className="mr-2"
             >
-              <Text style={{ color: "#60a5fa" }} className="text-sm font-bold font-mono">ESC</Text>
+              <Text style={{ color: "#60a5fa", fontWeight: "bold" }} className="text-base">ESC</Text>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onPress={handleNewLine}
+              className="mr-2"
+            >
+              <CornerDownLeft size={20} color="#60a5fa" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onPress={handlePaste}
+              className="mr-2"
+            >
+              <ClipboardPaste size={16} color="#60a5fa" />
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onPress={handleArrowUp}
-              className="mr-1"
+              className="mr-2"
             >
-              <Text style={{ color: "#60a5fa" }} className="text-base font-bold">▲</Text>
+              <ArrowUp size={20} color="#60a5fa" />
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onPress={handleArrowDown}
-              className="mr-1"
+              className="mr-2"
             >
-              <Text style={{ color: "#60a5fa" }} className="text-base font-bold">▼</Text>
+              <ArrowDown size={20} color="#60a5fa" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onPress={handleArrowLeft}
+              className="mr-2"
+            >
+              <ArrowLeft size={20} color="#60a5fa" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onPress={handleArrowRight}
+              className="mr-2"
+            >
+              <ArrowRight size={20} color="#60a5fa" />
             </Button>
             <View className="flex-1" />
             <Button
