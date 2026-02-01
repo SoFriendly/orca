@@ -96,6 +96,7 @@ export default function ProjectPage() {
   const [showNlt, setShowNlt] = useState(false);
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
   const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
+  const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
   const tabListRef = useRef<HTMLDivElement | null>(null);
   const draggingTabIdRef = useRef<string | null>(null);
   const tabRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -589,9 +590,12 @@ export default function ProjectPage() {
 
     event.preventDefault();
     setDraggingTabId(tabId);
+    setDragPosition({ x: event.clientX, y: event.clientY });
     draggingTabIdRef.current = tabId;
 
     const handleMouseMove = (e: MouseEvent) => {
+      setDragPosition({ x: e.clientX, y: e.clientY });
+
       // Find which tab we're over
       let foundTab: string | null = null;
       tabRefs.current.forEach((el, id) => {
@@ -603,9 +607,7 @@ export default function ProjectPage() {
           }
         }
       });
-      if (foundTab !== dragOverTabId) {
-        setDragOverTabId(foundTab);
-      }
+      setDragOverTabId(foundTab);
     };
 
     const handleMouseUp = (e: MouseEvent) => {
@@ -630,6 +632,7 @@ export default function ProjectPage() {
 
       setDraggingTabId(null);
       setDragOverTabId(null);
+      setDragPosition(null);
       draggingTabIdRef.current = null;
     };
 
@@ -1050,6 +1053,19 @@ export default function ProjectPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+
+          {/* Floating drag indicator */}
+          {draggingTabId && dragPosition && (
+            <div
+              className="fixed pointer-events-none z-50 px-3 py-1.5 rounded bg-primary text-primary-foreground text-sm font-medium shadow-lg"
+              style={{
+                left: dragPosition.x + 10,
+                top: dragPosition.y + 10,
+              }}
+            >
+              {terminalTabs.find(t => t.id === draggingTabId)?.name}
+            </div>
+          )}
 
           {/* Tab content - keep all terminals mounted, hide with CSS */}
           {terminalTabs.map((tab, index) => (
