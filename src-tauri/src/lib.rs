@@ -112,6 +112,7 @@ struct TerminalState {
 struct AppState {
     terminals: Mutex<HashMap<String, TerminalState>>,
     database: Mutex<Database>,
+    portal_enabled: Mutex<bool>,
 }
 
 // Debug command to print to terminal
@@ -872,6 +873,12 @@ struct CommitSuggestion {
     description: String,
 }
 
+// Portal mode setting command
+#[tauri::command]
+fn set_portal_enabled(enabled: bool, state: tauri::State<Arc<AppState>>) {
+    *state.portal_enabled.lock() = enabled;
+}
+
 // AI Shell types
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectContext {
@@ -1213,7 +1220,9 @@ pub fn run() {
     let state = Arc::new(AppState {
         terminals: Mutex::new(HashMap::new()),
         database: Mutex::new(db),
+        portal_enabled: Mutex::new(false),
     });
+    let state_for_window_event = state.clone();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -1272,6 +1281,8 @@ pub fn run() {
             test_ai_connection,
             scan_project_context,
             ai_shell_command,
+            // Portal
+            set_portal_enabled,
         ])
         .setup(|app| {
             // Warm up the PTY system early to avoid first-spawn delays
@@ -1375,13 +1386,17 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(|window, event| {
-            // Minimize to tray on close instead of quitting
+        .on_window_event(move |window, event| {
+            // Only minimize to tray if portal mode is enabled, otherwise quit
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                // Hide the window instead of closing it
-                let _ = window.hide();
-                // Prevent the window from being closed
-                api.prevent_close();
+                let portal_enabled = *state_for_window_event.portal_enabled.lock();
+                if portal_enabled {
+                    // Hide the window instead of closing it (tray mode)
+                    let _ = window.hide();
+                    // Prevent the window from being closed
+                    api.prevent_close();
+                }
+                // If portal is disabled, let the window close normally (quit app)
             }
         })
         .build(tauri::generate_context!())

@@ -109,11 +109,19 @@ export const usePortalStore = create<PortalState>()(
       enable: () => {
         set({ isEnabled: true });
         get().connect();
+        // Notify backend so it knows to minimize to tray on close
+        import("@tauri-apps/api/core").then(({ invoke }) => {
+          invoke("set_portal_enabled", { enabled: true });
+        });
       },
 
       disable: () => {
         get().disconnect();
         set({ isEnabled: false });
+        // Notify backend so it knows to quit on close
+        import("@tauri-apps/api/core").then(({ invoke }) => {
+          invoke("set_portal_enabled", { enabled: false });
+        });
       },
 
       setRelayUrl: (url: string) => {
@@ -438,6 +446,11 @@ export const usePortalStore = create<PortalState>()(
         linkedDevices: state.linkedDevices,
       }),
       onRehydrateStorage: () => (state) => {
+        // Sync portal enabled state with backend
+        import("@tauri-apps/api/core").then(({ invoke }) => {
+          invoke("set_portal_enabled", { enabled: state?.isEnabled ?? false });
+        });
+
         // Auto-connect if portal was enabled before app closed
         if (state?.isEnabled) {
           console.log("[Portal] Auto-connecting on launch (was enabled)");
