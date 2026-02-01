@@ -299,6 +299,12 @@ export const usePortalStore = create<PortalState>()(
             };
 
             console.log("[Portal] Received terminal_input for", terminalId, "data:", JSON.stringify(inputData));
+            // Ensure output gets forwarded for terminals used by mobile after reconnects
+            set((state) => ({
+              mobileTerminalIds: state.mobileTerminalIds.has(terminalId)
+                ? state.mobileTerminalIds
+                : new Set([...state.mobileTerminalIds, terminalId]),
+            }));
 
             import("@tauri-apps/api/core").then(({ invoke }) => {
               invoke("write_terminal", { id: terminalId, data: inputData })
