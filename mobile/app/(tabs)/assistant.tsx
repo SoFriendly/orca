@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Pressable,
   Alert,
   Platform,
+  TextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -18,6 +19,7 @@ import {
   WifiOff,
   ChevronDown,
   Check,
+  Send,
 } from "lucide-react-native";
 import { useConnectionStore } from "~/stores/connectionStore";
 import { useTerminalStore } from "~/stores/terminalStore";
@@ -67,6 +69,10 @@ export default function AssistantTabPage() {
   const [installedCommands, setInstalledCommands] = useState<string[]>([]);
   const [isCheckingInstalled, setIsCheckingInstalled] = useState(true);
   const [hasAutoLaunched, setHasAutoLaunched] = useState(false);
+
+  // Input state
+  const [inputText, setInputText] = useState("");
+  const inputRef = useRef<TextInput>(null);
 
   const isConnected = status === "connected";
   const projectPath = activeProject?.path || "";
@@ -216,6 +222,24 @@ export default function AssistantTabPage() {
     sendInput(activeTab.terminalId, "\x03");
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
   }, [activeTab, sendInput]);
+
+  // Handle submit - send text then Enter separately
+  const handleSubmit = useCallback(() => {
+    if (!activeTab?.terminalId || !inputText.trim()) return;
+    // Send the text first, then Enter as a separate input
+    sendInput(activeTab.terminalId, inputText);
+    // Small delay then send Enter
+    setTimeout(() => {
+      sendInput(activeTab.terminalId, "\r");
+    }, 50);
+    setInputText("");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [activeTab, sendInput, inputText]);
+
+  // Clear input when switching tabs
+  useEffect(() => {
+    setInputText("");
+  }, [activeTabId]);
 
   // Not connected state
   if (!isConnected) {
@@ -390,9 +414,30 @@ export default function AssistantTabPage() {
 
           {/* Input */}
           <View className="flex-row items-center border-t border-border bg-card p-2">
-            <Text className="text-muted-foreground text-xs">
-              Tap the terminal to type
-            </Text>
+            <TextInput
+              ref={inputRef}
+              className="flex-1 h-10 text-foreground"
+              style={{ fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }}
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="Type a message..."
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="none"
+              autoCorrect={false}
+              multiline={false}
+              returnKeyType="send"
+              onSubmitEditing={handleSubmit}
+              blurOnSubmit={false}
+              enterKeyHint="send"
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={handleSubmit}
+              disabled={!inputText.trim()}
+            >
+              <Send size={18} color={inputText.trim() ? "#60a5fa" : colors.mutedForeground} />
+            </Button>
           </View>
         </>
       )}
