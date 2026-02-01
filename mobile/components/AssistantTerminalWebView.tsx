@@ -7,6 +7,7 @@ import WebView, { WebViewMessageEvent } from "react-native-webview";
 interface AssistantTerminalWebViewProps {
   terminalId: string;
   output: string[];
+  onInput: (data: string) => void;
   onResize: (cols: number, rows: number) => void;
 }
 
@@ -16,10 +17,13 @@ const buildHtml = (css: string, xtermJs: string, fitJs: string) => `<!doctype ht
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
       ${css}
-      html, body { height: 100%; margin: 0; background: #000; -webkit-touch-callout: none; }
-      #terminal { height: 100%; width: 100%; -webkit-user-select: none; user-select: none; }
-      .xterm-helper-textarea { display: none !important; }
-      .xterm-cursor-layer { display: none !important; }
+      html, body { height: 100%; margin: 0; background: #000; }
+      #terminal { height: 100%; width: 100%; }
+      .xterm-helper-textarea {
+        caret-color: transparent !important;
+        color: transparent !important;
+        opacity: 0 !important;
+      }
     </style>
   </head>
   <body>
@@ -59,12 +63,14 @@ const buildHtml = (css: string, xtermJs: string, fitJs: string) => `<!doctype ht
         fontSize: 13,
         lineHeight: 1.2,
         theme: { background: "#000000", foreground: "#e6e6e6" },
-        disableStdin: true,  // Disable keyboard input - use native TextInput instead
       });
       const fitAddon = new FitAddon.FitAddon();
       term.loadAddon(fitAddon);
       term.open(document.getElementById("terminal"));
       fitAddon.fit();
+      term.focus();
+
+      term.onData((data) => post({ type: "input", data }));
 
       function sendSize() {
         post({ type: "resize", cols: term.cols, rows: term.rows });
@@ -98,6 +104,7 @@ const buildHtml = (css: string, xtermJs: string, fitJs: string) => `<!doctype ht
 export default function AssistantTerminalWebView({
   terminalId,
   output,
+  onInput,
   onResize,
 }: AssistantTerminalWebViewProps) {
   const webViewRef = useRef<WebView>(null);
@@ -201,6 +208,9 @@ export default function AssistantTerminalWebView({
           setLogLine(message.message || "Terminal error");
           return;
         }
+        if (message.type === "input") {
+          onInput(message.data || "");
+        }
         if (message.type === "resize") {
           const cols = Number(message.cols || 0);
           const rows = Number(message.rows || 0);
@@ -212,7 +222,7 @@ export default function AssistantTerminalWebView({
         // Ignore malformed messages
       }
     },
-    [onResize]
+    [onInput, onResize]
   );
 
   return (

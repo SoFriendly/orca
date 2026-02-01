@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   Pressable,
   Alert,
   Platform,
-  TextInput,
   Keyboard,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -19,9 +18,7 @@ import {
   Terminal as TerminalIcon,
   WifiOff,
   ChevronDown,
-  ChevronUp,
   Check,
-  Send,
   Keyboard as KeyboardIcon,
 } from "lucide-react-native";
 import { useConnectionStore } from "~/stores/connectionStore";
@@ -73,26 +70,6 @@ export default function AssistantTabPage() {
   const [isCheckingInstalled, setIsCheckingInstalled] = useState(true);
   const [hasAutoLaunched, setHasAutoLaunched] = useState(false);
 
-  // Input state
-  const [inputText, setInputText] = useState("");
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const inputRef = useRef<TextInput>(null);
-
-  // Track keyboard visibility
-  useEffect(() => {
-    const showSub = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
-      () => setIsKeyboardVisible(true)
-    );
-    const hideSub = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
-      () => setIsKeyboardVisible(false)
-    );
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   const isConnected = status === "connected";
   const projectPath = activeProject?.path || "";
@@ -221,6 +198,14 @@ export default function AssistantTabPage() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
+  const handleTerminalInput = useCallback(
+    (data: string) => {
+      if (!activeTab?.terminalId) return;
+      sendInput(activeTab.terminalId, data);
+    },
+    [activeTab, sendInput]
+  );
+
   const handleTerminalResize = useCallback(
     (cols: number, rows: number) => {
       if (!activeTab?.terminalId) return;
@@ -252,25 +237,6 @@ export default function AssistantTabPage() {
     sendInput(activeTab.terminalId, "\x1b[B");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [activeTab, sendInput]);
-
-  // Handle submit - send text then Enter separately
-  const handleSubmit = useCallback(() => {
-    const terminalId = activeTab?.terminalId;
-    if (!terminalId || !inputText.trim()) return;
-    // Send the text first, then Enter as a separate input
-    sendInput(terminalId, inputText);
-    // Small delay then send Enter
-    setTimeout(() => {
-      sendInput(terminalId, "\r");
-    }, 50);
-    setInputText("");
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [activeTab, sendInput, inputText]);
-
-  // Clear input when switching tabs
-  useEffect(() => {
-    setInputText("");
-  }, [activeTabId]);
 
   // Not connected state
   if (!isConnected) {
@@ -415,6 +381,7 @@ export default function AssistantTabPage() {
               key={activeTab.terminalId}
               terminalId={activeTab.terminalId}
               output={output}
+              onInput={handleTerminalInput}
               onResize={handleTerminalResize}
             />
           ) : (
@@ -464,51 +431,14 @@ export default function AssistantTabPage() {
             <Button
               variant="ghost"
               size="sm"
-              onPress={() => {
-                if (isKeyboardVisible) {
-                  Keyboard.dismiss();
-                } else {
-                  inputRef.current?.focus();
-                }
-              }}
+              onPress={() => Keyboard.dismiss()}
               className="flex-row items-center"
             >
               <KeyboardIcon size={18} color="#60a5fa" />
-              {isKeyboardVisible ? (
-                <ChevronDown size={14} color="#60a5fa" style={{ marginLeft: 4 }} />
-              ) : (
-                <ChevronUp size={14} color="#60a5fa" style={{ marginLeft: 4 }} />
-              )}
+              <ChevronDown size={14} color="#60a5fa" style={{ marginLeft: 4 }} />
             </Button>
           </View>
 
-          {/* Input */}
-          <View className="flex-row items-center border-t border-border bg-card p-2">
-            <TextInput
-              ref={inputRef}
-              className="flex-1 h-10 text-foreground"
-              style={{ fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }}
-              value={inputText}
-              onChangeText={setInputText}
-              placeholder="Type a message..."
-              placeholderTextColor={colors.mutedForeground}
-              autoCapitalize="none"
-              autoCorrect={false}
-              multiline={false}
-              returnKeyType="send"
-              onSubmitEditing={handleSubmit}
-              blurOnSubmit={false}
-              enterKeyHint="send"
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              onPress={handleSubmit}
-              disabled={!inputText.trim()}
-            >
-              <Send size={18} color={inputText.trim() ? "#60a5fa" : colors.mutedForeground} />
-            </Button>
-          </View>
         </>
       )}
     </KeyboardAvoidingView>
