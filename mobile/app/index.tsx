@@ -135,45 +135,50 @@ export default function HomeScreen() {
     <>
       <Stack.Screen
         options={{
-          headerShown: false,
+          title: "Chell",
+          headerLeft: () => (
+            <Pressable
+              style={{ padding: 8 }}
+              onPress={() => {
+                if (isConnected) {
+                  Alert.alert(
+                    "Disconnect",
+                    `Disconnect from ${desktopDeviceName || "desktop"}?`,
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Disconnect",
+                        style: "destructive",
+                        onPress: () => {
+                          useConnectionStore.getState().disconnect();
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                        },
+                      },
+                    ]
+                  );
+                } else {
+                  router.push("/connect");
+                }
+              }}
+            >
+              {isConnected ? (
+                <Wifi size={22} color="#22c55e" />
+              ) : (
+                <WifiOff size={22} color={colors.destructive} />
+              )}
+            </Pressable>
+          ),
+          headerRight: () => (
+            <Pressable
+              onPress={() => router.push("/settings")}
+              style={{ padding: 8 }}
+            >
+              <Settings size={22} color={colors.foreground} />
+            </Pressable>
+          ),
         }}
       />
       <View className="flex-1 bg-background">
-        {/* Connection Status Header */}
-        <View
-          className="px-4 pt-14 pb-3 flex-row items-center justify-between"
-          style={{ backgroundColor: colors.background }}
-        >
-          <Pressable
-            className={`flex-row items-center px-3 py-2 rounded-full ${
-              isConnected ? "bg-primary/10" : "bg-destructive/10"
-            }`}
-            onPress={() => !isConnected && router.push("/connect")}
-          >
-            {isConnected ? (
-              <Wifi size={14} color={colors.primary} />
-            ) : (
-              <WifiOff size={14} color={colors.destructive} />
-            )}
-            <Text
-              className={`ml-2 text-xs font-medium ${
-                isConnected ? "text-primary" : "text-destructive"
-              }`}
-            >
-              {isConnected
-                ? desktopDeviceName || "Connected"
-                : "Not Connected"}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.push("/settings")}
-            className="p-2"
-          >
-            <Settings size={22} color={colors.mutedForeground} />
-          </Pressable>
-        </View>
-
         <ScrollView
           className="flex-1"
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}

@@ -66,6 +66,12 @@ function RootLayoutContent() {
           headerTitleStyle: {
             fontWeight: "600",
           },
+          headerLeftContainerStyle: {
+            paddingLeft: 8,
+          },
+          headerRightContainerStyle: {
+            paddingRight: 8,
+          },
           contentStyle: {
             backgroundColor: colors.background,
           },
