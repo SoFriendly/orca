@@ -118,7 +118,7 @@ export const usePortalStore = create<PortalState>()(
       },
 
       connect: async () => {
-        const { relayUrl, ws: existingWs, deviceName, pairingCode, pairingPassphrase } = get();
+        const { relayUrl, ws: existingWs, deviceId, deviceName, pairingCode, pairingPassphrase } = get();
 
         if (existingWs) {
           existingWs.close();
@@ -133,10 +133,11 @@ export const usePortalStore = create<PortalState>()(
             console.log("[Portal] Connected to relay");
             set({ isConnected: true, ws });
 
-            // Register desktop
+            // Register desktop with deviceId so relay can find existing session
             get().sendMessage({
               type: "register_desktop",
               id: crypto.randomUUID(),
+              deviceId,
               deviceName,
               pairingCode,
               pairingPassphrase,
@@ -373,6 +374,16 @@ export const usePortalStore = create<PortalState>()(
         deviceName: state.deviceName,
         linkedDevices: state.linkedDevices,
       }),
+      onRehydrateStorage: () => (state) => {
+        // Auto-connect if portal was enabled before app closed
+        if (state?.isEnabled) {
+          console.log("[Portal] Auto-connecting on launch (was enabled)");
+          // Slight delay to ensure app is fully initialized
+          setTimeout(() => {
+            state.connect();
+          }, 500);
+        }
+      },
     }
   )
 );

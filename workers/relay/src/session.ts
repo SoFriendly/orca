@@ -133,20 +133,23 @@ export class SessionDO implements DurableObject {
   }
 
   private async handleDesktopRegister(ws: WebSocket, message: any) {
-    const { deviceName, pairingCode, pairingPassphrase } = message;
+    const { deviceId: providedDeviceId, deviceName, pairingCode, pairingPassphrase } = message;
 
-    // Generate or use existing device ID
-    let state = this.connections.get(ws);
-    const deviceId = state?.deviceId || generateDeviceId();
+    // Use provided device ID (for reconnects) or generate new one
+    const deviceId = providedDeviceId || generateDeviceId();
 
-    // Create session data
+    // Check for existing session to preserve linked mobiles
+    const existingSession = this.sessions.get(deviceId);
+    const linkedMobiles = existingSession?.linkedMobiles || [];
+
+    // Create or update session data, preserving linked devices
     const sessionData: SessionData = {
       desktopDeviceId: deviceId,
       desktopDeviceName: deviceName,
       pairingCode,
       pairingPassphrase,
-      linkedMobiles: [],
-      createdAt: Date.now(),
+      linkedMobiles,
+      createdAt: existingSession?.createdAt || Date.now(),
       lastActivity: Date.now(),
     };
 
