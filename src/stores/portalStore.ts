@@ -49,6 +49,9 @@ interface PortalState {
   pairingPassphrase: string;
   linkedDevices: LinkedDevice[];
 
+  // Mobile-spawned terminals (only forward output for these)
+  mobileTerminalIds: Set<string>;
+
   // WebSocket
   ws: WebSocket | null;
 
@@ -94,6 +97,7 @@ export const usePortalStore = create<PortalState>()(
       pairingCode: generatePairingCode(),
       pairingPassphrase: generatePassphrase(),
       linkedDevices: [],
+      mobileTerminalIds: new Set(),
       ws: null,
 
       enable: () => {
@@ -251,6 +255,22 @@ export const usePortalStore = create<PortalState>()(
             import("@tauri-apps/api/core").then(({ invoke }) => {
               invoke(command, finalParams)
                 .then((result) => {
+                  // Track terminal IDs spawned by mobile
+                  if (command === "spawn_terminal" && typeof result === "string") {
+                    set((state) => ({
+                      mobileTerminalIds: new Set([...state.mobileTerminalIds, result]),
+                    }));
+                  }
+
+                  // Clean up killed terminal IDs
+                  if (command === "kill_terminal" && finalParams.id) {
+                    set((state) => {
+                      const newSet = new Set(state.mobileTerminalIds);
+                      newSet.delete(finalParams.id as string);
+                      return { mobileTerminalIds: newSet };
+                    });
+                  }
+
                   get().sendMessage({
                     type: "command_response",
                     id: crypto.randomUUID(),
@@ -392,11 +412,16 @@ export const usePortalStore = create<PortalState>()(
 export function setupTerminalForwarding() {
   import("@tauri-apps/api/event").then(({ listen }) => {
     // Listen for terminal output events and forward to mobile
+    // Only forward output for terminals spawned by mobile, not local desktop terminals
     listen("terminal-output", (event: { payload: { terminalId: string; data: number[] } }) => {
-      const { isConnected, sendMessage } = usePortalStore.getState();
+      const { isConnected, sendMessage, mobileTerminalIds } = usePortalStore.getState();
       if (!isConnected) return;
 
       const { terminalId, data } = event.payload;
+
+      // Only forward output for terminals spawned by mobile
+      if (!mobileTerminalIds.has(terminalId)) return;
+
       const text = new TextDecoder().decode(new Uint8Array(data));
 
       sendMessage({

@@ -31,3 +31,18 @@ export function truncate(str: string, maxLength: number): string {
   if (str.length <= maxLength) return str;
   return str.substring(0, maxLength - 3) + "...";
 }
+
+/**
+ * Strip ANSI escape codes from terminal output
+ * Handles colors, cursor movement, and other terminal control sequences
+ */
+export function stripAnsi(str: string): string {
+  // Regex matches all ANSI escape sequences:
+  // - \x1B[\[\]()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]
+  // - Also handles OSC sequences (title changes, etc.)
+  return str.replace(
+    // eslint-disable-next-line no-control-regex
+    /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\].*?(?:\x07|\x1B\\))/g,
+    ""
+  );
+}

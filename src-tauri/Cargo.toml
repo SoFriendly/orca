@@ -1,6 +1,6 @@
 [package]
 name = "chell"
-version = "0.1.26"
+version = "0.1.28"
 description = "A cross-platform visual git client with integrated terminal for AI coding assistants"
 authors = ["you"]
 edition = "2021"

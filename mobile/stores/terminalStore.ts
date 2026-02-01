@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Terminal } from "~/types";
 import { useConnectionStore } from "./connectionStore";
+import { stripAnsi } from "~/lib/utils";
 
 interface TerminalOutput {
   terminalId: string;
@@ -95,8 +96,9 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     set((state) => {
       const newOutputBuffer = new Map(state.outputBuffer);
       const existing = newOutputBuffer.get(terminalId) || [];
-      // Keep last 1000 lines
-      const newOutput = [...existing, data].slice(-1000);
+      // Strip ANSI escape codes and keep last 1000 lines
+      const cleanedData = stripAnsi(data);
+      const newOutput = [...existing, cleanedData].slice(-1000);
       newOutputBuffer.set(terminalId, newOutput);
       return { outputBuffer: newOutputBuffer };
     });
