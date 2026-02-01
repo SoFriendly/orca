@@ -97,6 +97,8 @@ export default function ProjectPage() {
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
   const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
   const tabListRef = useRef<HTMLDivElement | null>(null);
+  const draggingTabIdRef = useRef<string | null>(null);
+  const tabRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Count visible panels - must always have at least one
   const visiblePanelCount = [showGitPanel, showAssistantPanel, showShellPanel].filter(Boolean).length;
@@ -579,33 +581,60 @@ export default function ProjectPage() {
     });
   }, []);
 
-  const handleTabDragStart = (event: DragEvent<HTMLElement>, tabId: string) => {
+  // Mouse-based tab reordering (more reliable than HTML5 drag API)
+  const handleTabMouseDown = (event: React.MouseEvent, tabId: string) => {
+    // Ignore if clicking on buttons or inputs
+    const target = event.target as HTMLElement;
+    if (target.closest('button, input')) return;
+
+    event.preventDefault();
     setDraggingTabId(tabId);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", tabId);
-  };
+    draggingTabIdRef.current = tabId;
 
-  const handleTabDragOver = (event: DragEvent<HTMLDivElement>, tabId: string) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    if (dragOverTabId !== tabId) {
-      setDragOverTabId(tabId);
-    }
-  };
+    const handleMouseMove = (e: MouseEvent) => {
+      // Find which tab we're over
+      let foundTab: string | null = null;
+      tabRefs.current.forEach((el, id) => {
+        if (id !== tabId) {
+          const rect = el.getBoundingClientRect();
+          if (e.clientX >= rect.left && e.clientX <= rect.right &&
+              e.clientY >= rect.top && e.clientY <= rect.bottom) {
+            foundTab = id;
+          }
+        }
+      });
+      if (foundTab !== dragOverTabId) {
+        setDragOverTabId(foundTab);
+      }
+    };
 
-  const handleTabDrop = (event: DragEvent<HTMLDivElement>, tabId: string) => {
-    event.preventDefault();
-    const sourceId = event.dataTransfer.getData("text/plain") || draggingTabId;
-    if (sourceId && sourceId !== tabId) {
-      reorderTabs(sourceId, tabId);
-    }
-    setDraggingTabId(null);
-    setDragOverTabId(null);
-  };
+    const handleMouseUp = (e: MouseEvent) => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
 
-  const handleTabDragEnd = () => {
-    setDraggingTabId(null);
-    setDragOverTabId(null);
+      // Find which tab we're over
+      let targetTab: string | null = null;
+      tabRefs.current.forEach((el, id) => {
+        if (id !== tabId) {
+          const rect = el.getBoundingClientRect();
+          if (e.clientX >= rect.left && e.clientX <= rect.right &&
+              e.clientY >= rect.top && e.clientY <= rect.bottom) {
+            targetTab = id;
+          }
+        }
+      });
+
+      if (targetTab) {
+        reorderTabs(tabId, targetTab);
+      }
+
+      setDraggingTabId(null);
+      setDragOverTabId(null);
+      draggingTabIdRef.current = null;
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
   };
 
   // Horizontal scroll for tab list (convert vertical scroll to horizontal)
@@ -738,7 +767,8 @@ export default function ProjectPage() {
         // Only start dragging if clicking in the top 40px and not on interactive elements
         if (e.clientY <= 40) {
           const target = e.target as HTMLElement;
-          if (!target.closest('button, a, input, [role="button"], [draggable="true"]')) {
+          // Exclude tab bar area from window dragging
+          if (!target.closest('button, a, input, [role="button"], .tab-scroll')) {
             getCurrentWindow().startDragging();
           }
         }
@@ -943,20 +973,20 @@ export default function ProjectPage() {
                 {terminalTabs.map((tab) => (
                   <div
                     key={tab.id}
-                    draggable
+                    ref={(el) => {
+                      if (el) tabRefs.current.set(tab.id, el);
+                      else tabRefs.current.delete(tab.id);
+                    }}
                     className={cn(
-                      "group flex items-center gap-1 border-r border-border px-3 py-2 text-sm font-medium transition-colors cursor-pointer shrink-0",
+                      "group flex items-center gap-1 border-r border-border px-3 py-2 text-sm font-medium transition-colors cursor-grab shrink-0",
                       activeTabId === tab.id
                         ? "border-b-2 border-b-primary bg-muted/50 text-foreground"
                         : "text-muted-foreground hover:bg-muted/30 hover:text-foreground",
-                      draggingTabId === tab.id && "opacity-60",
+                      draggingTabId === tab.id && "opacity-60 cursor-grabbing",
                       dragOverTabId === tab.id && draggingTabId !== tab.id && "bg-muted/40"
                     )}
-                    onClick={() => setActiveTabId(tab.id)}
-                    onDragStart={(event) => handleTabDragStart(event, tab.id)}
-                    onDragEnd={handleTabDragEnd}
-                    onDragOver={(event) => handleTabDragOver(event, tab.id)}
-                    onDrop={(event) => handleTabDrop(event, tab.id)}
+                    onClick={() => !draggingTabId && setActiveTabId(tab.id)}
+                    onMouseDown={(event) => handleTabMouseDown(event, tab.id)}
                   >
                     <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
                     <TerminalIcon className="h-3.5 w-3.5 shrink-0" />
