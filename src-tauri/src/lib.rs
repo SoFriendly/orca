@@ -273,7 +273,13 @@ fn spawn_terminal(
                 Ok(0) => break,
                 Ok(n) => {
                     let data = buffer[..n].to_vec();
-                    let _ = handle.emit(&format!("terminal-output-{}", terminal_id), data);
+                    // Emit specific event for desktop terminal component
+                    let _ = handle.emit(&format!("terminal-output-{}", terminal_id), data.clone());
+                    // Emit generic event for portal forwarding to mobile
+                    let _ = handle.emit("terminal-output", serde_json::json!({
+                        "terminalId": terminal_id,
+                        "data": data
+                    }));
                 }
                 Err(_) => break,
             }
