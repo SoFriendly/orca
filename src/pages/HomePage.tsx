@@ -10,10 +10,10 @@ import {
   Settings,
   Trash2,
   FolderOpen,
-  Terminal,
   ArrowRight,
   HelpCircle,
 } from "lucide-react";
+import { ChellIcon } from "@/components/icons/ChellIcon";
 import ChellLogo from "@/components/ChellLogo";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -287,7 +287,7 @@ export default function HomePage() {
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <Terminal className="h-5 w-5" />
+                <ChellIcon className="h-5 w-5" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="right">Home</TooltipContent>

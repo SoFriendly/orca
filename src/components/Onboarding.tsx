@@ -17,13 +17,13 @@ import {
   RotateCcw,
   Settings,
   HelpCircle,
-  PanelRightClose,
   X,
   Folder,
   RefreshCw,
   History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ChellIcon } from "@/components/icons/ChellIcon";
 import { cn } from "@/lib/utils";
 
 interface OnboardingProps {
@@ -375,7 +375,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
                 step.highlight === "shell" ? "text-primary" : "text-foreground"
               )}>
-                <PanelRightClose className="h-5 w-5" />
+                <ChellIcon className="h-5 w-5" />
               </button>
             </div>
 
