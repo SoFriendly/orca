@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, type DragEvent, type WheelEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -8,6 +8,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   Settings,
   Terminal as TerminalIcon,
+  GripVertical,
   X,
   HelpCircle,
   Plus,
@@ -93,6 +94,9 @@ export default function ProjectPage() {
   const [showHistorySearch, setShowHistorySearch] = useState(false);
   const [shellHistory, setShellHistory] = useState<string[]>([]);
   const [showNlt, setShowNlt] = useState(false);
+  const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
+  const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
+  const tabListRef = useRef<HTMLDivElement | null>(null);
 
   // Count visible panels - must always have at least one
   const visiblePanelCount = [showGitPanel, showAssistantPanel, showShellPanel].filter(Boolean).length;
@@ -262,6 +266,9 @@ export default function ProjectPage() {
   }, [showGitPanel, showAssistantPanel, showShellPanel]);
 
   useEffect(() => {
+    // Skip if we already have this project loaded
+    if (currentProject?.id === projectId) return;
+
     const project = projects.find((p) => p.id === projectId);
     if (project) {
       setCurrentProject(project);
@@ -270,7 +277,7 @@ export default function ProjectPage() {
     } else {
       loadProjectFromBackend();
     }
-  }, [projectId, projects]);
+  }, [projectId, projects, currentProject?.id]);
 
   // Check installed assistants on mount
   useEffect(() => {
@@ -557,6 +564,62 @@ export default function ProjectPage() {
     }
   };
 
+  // Tab reordering
+  const reorderTabs = useCallback((sourceId: string, targetId: string) => {
+    setTerminalTabs((prev) => {
+      const sourceIndex = prev.findIndex((tab) => tab.id === sourceId);
+      const targetIndex = prev.findIndex((tab) => tab.id === targetId);
+      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+        return prev;
+      }
+      const next = [...prev];
+      const [moved] = next.splice(sourceIndex, 1);
+      next.splice(targetIndex, 0, moved);
+      return next;
+    });
+  }, []);
+
+  const handleTabDragStart = (event: DragEvent<HTMLElement>, tabId: string) => {
+    setDraggingTabId(tabId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", tabId);
+  };
+
+  const handleTabDragOver = (event: DragEvent<HTMLDivElement>, tabId: string) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    if (dragOverTabId !== tabId) {
+      setDragOverTabId(tabId);
+    }
+  };
+
+  const handleTabDrop = (event: DragEvent<HTMLDivElement>, tabId: string) => {
+    event.preventDefault();
+    const sourceId = event.dataTransfer.getData("text/plain") || draggingTabId;
+    if (sourceId && sourceId !== tabId) {
+      reorderTabs(sourceId, tabId);
+    }
+    setDraggingTabId(null);
+    setDragOverTabId(null);
+  };
+
+  const handleTabDragEnd = () => {
+    setDraggingTabId(null);
+    setDragOverTabId(null);
+  };
+
+  // Horizontal scroll for tab list (convert vertical scroll to horizontal)
+  const handleTabWheel = (event: WheelEvent<HTMLDivElement>) => {
+    const container = tabListRef.current;
+    if (!container) return;
+    if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+      if (container.scrollWidth > container.clientWidth) {
+        container.scrollLeft += event.deltaY;
+        event.preventDefault();
+      }
+    }
+  };
+
   const startTerminals = async (projectPath: string) => {
     try {
       // In production builds, the Tauri backend may not be fully ready when the
@@ -612,18 +675,24 @@ export default function ProjectPage() {
     }
   };
 
+  // Use ref for current project path to avoid effect dependency issues
+  const currentProjectPathRef = useRef<string | null>(null);
+  useEffect(() => {
+    currentProjectPathRef.current = currentProject?.path || null;
+  }, [currentProject?.path]);
+
   const refreshGitData = useCallback(async () => {
-    if (currentProject) {
+    const path = currentProjectPathRef.current;
+    if (path) {
       // Fetch from remote first to get new branches
       try {
-        await invoke("fetch_remote", { repoPath: currentProject.path, remote: "origin" });
-      } catch (error) {
+        await invoke("fetch_remote", { repoPath: path, remote: "origin" });
+      } catch {
         // Silently continue - fetch may fail if no remote configured
-        console.log("Fetch failed (may not have remote):", error);
       }
-      loadGitData(currentProject.path);
+      loadGitData(path);
     }
-  }, [currentProject]);
+  }, []);
 
   useEffect(() => {
     const unlisten = listen("git-refresh", () => {
@@ -633,30 +702,24 @@ export default function ProjectPage() {
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [currentProject]);
+  }, [refreshGitData]);
 
   // Auto-fetch remote when enabled (every 60 seconds)
   useEffect(() => {
     if (!autoFetchRemote || !currentProject) return;
 
-    const fetchRemote = async () => {
-      try {
-        await invoke("fetch_remote", { repoPath: currentProject.path, remote: "origin" });
-        refreshGitData();
-      } catch (error) {
-        // Silently fail - this is background operation
-        console.error("Auto-fetch failed:", error);
+    // Set up interval for periodic fetching (don't fetch immediately to avoid loops)
+    const interval = setInterval(() => {
+      const path = currentProjectPathRef.current;
+      if (path) {
+        invoke("fetch_remote", { repoPath: path, remote: "origin" })
+          .then(() => refreshGitData())
+          .catch(() => {});
       }
-    };
-
-    // Initial fetch
-    fetchRemote();
-
-    // Set up interval for periodic fetching
-    const interval = setInterval(fetchRemote, 60000);
+    }, 60000);
 
     return () => clearInterval(interval);
-  }, [autoFetchRemote, currentProject, refreshGitData]);
+  }, [autoFetchRemote, currentProject?.path, refreshGitData]);
 
   if (!currentProject) {
     return (
@@ -675,7 +738,7 @@ export default function ProjectPage() {
         // Only start dragging if clicking in the top 40px and not on interactive elements
         if (e.clientY <= 40) {
           const target = e.target as HTMLElement;
-          if (!target.closest('button, a, input, [role="button"]')) {
+          if (!target.closest('button, a, input, [role="button"], [draggable="true"]')) {
             getCurrentWindow().startDragging();
           }
         }
@@ -871,20 +934,33 @@ export default function ProjectPage() {
           <div className="flex h-full flex-col select-none overflow-hidden">
           {/* Tab bar */}
           <div className="flex h-10 items-center border-b border-border">
-            <div className="flex flex-1 items-center overflow-x-auto">
-              {terminalTabs.map((tab) => (
-                <div
-                  key={tab.id}
-                  className={cn(
-                    "group flex items-center gap-1 border-r border-border px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
-                    activeTabId === tab.id
-                      ? "border-b-2 border-b-primary bg-muted/50 text-foreground"
-                      : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
-                  )}
-                  onClick={() => setActiveTabId(tab.id)}
-                >
-                  <TerminalIcon className="h-3.5 w-3.5 shrink-0" />
-                  {editingTabId === tab.id ? (
+            <div
+              ref={tabListRef}
+              className="tab-scroll flex flex-1 items-center"
+              onWheel={handleTabWheel}
+            >
+              <div className="flex min-w-max items-center">
+                {terminalTabs.map((tab) => (
+                  <div
+                    key={tab.id}
+                    draggable
+                    className={cn(
+                      "group flex items-center gap-1 border-r border-border px-3 py-2 text-sm font-medium transition-colors cursor-pointer shrink-0",
+                      activeTabId === tab.id
+                        ? "border-b-2 border-b-primary bg-muted/50 text-foreground"
+                        : "text-muted-foreground hover:bg-muted/30 hover:text-foreground",
+                      draggingTabId === tab.id && "opacity-60",
+                      dragOverTabId === tab.id && draggingTabId !== tab.id && "bg-muted/40"
+                    )}
+                    onClick={() => setActiveTabId(tab.id)}
+                    onDragStart={(event) => handleTabDragStart(event, tab.id)}
+                    onDragEnd={handleTabDragEnd}
+                    onDragOver={(event) => handleTabDragOver(event, tab.id)}
+                    onDrop={(event) => handleTabDrop(event, tab.id)}
+                  >
+                    <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+                    <TerminalIcon className="h-3.5 w-3.5 shrink-0" />
+                    {editingTabId === tab.id ? (
                     <Input
                       ref={editInputRef}
                       value={editingTabName}
@@ -914,8 +990,9 @@ export default function ProjectPage() {
                   >
                     <X className="h-3 w-3" />
                   </button>
-                </div>
-              ))}
+                  </div>
+                ))}
+              </div>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

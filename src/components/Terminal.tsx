@@ -8,7 +8,7 @@ import { CanvasAddon } from "@xterm/addon-canvas";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { open } from "@tauri-apps/plugin-shell";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useSettingsStore } from "@/stores/settingsStore";
 import "@xterm/xterm/css/xterm.css";
 
@@ -104,6 +104,7 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
   const theme = useSettingsStore((state) => state.theme);
   const hasSpawnedRef = useRef(false);
 
+
   // Phase 1: Wait for container to have stable dimensions
   // This is critical - ResizablePanelGroup takes time to calculate final layout
   useEffect(() => {
@@ -155,7 +156,6 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
         const width = containerRef.current.offsetWidth;
         const height = containerRef.current.offsetHeight;
         if (width > 0 && height > 0) {
-          console.warn("[Terminal] Forcing container ready after timeout");
           setIsContainerReady(true);
         }
       }
@@ -194,7 +194,7 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modifierPressed = isMac ? event.metaKey : event.ctrlKey;
       if (modifierPressed) {
-        open(uri).catch(console.error);
+        openUrl(uri).catch(console.error);
       }
     });
     const unicode11Addon = new Unicode11Addon();
@@ -362,11 +362,9 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
         try {
           fitAddon.fit();
           const { cols, rows } = terminal;
-          console.log(`[Terminal] Initial fit: ${cols}x${rows}, container: ${containerRef.current?.offsetWidth}x${containerRef.current?.offsetHeight}`);
           setInitialDimensions({ cols, rows });
-        } catch (e) {
+        } catch {
           // Fallback dimensions
-          console.warn("[Terminal] Fit failed, using fallback 80x24:", e);
           setInitialDimensions({ cols: 80, rows: 24 });
         }
       });
@@ -392,6 +390,7 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
       return;
     }
 
+    invoke("debug_log", { message: `[Terminal] Spawning new terminal with dims ${initialDimensions.cols}x${initialDimensions.rows}` });
     hasSpawnedRef.current = true;
     let isMounted = true;
     let retryCount = 0;
