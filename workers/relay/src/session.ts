@@ -115,6 +115,10 @@ export class SessionDO implements DurableObject {
         await this.handleStatusUpdate(ws, message);
         break;
 
+      case "request_status":
+        await this.handleRequestStatus(ws, message);
+        break;
+
       case "ping":
         ws.send(JSON.stringify({ type: "pong", id: message.id, timestamp: Date.now() }));
         break;
@@ -413,6 +417,27 @@ export class SessionDO implements DurableObject {
         break;
       }
     }
+  }
+
+  private async handleRequestStatus(ws: WebSocket, message: any) {
+    const { sessionToken } = message;
+
+    // Find desktop for this session
+    const desktopWs = this.desktopBySession.get(sessionToken);
+    if (!desktopWs) {
+      this.sendError(ws, "DESKTOP_OFFLINE", "Desktop is not connected");
+      return;
+    }
+
+    // Forward request to desktop
+    desktopWs.send(
+      JSON.stringify({
+        type: "request_status",
+        id: message.id,
+        timestamp: Date.now(),
+        sessionToken,
+      })
+    );
   }
 
   private handleDisconnect(ws: WebSocket) {

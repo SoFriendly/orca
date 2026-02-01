@@ -395,12 +395,9 @@ export const useConnectionStore = create<ConnectionStore>()(
       requestStatus: () => {
         try {
           const ws = getWebSocket();
-          ws.send({
-            type: "request_status",
-            id: Math.random().toString(36).substring(2, 15),
-          });
+          ws.requestStatus();
         } catch {
-          // WebSocket not initialized
+          // WebSocket not initialized or not authenticated
         }
       },
 

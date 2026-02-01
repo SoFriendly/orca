@@ -210,6 +210,19 @@ export class ChellWebSocket {
     this.send(message);
   }
 
+  // Request status update from desktop
+  requestStatus(): void {
+    if (!this.sessionToken) {
+      throw new Error("Not authenticated");
+    }
+
+    this.send({
+      type: "request_status",
+      id: generateId(),
+      sessionToken: this.sessionToken,
+    } as any);
+  }
+
   // Event handlers
   onMessage(handler: MessageHandler): () => void {
     this.messageHandlers.add(handler);
