@@ -85,13 +85,14 @@ export default function AssistantTabPage() {
     if (!isConnected) return;
 
     try {
-      const installed = await invoke<Record<string, boolean>>(
+      // Returns array of installed command names like ["claude", "aider"]
+      const installedCommands = await invoke<string[]>(
         "check_installed_assistants"
       );
 
       const assistantList: Assistant[] = KNOWN_ASSISTANTS.map((a) => ({
         ...a,
-        installed: installed[a.id] || false,
+        installed: installedCommands.includes(a.command),
       }));
 
       // Always add shell
