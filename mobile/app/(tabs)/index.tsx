@@ -284,11 +284,14 @@ export default function GitTabPage() {
         <CardContent className="flex-row items-center justify-between py-3">
           <Button
             variant="ghost"
-            className="flex-row items-center"
+            className="flex-row items-center flex-1 mr-2"
             onPress={() => setShowBranchPicker(!showBranchPicker)}
           >
             <GitBranch size={18} color="#a78bfa" />
-            <Text className="text-foreground font-medium ml-2">
+            <Text
+              className="text-foreground font-medium ml-2 flex-1"
+              numberOfLines={1}
+            >
               {gitStatus?.branch || "main"}
             </Text>
             <ChevronDown size={16} color={colors.mutedForeground} />

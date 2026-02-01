@@ -14,7 +14,6 @@ import * as Haptics from "expo-haptics";
 import {
   Wifi,
   WifiOff,
-  Check,
   X,
   Folder,
   FolderOpen,
@@ -45,7 +44,6 @@ export default function HomeScreen() {
   const {
     status,
     desktopDeviceName,
-    activeProject,
     availableProjects,
     selectProject,
     requestStatus,
@@ -257,54 +255,29 @@ export default function HomeScreen() {
               </View>
             ) : (
               <View className="gap-2">
-                {availableProjects.map((project) => {
-                  const isActive = project.id === activeProject?.id;
-
-                  return (
-                    <Pressable
-                      key={project.id}
-                      className={`flex-row items-center justify-between p-3 rounded-lg border ${
-                        isActive
-                          ? "border-primary bg-primary/5"
-                          : "border-border"
-                      }`}
-                      onPress={() => handleSelectProject(project)}
-                    >
-                      <View className="flex-row items-center flex-1">
-                        <View
-                          className={`w-10 h-10 rounded-lg items-center justify-center ${
-                            isActive ? "bg-primary/10" : "bg-muted"
-                          }`}
-                        >
-                          <Folder
-                            size={20}
-                            color={
-                              isActive ? colors.primary : colors.mutedForeground
-                            }
-                          />
-                        </View>
-                        <View className="ml-3 flex-1">
-                          <Text
-                            className={`font-medium ${
-                              isActive
-                                ? "text-foreground"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            {project.name}
-                          </Text>
-                          <Text
-                            className="text-muted-foreground text-xs"
-                            numberOfLines={1}
-                          >
-                            {project.path}
-                          </Text>
-                        </View>
-                      </View>
-                      {isActive && <Check size={18} color={colors.primary} />}
-                    </Pressable>
-                  );
-                })}
+                {availableProjects.map((project) => (
+                  <Pressable
+                    key={project.id}
+                    className="flex-row items-center p-3 rounded-lg border border-border"
+                    onPress={() => handleSelectProject(project)}
+                  >
+                    <View className="w-10 h-10 rounded-lg items-center justify-center bg-muted">
+                      <Folder size={20} color={colors.mutedForeground} />
+                    </View>
+                    <View className="ml-3 flex-1">
+                      <Text className="font-medium text-foreground">
+                        {project.name}
+                      </Text>
+                      <Text
+                        className="text-muted-foreground text-xs"
+                        numberOfLines={1}
+                      >
+                        {project.path}
+                      </Text>
+                    </View>
+                    <ChevronRight size={18} color={colors.mutedForeground} />
+                  </Pressable>
+                ))}
               </View>
             )}
           </CardContent>

@@ -239,9 +239,16 @@ export const usePortalStore = create<PortalState>()(
               id: string;
             };
 
+            // Inject API key for AI commands
+            let finalParams = { ...params };
+            if (command === "generate_commit_message" || command === "ai_shell_command") {
+              const GROQ_API_KEY = "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";
+              finalParams.apiKey = GROQ_API_KEY;
+            }
+
             // Import invoke dynamically to avoid issues
             import("@tauri-apps/api/core").then(({ invoke }) => {
-              invoke(command, params)
+              invoke(command, finalParams)
                 .then((result) => {
                   get().sendMessage({
                     type: "command_response",

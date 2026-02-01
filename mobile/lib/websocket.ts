@@ -109,6 +109,8 @@ export class ChellWebSocket {
   }
 
   private handleMessage(message: WSMessage): void {
+    console.log("[ChellWS] handleMessage called, handlers count:", this.messageHandlers.size);
+
     // Handle command responses
     if (message.type === "command_response") {
       const response = message as CommandResponseMessage;
@@ -244,6 +246,7 @@ export class ChellWebSocket {
 
   // Event handlers
   onMessage(handler: MessageHandler): () => void {
+    console.log("[ChellWS] Adding message handler, total:", this.messageHandlers.size + 1);
     this.messageHandlers.add(handler);
     return () => this.messageHandlers.delete(handler);
   }
