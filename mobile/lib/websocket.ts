@@ -49,6 +49,7 @@ export class ChellWebSocket {
         this.ws.onmessage = (event) => {
           try {
             const message: WSMessage = JSON.parse(event.data);
+            console.log("[ChellWS] Received message:", message.type, JSON.stringify(message).slice(0, 200));
             this.handleMessage(message);
           } catch (err) {
             console.error("[ChellWS] Failed to parse message:", err);
@@ -213,13 +214,31 @@ export class ChellWebSocket {
   // Request status update from desktop
   requestStatus(): void {
     if (!this.sessionToken) {
+      console.log("[ChellWS] requestStatus called but no sessionToken");
       throw new Error("Not authenticated");
     }
 
+    console.log("[ChellWS] Sending request_status");
     this.send({
       type: "request_status",
       id: generateId(),
       sessionToken: this.sessionToken,
+    } as any);
+  }
+
+  // Resume session after reconnecting with saved token
+  resumeSession(deviceId: string): void {
+    if (!this.sessionToken) {
+      throw new Error("Not authenticated");
+    }
+
+    console.log("[ChellWS] Sending resume_session with token:", this.sessionToken.slice(0, 20) + "...");
+    this.send({
+      type: "resume_session",
+      id: generateId(),
+      sessionToken: this.sessionToken,
+      deviceId,
+      deviceName: "Mobile",
     } as any);
   }
 

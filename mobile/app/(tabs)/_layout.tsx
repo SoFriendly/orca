@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
-import { GitBranch, Terminal, Bot, Settings } from "lucide-react-native";
+import { GitBranch, Terminal, Bot } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "~/components/ThemeProvider";
 import { useConnectionStore } from "~/stores/connectionStore";
 import { View, Text } from "react-native";
@@ -7,6 +8,7 @@ import { View, Text } from "react-native";
 export default function TabsLayout() {
   const { colors } = useTheme();
   const { status } = useConnectionStore();
+  const insets = useSafeAreaInsets();
 
   const isConnected = status === "connected";
 
@@ -24,8 +26,8 @@ export default function TabsLayout() {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
+          height: 60 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
           paddingTop: 8,
         },
         tabBarActiveTintColor: colors.primary,
@@ -69,16 +71,6 @@ export default function TabsLayout() {
           title: "Assistant",
           headerTitle: "AI Assistant",
           tabBarIcon: ({ color, size }) => <Bot size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Settings",
-          headerTitle: "Settings",
-          tabBarIcon: ({ color, size }) => (
-            <Settings size={size} color={color} />
-          ),
         }}
       />
     </Tabs>

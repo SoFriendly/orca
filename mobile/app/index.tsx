@@ -22,7 +22,9 @@ import {
   Download,
   ChevronRight,
   Monitor,
+  Settings,
 } from "lucide-react-native";
+import { Stack } from "expo-router";
 import {
   useConnectionStore,
   DesktopProject,
@@ -123,16 +125,29 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerStyle={{ padding: 16 }}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={colors.primary}
-        />
-      }
+    <>
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <Pressable
+              onPress={() => router.push("/settings")}
+              className="p-2 mr-2"
+            >
+              <Settings size={22} color={colors.foreground} />
+            </Pressable>
+          ),
+        }}
+      />
+      <ScrollView
+        className="flex-1 bg-background"
+        contentContainerStyle={{ padding: 16 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
     >
       {/* Connection Status Banner */}
       <Pressable
@@ -384,5 +399,6 @@ export default function HomeScreen() {
         </View>
       </Modal>
     </ScrollView>
+    </>
   );
 }

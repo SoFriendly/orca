@@ -93,6 +93,12 @@ function RootLayoutContent() {
           }}
         />
         <Stack.Screen
+          name="settings"
+          options={{
+            title: "Settings",
+          }}
+        />
+        <Stack.Screen
           name="connect"
           options={{
             title: "Connect",

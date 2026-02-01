@@ -145,9 +145,12 @@ export const useConnectionStore = create<ConnectionStore>()(
 
               case "status_update":
                 // Update portal online status and project list
+                console.log("[ConnectionStore] Received status_update:", JSON.stringify(message).slice(0, 300));
+                console.log("[ConnectionStore] Projects in message:", (message as any).projects);
                 if (message.connectionStatus === "connected") {
                   const projects = (message.projects as DesktopProject[]) || [];
                   const activeProjectId = message.activeProjectId as string | undefined;
+                  console.log("[ConnectionStore] Parsed projects:", projects.length, projects);
 
                   // Find active project from list
                   const activeProject = activeProjectId
@@ -211,11 +214,18 @@ export const useConnectionStore = create<ConnectionStore>()(
 
           // If we have a saved session token for the active portal, try to reconnect
           if (activePortalId) {
+            console.log("[ConnectionStore] Checking for saved token for portal:", activePortalId);
             const savedToken = await SecureStore.getItemAsync(
               SECURE_TOKEN_PREFIX + activePortalId
             );
+            console.log("[ConnectionStore] Saved token found:", !!savedToken);
             if (savedToken) {
               ws.setSessionToken(savedToken);
+
+              // Resume session with relay so it knows to forward messages to us
+              console.log("[ConnectionStore] Resuming session...");
+              ws.resumeSession(get().deviceId || "mobile");
+
               set({
                 status: "connected",
                 sessionToken: savedToken,

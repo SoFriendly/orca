@@ -119,6 +119,10 @@ export class SessionDO implements DurableObject {
         await this.handleRequestStatus(ws, message);
         break;
 
+      case "resume_session":
+        await this.handleResumeSession(ws, message);
+        break;
+
       case "ping":
         ws.send(JSON.stringify({ type: "pong", id: message.id, timestamp: Date.now() }));
         break;
@@ -159,6 +163,14 @@ export class SessionDO implements DurableObject {
 
     // Map passphrase to desktop
     this.desktopByPassphrase.set(pairingPassphrase, ws);
+
+    // Restore session mappings for existing linked mobiles
+    // This allows request_status to work after desktop reconnects
+    for (const mobile of sessionData.linkedMobiles) {
+      if (mobile.sessionToken) {
+        this.desktopBySession.set(mobile.sessionToken, ws);
+      }
+    }
 
     // Send confirmation
     ws.send(
@@ -212,6 +224,7 @@ export class SessionDO implements DurableObject {
       type: "mobile",
       pairedAt: Date.now(),
       lastSeen: Date.now(),
+      sessionToken,
     };
     session.linkedMobiles.push(linkedDevice);
     session.lastActivity = Date.now();
@@ -438,6 +451,52 @@ export class SessionDO implements DurableObject {
         sessionToken,
       })
     );
+  }
+
+  private async handleResumeSession(ws: WebSocket, message: any) {
+    const { sessionToken, deviceId, deviceName } = message;
+
+    if (!sessionToken) {
+      this.sendError(ws, "INVALID_SESSION", "Session token required");
+      return;
+    }
+
+    // Track mobile connection
+    this.connections.set(ws, {
+      type: "mobile",
+      deviceId: deviceId || "unknown",
+      deviceName: deviceName || "Mobile",
+      sessionToken,
+    });
+
+    // Add to mobilesBySession so it can receive messages
+    if (!this.mobilesBySession.has(sessionToken)) {
+      this.mobilesBySession.set(sessionToken, new Set());
+    }
+    this.mobilesBySession.get(sessionToken)!.add(ws);
+
+    // Send confirmation
+    ws.send(
+      JSON.stringify({
+        type: "session_resumed",
+        id: message.id,
+        timestamp: Date.now(),
+        success: true,
+      })
+    );
+
+    // If desktop is connected, request status update
+    const desktopWs = this.desktopBySession.get(sessionToken);
+    if (desktopWs) {
+      desktopWs.send(
+        JSON.stringify({
+          type: "request_status",
+          id: generateMessageId(),
+          timestamp: Date.now(),
+          sessionToken,
+        })
+      );
+    }
   }
 
   private handleDisconnect(ws: WebSocket) {

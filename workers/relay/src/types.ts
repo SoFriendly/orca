@@ -153,6 +153,7 @@ export interface LinkedDevice {
   type: "mobile";
   pairedAt: number;
   lastSeen: number;
+  sessionToken: string; // Token used for routing messages
 }
 
 export interface LinkedPortal {
