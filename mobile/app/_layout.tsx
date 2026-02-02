@@ -99,6 +99,7 @@ function RootLayoutContent() {
           name="settings"
           options={{
             title: "Settings",
+            headerBackTitleVisible: false,
           }}
         />
         <Stack.Screen

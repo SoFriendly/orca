@@ -28,6 +28,9 @@ import {
   Keyboard as KeyboardIcon,
   ChevronDown,
   ChevronUp,
+  Monitor,
+  Smartphone,
+  Link,
 } from "lucide-react-native";
 import { useConnectionStore } from "~/stores/connectionStore";
 import { useTerminalStore } from "~/stores/terminalStore";
@@ -57,7 +60,7 @@ const TERMINAL_THEMES = {
 export default function TerminalTabPage() {
   const router = useRouter();
   const { colors, theme: appTheme } = useTheme();
-  const { status, activeProject } = useConnectionStore();
+  const { status, activeProject, remoteTerminals } = useConnectionStore();
 
   // Get terminal-specific colors based on app theme
   const terminalColors = TERMINAL_THEMES[appTheme === "custom" ? "dark" : appTheme] || TERMINAL_THEMES.dark;
@@ -69,6 +72,8 @@ export default function TerminalTabPage() {
     setActiveTerminal,
     sendInput,
     getOutput,
+    attachRemoteTerminal,
+    detachRemoteTerminal,
   } = useTerminalStore();
 
   const [input, setInput] = useState("");
@@ -102,6 +107,9 @@ export default function TerminalTabPage() {
   const [projectContext, setProjectContext] = useState<ProjectContext | null>(null);
   const [hasAutoLaunched, setHasAutoLaunched] = useState(false);
 
+  // Remote terminals panel state
+  const [showRemoteTerminals, setShowRemoteTerminals] = useState(false);
+
   const isConnected = status === "connected";
   const projectPath = activeProject?.path || "";
   const { invoke } = useConnectionStore();
@@ -131,9 +139,26 @@ export default function TerminalTabPage() {
   };
 
   const handleCloseTerminal = async (terminalId: string) => {
-    await killTerminal(terminalId);
+    const terminal = terminals.find((t) => t.id === terminalId);
+    if (terminal?.source === "remote") {
+      // Just detach from remote terminal (don't kill it on desktop)
+      detachRemoteTerminal(terminalId);
+    } else {
+      // Kill mobile-spawned terminal
+      await killTerminal(terminalId);
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
+
+  const handleAttachRemoteTerminal = (remoteTerminal: { id: string; title: string; cwd: string }) => {
+    attachRemoteTerminal(remoteTerminal);
+    setShowRemoteTerminals(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  // Filter remote terminals to only show ones not already attached
+  const attachedTerminalIds = new Set(terminals.map((t) => t.id));
+  const availableRemoteTerminals = remoteTerminals.filter((rt) => !attachedTerminalIds.has(rt.id));
 
   const handleSend = useCallback(() => {
     if (!activeTerminalId || !input.trim()) return;
@@ -329,16 +354,25 @@ export default function TerminalTabPage() {
               }`}
               onPress={() => setActiveTerminal(terminal.id)}
             >
-              <TerminalIcon
-                size={14}
-                color={terminal.id === activeTerminalId ? colors.foreground : colors.mutedForeground}
-              />
+              {/* Show different icon for remote vs mobile terminals */}
+              {terminal.source === "remote" ? (
+                <Monitor
+                  size={14}
+                  color={terminal.id === activeTerminalId ? colors.primary : colors.mutedForeground}
+                />
+              ) : (
+                <Smartphone
+                  size={14}
+                  color={terminal.id === activeTerminalId ? colors.foreground : colors.mutedForeground}
+                />
+              )}
               <Text
                 className={`ml-2 text-sm ${
                   terminal.id === activeTerminalId
                     ? "text-foreground"
                     : "text-muted-foreground"
                 }`}
+                numberOfLines={1}
               >
                 {terminal.title}
               </Text>
@@ -351,10 +385,54 @@ export default function TerminalTabPage() {
             </Pressable>
           ))}
         </ScrollView>
+        {/* Button to attach to remote desktop terminals */}
+        {availableRemoteTerminals.length > 0 && (
+          <Button
+            variant={showRemoteTerminals ? "secondary" : "ghost"}
+            size="icon"
+            onPress={() => setShowRemoteTerminals(!showRemoteTerminals)}
+            className="mr-1"
+          >
+            <Link size={18} color={colors.primary} />
+          </Button>
+        )}
         <Button variant="ghost" size="icon" onPress={handleNewTerminal}>
           <Plus size={18} color={colors.foreground} />
         </Button>
       </View>
+
+      {/* Remote Desktop Terminals Panel */}
+      {showRemoteTerminals && availableRemoteTerminals.length > 0 && (
+        <View className="border-b border-border bg-card p-3">
+          <View className="flex-row items-center mb-2">
+            <Monitor size={16} color={colors.primary} />
+            <Text className="text-foreground font-medium ml-2 text-sm">
+              Desktop Terminal Sessions
+            </Text>
+          </View>
+          <Text className="text-muted-foreground text-xs mb-2">
+            Tap to attach to an existing desktop terminal
+          </Text>
+          {availableRemoteTerminals.map((rt) => (
+            <Pressable
+              key={rt.id}
+              className="flex-row items-center p-2 rounded-md bg-secondary mb-1"
+              onPress={() => handleAttachRemoteTerminal(rt)}
+            >
+              <TerminalIcon size={14} color={colors.foreground} />
+              <View className="ml-2 flex-1">
+                <Text className="text-foreground text-sm" numberOfLines={1}>
+                  {rt.title}
+                </Text>
+                <Text className="text-muted-foreground text-xs" numberOfLines={1}>
+                  {rt.cwd}
+                </Text>
+              </View>
+              <Link size={14} color={colors.primary} />
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       {/* Terminal Output */}
       <ScrollView
@@ -365,13 +443,22 @@ export default function TerminalTabPage() {
       >
         {output.length === 0 ? (
           <View className="items-center justify-center py-8">
-            <TerminalIcon size={32} color={terminalColors.muted} />
+            {activeTerminal?.source === "remote" ? (
+              <Monitor size={32} color={terminalColors.muted} />
+            ) : (
+              <TerminalIcon size={32} color={terminalColors.muted} />
+            )}
             <Text style={{ color: terminalColors.muted }} className="mt-4">
-              Terminal ready
+              {activeTerminal?.source === "remote" ? "Remote session attached" : "Terminal ready"}
             </Text>
             <Text style={{ color: terminalColors.muted }} className="text-sm mt-1">
               {activeTerminal?.cwd}
             </Text>
+            {activeTerminal?.source === "remote" && (
+              <Text style={{ color: colors.primary }} className="text-xs mt-2">
+                Connected to desktop terminal
+              </Text>
+            )}
           </View>
         ) : (
           // Join all chunks, normalize line endings, and split into actual lines
@@ -471,7 +558,7 @@ export default function TerminalTabPage() {
           onPress={() => setShowNLT(!showNLT)}
           className="mr-2"
         >
-          <Sparkles size={14} color={colors.info} />
+          <Sparkles size={14} color={colors.primary} />
         </Button>
         <Button
           variant="ghost"
@@ -479,7 +566,7 @@ export default function TerminalTabPage() {
           onPress={handleCtrlC}
           className="mr-2"
         >
-          <Text style={{ color: colors.info, fontFamily: "JetBrainsMono-NF", fontWeight: "bold" }} className="text-base">^C</Text>
+          <Text style={{ color: colors.primary, fontFamily: "JetBrainsMono-NF", fontWeight: "bold" }} className="text-base">^C</Text>
         </Button>
         <Button
           variant="ghost"
@@ -487,7 +574,7 @@ export default function TerminalTabPage() {
           onPress={handleEsc}
           className="mr-2"
         >
-          <Text style={{ color: colors.info, fontWeight: "bold" }} className="text-base">ESC</Text>
+          <Text style={{ color: colors.primary, fontWeight: "bold" }} className="text-base">ESC</Text>
         </Button>
         <Button
           variant="ghost"
@@ -495,7 +582,7 @@ export default function TerminalTabPage() {
           onPress={handleNewLine}
           className="mr-2"
         >
-          <CornerDownLeft size={20} color={colors.info} />
+          <CornerDownLeft size={20} color={colors.primary} />
         </Button>
         <Button
           variant="ghost"
@@ -503,7 +590,7 @@ export default function TerminalTabPage() {
           onPress={handleArrowUp}
           className="mr-2"
         >
-          <ArrowUp size={20} color={colors.info} />
+          <ArrowUp size={20} color={colors.primary} />
         </Button>
         <Button
           variant="ghost"
@@ -511,7 +598,7 @@ export default function TerminalTabPage() {
           onPress={handleArrowDown}
           className="mr-2"
         >
-          <ArrowDown size={20} color={colors.info} />
+          <ArrowDown size={20} color={colors.primary} />
         </Button>
         <Button
           variant="ghost"
@@ -519,7 +606,7 @@ export default function TerminalTabPage() {
           onPress={handleArrowLeft}
           className="mr-2"
         >
-          <ArrowLeft size={20} color={colors.info} />
+          <ArrowLeft size={20} color={colors.primary} />
         </Button>
         <Button
           variant="ghost"
@@ -527,7 +614,7 @@ export default function TerminalTabPage() {
           onPress={handleArrowRight}
           className="mr-2"
         >
-          <ArrowRight size={20} color={colors.info} />
+          <ArrowRight size={20} color={colors.primary} />
         </Button>
         <View className="flex-1" />
         <Button
@@ -542,11 +629,11 @@ export default function TerminalTabPage() {
           }}
           className="flex-row items-center"
         >
-          <KeyboardIcon size={18} color={colors.info} />
+          <KeyboardIcon size={18} color={colors.primary} />
           {isKeyboardVisible ? (
-            <ChevronDown size={14} color={colors.info} style={{ marginLeft: 4 }} />
+            <ChevronDown size={14} color={colors.primary} style={{ marginLeft: 4 }} />
           ) : (
-            <ChevronUp size={14} color={colors.info} style={{ marginLeft: 4 }} />
+            <ChevronUp size={14} color={colors.primary} style={{ marginLeft: 4 }} />
           )}
         </Button>
       </View>

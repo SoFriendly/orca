@@ -37,6 +37,10 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Semantic colors
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
+        info: "hsl(var(--info))",
       },
     },
   },

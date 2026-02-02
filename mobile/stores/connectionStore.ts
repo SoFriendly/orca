@@ -3,7 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import * as Device from "expo-device";
-import type { ConnectionState, Project, GitStatus, WSMessage } from "~/types";
+import type { ConnectionState, Project, GitStatus, WSMessage, RemoteTerminal } from "~/types";
 import { initWebSocket, getWebSocket, ChellWebSocket } from "~/lib/websocket";
 
 // Linked portal (desktop) info
@@ -21,6 +21,7 @@ export interface DesktopProject {
   id: string;
   name: string;
   path: string;
+  lastOpened?: number;
 }
 
 interface ConnectionStore extends ConnectionState {
@@ -35,6 +36,9 @@ interface ConnectionStore extends ConnectionState {
 
   // Project list from desktop
   availableProjects: DesktopProject[];
+
+  // Remote desktop terminals
+  remoteTerminals: RemoteTerminal[];
 
   // Actions
   setWsUrl: (url: string) => void;
@@ -57,6 +61,10 @@ interface ConnectionStore extends ConnectionState {
   // Remote commands (proxy to desktop)
   invoke: <T>(command: string, params?: Record<string, unknown>) => Promise<T>;
   sendTerminalInput: (terminalId: string, data: string) => void;
+
+  // Remote terminal management
+  attachTerminal: (terminalId: string) => void;
+  detachTerminal: (terminalId: string) => void;
 }
 
 const SECURE_TOKEN_PREFIX = "chell_session_";
@@ -119,13 +127,16 @@ function setupMessageHandler(
         break;
 
       case "status_update":
-        // Update portal online status and project list
+        // Update portal online status, project list, and remote terminals
         console.log("[ConnectionStore] Received status_update:", JSON.stringify(message).slice(0, 300));
         console.log("[ConnectionStore] Projects in message:", (message as any).projects);
+        console.log("[ConnectionStore] Terminals in message:", (message as any).terminals);
         if (message.connectionStatus === "connected") {
           const projects = (message.projects as DesktopProject[]) || [];
+          const terminals = ((message as any).terminals as RemoteTerminal[]) || [];
           const activeProjectId = message.activeProjectId as string | undefined;
           console.log("[ConnectionStore] Parsed projects:", projects.length, projects);
+          console.log("[ConnectionStore] Parsed terminals:", terminals.length, terminals);
 
           // Find active project from list
           const activeProject = activeProjectId
@@ -134,6 +145,7 @@ function setupMessageHandler(
 
           set((state) => ({
             availableProjects: projects,
+            remoteTerminals: terminals,
             activeProject: activeProject
               ? { ...activeProject, lastOpened: "" }
               : state.activeProject,
@@ -224,6 +236,7 @@ export const useConnectionStore = create<ConnectionStore>()(
       linkedPortals: [],
       activePortalId: null,
       availableProjects: [],
+      remoteTerminals: [],
 
       setWsUrl: (url: string) => set({ wsUrl: url }),
 
@@ -424,6 +437,34 @@ export const useConnectionStore = create<ConnectionStore>()(
           ws.sendTerminalInput(terminalId, data);
         } catch (err) {
           console.error("[ConnectionStore] sendTerminalInput failed:", err);
+        }
+      },
+
+      attachTerminal: (terminalId: string) => {
+        try {
+          const ws = getWebSocket();
+          ws.send({
+            type: "attach_terminal",
+            id: Math.random().toString(36).substring(2, 15),
+            terminalId,
+          });
+          console.log("[ConnectionStore] Attaching to remote terminal:", terminalId);
+        } catch (err) {
+          console.error("[ConnectionStore] attachTerminal failed:", err);
+        }
+      },
+
+      detachTerminal: (terminalId: string) => {
+        try {
+          const ws = getWebSocket();
+          ws.send({
+            type: "detach_terminal",
+            id: Math.random().toString(36).substring(2, 15),
+            terminalId,
+          });
+          console.log("[ConnectionStore] Detaching from remote terminal:", terminalId);
+        } catch (err) {
+          console.error("[ConnectionStore] detachTerminal failed:", err);
         }
       },
     }),

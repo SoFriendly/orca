@@ -170,12 +170,12 @@ export const useGitStore = create<GitStore>((set, get) => ({
     const { invoke } = useConnectionStore.getState();
     console.log("[GitStore] generateCommitMessage called with", diffs.length, "diffs");
     try {
-      const result = await invoke<{ title: string; body: string }>(
+      const result = await invoke<{ subject: string; description: string }>(
         "generate_commit_message",
         { diffs }
       );
       console.log("[GitStore] Got result:", result);
-      return { subject: result.title, description: result.body || "" };
+      return { subject: result.subject, description: result.description || "" };
     } catch (err) {
       console.error("[GitStore] generateCommitMessage error:", err);
       throw new Error(

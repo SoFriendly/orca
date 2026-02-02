@@ -1,116 +1,72 @@
-import * as React from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
-import { cn } from "~/lib/utils";
+import { Text, TextClassContext } from '~/components/ui/text';
+import { cn } from '~/lib/utils';
+import * as TabsPrimitive from '@rn-primitives/tabs';
+import * as React from 'react';
+import { Platform } from 'react-native';
 
-interface TabsContextValue {
-  value: string;
-  onValueChange: (value: string) => void;
+function Tabs({
+  className,
+  ...props
+}: TabsPrimitive.RootProps & React.RefAttributes<TabsPrimitive.RootRef>) {
+  return <TabsPrimitive.Root className={cn('flex flex-col gap-2', className)} {...props} />;
 }
 
-const TabsContext = React.createContext<TabsContextValue | null>(null);
-
-interface TabsProps extends React.ComponentPropsWithoutRef<typeof View> {
-  value: string;
-  onValueChange: (value: string) => void;
-  children: React.ReactNode;
-}
-
-const Tabs = React.forwardRef<View, TabsProps>(
-  ({ value, onValueChange, children, className, ...props }, ref) => {
-    return (
-      <TabsContext.Provider value={{ value, onValueChange }}>
-        <View ref={ref} className={cn("w-full", className)} {...props}>
-          {children}
-        </View>
-      </TabsContext.Provider>
-    );
-  }
-);
-Tabs.displayName = "Tabs";
-
-const TabsList = React.forwardRef<
-  View,
-  React.ComponentPropsWithoutRef<typeof View>
->(({ className, children, ...props }, ref) => {
+function TabsList({
+  className,
+  ...props
+}: TabsPrimitive.ListProps & React.RefAttributes<TabsPrimitive.ListRef>) {
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ flexGrow: 1 }}
-    >
-      <View
-        ref={ref}
-        className={cn(
-          "flex-row items-center rounded-lg bg-muted p-1",
-          className
-        )}
-        {...props}
-      >
-        {children}
-      </View>
-    </ScrollView>
+    <TabsPrimitive.List
+      className={cn(
+        'bg-muted flex h-9 flex-row items-center justify-center rounded-lg p-[3px]',
+        Platform.select({ web: 'inline-flex w-fit', native: 'mr-auto' }),
+        className
+      )}
+      {...props}
+    />
   );
-});
-TabsList.displayName = "TabsList";
-
-interface TabsTriggerProps
-  extends React.ComponentPropsWithoutRef<typeof Pressable> {
-  value: string;
-  children: React.ReactNode;
 }
 
-const TabsTrigger = React.forwardRef<View, TabsTriggerProps>(
-  ({ value, children, className, ...props }, ref) => {
-    const context = React.useContext(TabsContext);
-    if (!context) throw new Error("TabsTrigger must be used within Tabs");
-
-    const isActive = context.value === value;
-
-    return (
-      <Pressable
-        ref={ref}
+function TabsTrigger({
+  className,
+  children,
+  ...props
+}: TabsPrimitive.TriggerProps & React.RefAttributes<TabsPrimitive.TriggerRef>) {
+  const { value } = TabsPrimitive.useRootContext();
+  return (
+    <TextClassContext.Provider
+      value={cn(
+        'text-foreground dark:text-muted-foreground text-sm font-medium',
+        value === props.value && 'dark:text-foreground'
+      )}>
+      <TabsPrimitive.Trigger
         className={cn(
-          "flex-1 items-center justify-center rounded-md px-3 py-1.5",
-          isActive && "bg-primary",
+          'flex h-[calc(100%-1px)] flex-row items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 shadow-none shadow-black/5',
+          Platform.select({
+            web: 'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring inline-flex cursor-default whitespace-nowrap transition-[color,box-shadow] focus-visible:outline-1 focus-visible:ring-[3px] disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0',
+          }),
+          props.disabled && 'opacity-50',
+          props.value === value && 'bg-background dark:border-foreground/10 dark:bg-input/30',
           className
         )}
-        onPress={() => context.onValueChange(value)}
         {...props}
       >
-        <Text
-          className={cn(
-            "text-sm font-medium",
-            isActive ? "text-primary-foreground" : "text-muted-foreground"
-          )}
-        >
-          {children}
-        </Text>
-      </Pressable>
-    );
-  }
-);
-TabsTrigger.displayName = "TabsTrigger";
-
-interface TabsContentProps
-  extends React.ComponentPropsWithoutRef<typeof View> {
-  value: string;
-  children: React.ReactNode;
+        {typeof children === 'string' ? <Text>{children}</Text> : children}
+      </TabsPrimitive.Trigger>
+    </TextClassContext.Provider>
+  );
 }
 
-const TabsContent = React.forwardRef<View, TabsContentProps>(
-  ({ value, children, className, ...props }, ref) => {
-    const context = React.useContext(TabsContext);
-    if (!context) throw new Error("TabsContent must be used within Tabs");
+function TabsContent({
+  className,
+  ...props
+}: TabsPrimitive.ContentProps & React.RefAttributes<TabsPrimitive.ContentRef>) {
+  return (
+    <TabsPrimitive.Content
+      className={cn(Platform.select({ web: 'flex-1 outline-none' }), className)}
+      {...props}
+    />
+  );
+}
 
-    if (context.value !== value) return null;
-
-    return (
-      <View ref={ref} className={cn("mt-2", className)} {...props}>
-        {children}
-      </View>
-    );
-  }
-);
-TabsContent.displayName = "TabsContent";
-
-export { Tabs, TabsList, TabsTrigger, TabsContent };
+export { Tabs, TabsContent, TabsList, TabsTrigger };

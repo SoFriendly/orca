@@ -1,27 +1,24 @@
-import * as React from "react";
-import { View } from "react-native";
-import { cn } from "~/lib/utils";
+import { cn } from '~/lib/utils';
+import * as SeparatorPrimitive from '@rn-primitives/separator';
 
-interface SeparatorProps extends React.ComponentPropsWithoutRef<typeof View> {
-  orientation?: "horizontal" | "vertical";
+function Separator({
+  className,
+  orientation = 'horizontal',
+  decorative = true,
+  ...props
+}: SeparatorPrimitive.RootProps & React.RefAttributes<SeparatorPrimitive.RootRef>) {
+  return (
+    <SeparatorPrimitive.Root
+      decorative={decorative}
+      orientation={orientation}
+      className={cn(
+        'bg-border shrink-0',
+        orientation === 'horizontal' ? 'h-[1px] w-full' : 'h-full w-[1px]',
+        className
+      )}
+      {...props}
+    />
+  );
 }
-
-const Separator = React.forwardRef<View, SeparatorProps>(
-  ({ className, orientation = "horizontal", ...props }, ref) => {
-    return (
-      <View
-        ref={ref}
-        className={cn(
-          "bg-border",
-          orientation === "horizontal" ? "h-px w-full" : "h-full w-px",
-          className
-        )}
-        {...props}
-      />
-    );
-  }
-);
-
-Separator.displayName = "Separator";
 
 export { Separator };

@@ -375,17 +375,17 @@ export default function GitTabPage() {
       <Card className="mb-4">
         <CardContent className="flex-row items-center justify-between py-3">
           <Pressable
-            className="flex-row items-center flex-1 mr-2"
+            className="flex-row items-center mr-2"
             onPress={() => setShowBranchPicker(!showBranchPicker)}
           >
             <GitBranch size={16} color={colors.ai} />
             <Text
-              className="text-foreground font-medium ml-2 flex-1"
+              className="text-foreground font-medium ml-2"
               numberOfLines={1}
             >
               {gitStatus?.branch || "main"}
             </Text>
-            <ChevronDown size={14} color={colors.mutedForeground} />
+            <ChevronDown size={14} color={colors.mutedForeground} className="ml-1" />
           </Pressable>
 
           <View className="flex-row gap-2">
@@ -503,13 +503,9 @@ export default function GitTabPage() {
                           onPress={() => toggleFileExpanded(file)}
                           onLongPress={() => showFileContextMenu(file, false)}
                         >
-                          <ChevronRight
-                            size={16}
-                            color={colors.mutedForeground}
-                            style={{
-                              transform: [{ rotate: isExpanded ? "90deg" : "0deg" }],
-                            }}
-                          />
+                          <View style={{ transform: [{ rotate: isExpanded ? "90deg" : "0deg" }] }}>
+                            <ChevronRight size={16} color={colors.mutedForeground} />
+                          </View>
                           <FileStatusDot status={fileStatus} />
                           <Text
                             className="text-foreground font-mono text-sm flex-1"
@@ -521,31 +517,41 @@ export default function GitTabPage() {
 
                         {/* Diff view */}
                         {isExpanded && (
-                          <View className="mx-4 mb-3 p-3 rounded" style={{ backgroundColor: '#0d0d0d' }}>
+                          <View className="mx-4 mb-3 rounded overflow-hidden" style={{ backgroundColor: '#0d0d0d' }}>
                             {diff && diff.hunks && diff.hunks.length > 0 ? (
                               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                 <View>
                                   {diff.hunks.map((hunk, hunkIndex) => (
                                     <View key={hunkIndex}>
                                       {(hunk.lines || []).filter(l => l != null).map((line, lineIndex) => (
-                                          <Text
+                                          <View
                                             key={lineIndex}
-                                            className="font-mono text-xs leading-relaxed"
                                             style={{
-                                              color: line.type === 'addition' ? colors.success
-                                                : line.type === 'deletion' ? colors.destructive
-                                                : colors.foreground
+                                              backgroundColor: line.type === 'addition' ? 'rgba(34, 197, 94, 0.15)'
+                                                : line.type === 'deletion' ? 'rgba(239, 68, 68, 0.15)'
+                                                : 'transparent',
+                                              paddingHorizontal: 12,
+                                              paddingVertical: 1,
                                             }}
                                           >
-                                            {line.content}
-                                          </Text>
+                                            <Text
+                                              className="font-mono text-xs"
+                                              style={{
+                                                color: line.type === 'addition' ? colors.success
+                                                  : line.type === 'deletion' ? colors.destructive
+                                                  : colors.foreground
+                                              }}
+                                            >
+                                              {line.content}
+                                            </Text>
+                                          </View>
                                       ))}
                                     </View>
                                   ))}
                                 </View>
                               </ScrollView>
                             ) : (
-                              <Text className="text-muted-foreground font-mono text-xs">
+                              <Text className="text-muted-foreground font-mono text-xs p-3">
                                 No diff available
                               </Text>
                             )}
@@ -581,13 +587,9 @@ export default function GitTabPage() {
                           onPress={() => toggleFileExpanded(file)}
                           onLongPress={() => showFileContextMenu(file, true)}
                         >
-                          <ChevronRight
-                            size={16}
-                            color={colors.mutedForeground}
-                            style={{
-                              transform: [{ rotate: isExpanded ? "90deg" : "0deg" }],
-                            }}
-                          />
+                          <View style={{ transform: [{ rotate: isExpanded ? "90deg" : "0deg" }] }}>
+                            <ChevronRight size={16} color={colors.mutedForeground} />
+                          </View>
                           <FileStatusDot status={fileStatus} />
                           <Text
                             className="text-foreground font-mono text-sm flex-1"
@@ -599,31 +601,41 @@ export default function GitTabPage() {
 
                         {/* Diff view */}
                         {isExpanded && (
-                          <View className="mx-4 mb-3 p-3 rounded" style={{ backgroundColor: '#0d0d0d' }}>
+                          <View className="mx-4 mb-3 rounded overflow-hidden" style={{ backgroundColor: '#0d0d0d' }}>
                             {diff && diff.hunks && diff.hunks.length > 0 ? (
                               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                 <View>
                                   {diff.hunks.map((hunk, hunkIndex) => (
                                     <View key={hunkIndex}>
                                       {(hunk.lines || []).filter(l => l != null).map((line, lineIndex) => (
-                                          <Text
+                                          <View
                                             key={lineIndex}
-                                            className="font-mono text-xs leading-relaxed"
                                             style={{
-                                              color: line.type === 'addition' ? colors.success
-                                                : line.type === 'deletion' ? colors.destructive
-                                                : colors.foreground
+                                              backgroundColor: line.type === 'addition' ? 'rgba(34, 197, 94, 0.15)'
+                                                : line.type === 'deletion' ? 'rgba(239, 68, 68, 0.15)'
+                                                : 'transparent',
+                                              paddingHorizontal: 12,
+                                              paddingVertical: 1,
                                             }}
                                           >
-                                            {line.content}
-                                          </Text>
+                                            <Text
+                                              className="font-mono text-xs"
+                                              style={{
+                                                color: line.type === 'addition' ? colors.success
+                                                  : line.type === 'deletion' ? colors.destructive
+                                                  : colors.foreground
+                                              }}
+                                            >
+                                              {line.content}
+                                            </Text>
+                                          </View>
                                       ))}
                                     </View>
                                   ))}
                                 </View>
                               </ScrollView>
                             ) : (
-                              <Text className="text-muted-foreground font-mono text-xs">
+                              <Text className="text-muted-foreground font-mono text-xs p-3">
                                 No diff available
                               </Text>
                             )}
@@ -646,13 +658,9 @@ export default function GitTabPage() {
                         onPress={() => toggleFileExpanded(file)}
                         onLongPress={() => showFileContextMenu(file, true)}
                       >
-                        <ChevronRight
-                          size={16}
-                          color={colors.mutedForeground}
-                          style={{
-                            transform: [{ rotate: isExpanded ? "90deg" : "0deg" }],
-                          }}
-                        />
+                        <View style={{ transform: [{ rotate: isExpanded ? "90deg" : "0deg" }] }}>
+                          <ChevronRight size={16} color={colors.mutedForeground} />
+                        </View>
                         <FileStatusDot status="added" />
                         <Text
                           className="text-foreground font-mono text-sm flex-1"

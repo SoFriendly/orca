@@ -1,16 +1,16 @@
 import { create } from "zustand";
-import type { Terminal } from "~/types";
+import type { Terminal, RemoteTerminal } from "~/types";
 import { useConnectionStore } from "./connectionStore";
 import { stripAnsi } from "~/lib/utils";
 
-interface TerminalOutput {
-  terminalId: string;
-  data: string;
+// Extended terminal type with source tracking
+interface MobileTerminal extends Terminal {
+  source: "mobile" | "remote";  // Whether this was spawned by mobile or attached from desktop
 }
 
 interface TerminalStore {
   // State
-  terminals: Terminal[];
+  terminals: MobileTerminal[];
   activeTerminalId: string | null;
   outputBuffer: Map<string, string[]>;
 
@@ -23,6 +23,10 @@ interface TerminalStore {
   getOutput: (terminalId: string) => string[];
   clearOutput: (terminalId: string) => void;
   resizeTerminal: (terminalId: string, cols: number, rows: number) => Promise<void>;
+
+  // Remote terminal management
+  attachRemoteTerminal: (remoteTerminal: RemoteTerminal) => void;
+  detachRemoteTerminal: (terminalId: string) => void;
 }
 
 export const useTerminalStore = create<TerminalStore>((set, get) => ({
@@ -40,11 +44,12 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
       rows: 24,
     });
 
-    const terminal: Terminal = {
+    const terminal: MobileTerminal = {
       id: terminalId,
       title: command || "Shell",
       cwd,
       type,
+      source: "mobile",
     };
 
     set((state) => ({
@@ -125,5 +130,60 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
   ): Promise<void> => {
     const { invoke } = useConnectionStore.getState();
     await invoke("resize_terminal", { id: terminalId, cols, rows });
+  },
+
+  attachRemoteTerminal: (remoteTerminal: RemoteTerminal) => {
+    const { attachTerminal } = useConnectionStore.getState();
+
+    // Check if already attached
+    const existing = get().terminals.find((t) => t.id === remoteTerminal.id);
+    if (existing) {
+      // Just set it as active
+      set({ activeTerminalId: remoteTerminal.id });
+      return;
+    }
+
+    // Tell desktop to forward output for this terminal
+    attachTerminal(remoteTerminal.id);
+
+    // Add to local terminals list
+    const terminal: MobileTerminal = {
+      id: remoteTerminal.id,
+      title: remoteTerminal.title,
+      cwd: remoteTerminal.cwd,
+      type: "shell",
+      source: "remote",
+    };
+
+    set((state) => ({
+      terminals: [...state.terminals, terminal],
+      activeTerminalId: remoteTerminal.id,
+      outputBuffer: new Map(state.outputBuffer).set(remoteTerminal.id, []),
+    }));
+  },
+
+  detachRemoteTerminal: (terminalId: string) => {
+    const { detachTerminal } = useConnectionStore.getState();
+
+    // Tell desktop to stop forwarding output
+    detachTerminal(terminalId);
+
+    // Remove from local terminals list (but don't kill the terminal on desktop)
+    set((state) => {
+      const newOutputBuffer = new Map(state.outputBuffer);
+      newOutputBuffer.delete(terminalId);
+
+      const newTerminals = state.terminals.filter((t) => t.id !== terminalId);
+      const newActiveId =
+        state.activeTerminalId === terminalId
+          ? newTerminals[0]?.id || null
+          : state.activeTerminalId;
+
+      return {
+        terminals: newTerminals,
+        activeTerminalId: newActiveId,
+        outputBuffer: newOutputBuffer,
+      };
+    });
   },
 }));

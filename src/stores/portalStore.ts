@@ -356,18 +356,62 @@ export const usePortalStore = create<PortalState>()(
             break;
           }
 
+          case "attach_terminal": {
+            // Mobile wants to attach to an existing desktop terminal session
+            const { terminalId } = message as { terminalId: string };
+            console.log("[Portal] Mobile attaching to terminal:", terminalId);
+
+            // Add to mobileTerminalIds so output gets forwarded
+            set((state) => ({
+              mobileTerminalIds: state.mobileTerminalIds.has(terminalId)
+                ? state.mobileTerminalIds
+                : new Set([...state.mobileTerminalIds, terminalId]),
+            }));
+
+            // Send confirmation back
+            get().sendMessage({
+              type: "attach_terminal_response",
+              id: crypto.randomUUID(),
+              terminalId,
+              success: true,
+            });
+            break;
+          }
+
+          case "detach_terminal": {
+            // Mobile wants to stop receiving output from a terminal (but not kill it)
+            const { terminalId } = message as { terminalId: string };
+            console.log("[Portal] Mobile detaching from terminal:", terminalId);
+
+            set((state) => {
+              const newSet = new Set(state.mobileTerminalIds);
+              newSet.delete(terminalId);
+              return { mobileTerminalIds: newSet };
+            });
+            break;
+          }
+
           case "request_status": {
-            // Send current status to mobile including theme, custom colors, and project list
+            // Send current status to mobile including theme, custom colors, project list, and terminals
             Promise.all([
               import("@/stores/settingsStore"),
               import("@/stores/projectStore"),
-            ]).then(([{ useSettingsStore }, { useProjectStore }]) => {
+              import("@/stores/terminalStore"),
+            ]).then(([{ useSettingsStore }, { useProjectStore }, { useTerminalStore }]) => {
               const { theme, customTheme } = useSettingsStore.getState();
               const { projects, tabs, activeTabId } = useProjectStore.getState();
+              const { terminals } = useTerminalStore.getState();
 
               // Find active project from active tab
               const activeTab = tabs.find((t) => t.id === activeTabId);
               const activeProjectId = activeTab?.projectId || null;
+
+              // Get list of desktop terminals for mobile to see
+              const terminalList = Object.values(terminals).map((t) => ({
+                id: t.id,
+                title: t.title,
+                cwd: t.cwd,
+              }));
 
               const statusUpdate: Record<string, unknown> = {
                 type: "status_update",
@@ -381,6 +425,7 @@ export const usePortalStore = create<PortalState>()(
                   path: p.path,
                 })),
                 activeProjectId,
+                terminals: terminalList,
               };
 
               // Include custom theme colors if using custom theme
