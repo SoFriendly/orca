@@ -25,6 +25,7 @@ import {
   ChevronDown,
   ChevronRight,
   WifiOff,
+  RefreshCw,
 } from "lucide-react-native";
 import { useConnectionStore } from "~/stores/connectionStore";
 import { useGitStore } from "~/stores/gitStore";
@@ -68,6 +69,8 @@ export default function GitTabPage() {
     pull,
     push,
     generateCommitMessage,
+    showBranchPicker,
+    setShowBranchPicker,
   } = useGitStore();
 
   const [activeTab, setActiveTab] = useState("changes");
@@ -75,7 +78,6 @@ export default function GitTabPage() {
   const [commitDescription, setCommitDescription] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [showBranchPicker, setShowBranchPicker] = useState(false);
   const [newBranchName, setNewBranchName] = useState("");
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
 
@@ -361,70 +363,17 @@ export default function GitTabPage() {
 
   return (
     <ScrollView
-      className="flex-1 bg-background"
-      contentContainerStyle={{ padding: 16 }}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={colors.foreground}
-        />
-      }
-    >
-      {/* Branch Header */}
-      <Card className="mb-4">
-        <CardContent className="flex-row items-center justify-between py-3">
-          <Pressable
-            className="flex-row items-center mr-2"
-            onPress={() => setShowBranchPicker(!showBranchPicker)}
-          >
-            <GitBranch size={16} color={colors.ai} />
-            <Text
-              className="text-foreground font-medium ml-2"
-              numberOfLines={1}
-            >
-              {gitStatus?.branch || "main"}
-            </Text>
-            <ChevronDown size={14} color={colors.mutedForeground} className="ml-1" />
-          </Pressable>
-
-          <View className="flex-row gap-2">
-            {gitStatus && gitStatus.behind > 0 && (
-              <Badge variant="outline">
-                <ArrowDown size={12} color={colors.foreground} />
-                <Text className="text-foreground ml-1">{gitStatus.behind}</Text>
-              </Badge>
-            )}
-            {gitStatus && gitStatus.ahead > 0 && (
-              <Badge variant="outline">
-                <ArrowUp size={12} color={colors.foreground} />
-                <Text className="text-foreground ml-1">{gitStatus.ahead}</Text>
-              </Badge>
-            )}
-          </View>
-
-          <View className="flex-row gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onPress={handlePull}
-              disabled={loading}
-            >
-              <ArrowDown size={16} color={colors.foreground} />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onPress={handlePush}
-              disabled={loading}
-            >
-              <ArrowUp size={16} color={colors.foreground} />
-            </Button>
-          </View>
-        </CardContent>
-      </Card>
-
-      {/* Branch Picker */}
+        className="flex-1 bg-background"
+        contentContainerStyle={{ padding: 16 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.foreground}
+          />
+        }
+      >
+        {/* Branch Picker */}
       {showBranchPicker && (
         <Card className="mb-4">
           <CardHeader>
@@ -476,10 +425,35 @@ export default function GitTabPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="changes">Changes</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-        </TabsList>
+        <View className="flex-row items-center justify-between mb-4">
+          <TabsList className="h-11">
+            <TabsTrigger value="changes" className="px-5 h-10">Changes</TabsTrigger>
+            <TabsTrigger value="history" className="px-5 h-10">History</TabsTrigger>
+          </TabsList>
+          <View className="flex-row items-center">
+            <Pressable
+              onPress={handlePull}
+              disabled={loading}
+              style={{ padding: 8, opacity: loading ? 0.5 : 1 }}
+            >
+              <ArrowDown size={18} color={colors.mutedForeground} />
+            </Pressable>
+            <Pressable
+              onPress={handlePush}
+              disabled={loading}
+              style={{ padding: 8, opacity: loading ? 0.5 : 1 }}
+            >
+              <ArrowUp size={18} color={colors.mutedForeground} />
+            </Pressable>
+            <Pressable
+              onPress={onRefresh}
+              disabled={refreshing}
+              style={{ padding: 8, opacity: refreshing ? 0.5 : 1 }}
+            >
+              <RefreshCw size={18} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+        </View>
 
         {/* Changes Tab */}
         <TabsContent value="changes">

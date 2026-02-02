@@ -1,13 +1,15 @@
 import { Tabs, router } from "expo-router";
-import { GitBranch, Terminal, Bot, Home, Settings } from "lucide-react-native";
+import { GitBranch, Terminal, Bot, Home, Settings, ChevronDown, ArrowUp, ArrowDown } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "~/components/ThemeProvider";
 import { useConnectionStore } from "~/stores/connectionStore";
-import { Pressable } from "react-native";
+import { useGitStore } from "~/stores/gitStore";
+import { Pressable, View, Text } from "react-native";
 
 export default function TabsLayout() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { status: gitStatus, toggleBranchPicker } = useGitStore();
 
   return (
     <Tabs
@@ -25,16 +27,37 @@ export default function TabsLayout() {
         headerRightContainerStyle: {
           paddingRight: 8,
         },
+        headerTitle: () => (
+          <Pressable
+            onPress={toggleBranchPicker}
+            style={{ flexDirection: 'row', alignItems: 'center' }}
+          >
+            <GitBranch size={16} color={colors.primary} />
+            <Text style={{ color: colors.foreground, fontWeight: '600', marginLeft: 8 }} numberOfLines={1}>
+              {gitStatus?.branch || "main"}
+            </Text>
+            <ChevronDown size={14} color={colors.mutedForeground} style={{ marginLeft: 4 }} />
+            {gitStatus && gitStatus.behind > 0 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8, backgroundColor: colors.muted, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                <ArrowDown size={10} color={colors.foreground} />
+                <Text style={{ color: colors.foreground, fontSize: 10, marginLeft: 2 }}>{gitStatus.behind}</Text>
+              </View>
+            )}
+            {gitStatus && gitStatus.ahead > 0 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 4, backgroundColor: colors.muted, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                <ArrowUp size={10} color={colors.foreground} />
+                <Text style={{ color: colors.foreground, fontSize: 10, marginLeft: 2 }}>{gitStatus.ahead}</Text>
+              </View>
+            )}
+          </Pressable>
+        ),
         headerLeft: () => (
           <Pressable
             onPress={() => {
-              // Clear active project and go back to project list
+              // Clear active project and navigate to project list
               useConnectionStore.getState().setActiveProject(null);
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                router.replace("/");
-              }
+              router.dismissAll();
+              router.replace("/");
             }}
             style={{ padding: 8 }}
           >
@@ -69,7 +92,6 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Git",
-          headerTitle: "Git Panel",
           tabBarIcon: ({ color, size }) => (
             <GitBranch size={size} color={color} />
           ),
@@ -79,7 +101,6 @@ export default function TabsLayout() {
         name="assistant"
         options={{
           title: "Assistant",
-          headerTitle: "Coding Assistants",
           tabBarIcon: ({ color, size }) => <Bot size={size} color={color} />,
         }}
       />
@@ -87,7 +108,6 @@ export default function TabsLayout() {
         name="terminal"
         options={{
           title: "Terminal",
-          headerTitle: "Smart Shell",
           tabBarIcon: ({ color, size }) => (
             <Terminal size={size} color={color} />
           ),

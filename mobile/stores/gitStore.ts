@@ -10,8 +10,11 @@ interface GitStore {
   history: Commit[];
   loading: boolean;
   error: string | null;
+  showBranchPicker: boolean;
 
   // Actions
+  setShowBranchPicker: (show: boolean) => void;
+  toggleBranchPicker: () => void;
   refresh: (projectPath: string) => Promise<void>;
   commit: (projectPath: string, message: string) => Promise<void>;
   stageFile: (projectPath: string, filePath: string) => Promise<void>;
@@ -31,6 +34,10 @@ export const useGitStore = create<GitStore>((set, get) => ({
   history: [],
   loading: false,
   error: null,
+  showBranchPicker: false,
+
+  setShowBranchPicker: (show: boolean) => set({ showBranchPicker: show }),
+  toggleBranchPicker: () => set((state) => ({ showBranchPicker: !state.showBranchPicker })),
 
   refresh: async (projectPath: string) => {
     const { invoke } = useConnectionStore.getState();
