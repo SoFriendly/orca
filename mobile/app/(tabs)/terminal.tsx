@@ -29,7 +29,6 @@ import {
   ChevronDown,
   ChevronUp,
   Monitor,
-  Smartphone,
   Link,
 } from "lucide-react-native";
 import { useConnectionStore } from "~/stores/connectionStore";
@@ -354,18 +353,10 @@ export default function TerminalTabPage() {
               }`}
               onPress={() => setActiveTerminal(terminal.id)}
             >
-              {/* Show different icon for remote vs mobile terminals */}
-              {terminal.source === "remote" ? (
-                <Monitor
-                  size={14}
-                  color={terminal.id === activeTerminalId ? colors.primary : colors.mutedForeground}
-                />
-              ) : (
-                <Smartphone
-                  size={14}
-                  color={terminal.id === activeTerminalId ? colors.foreground : colors.mutedForeground}
-                />
-              )}
+              <TerminalIcon
+                size={14}
+                color={terminal.id === activeTerminalId ? colors.foreground : colors.mutedForeground}
+              />
               <Text
                 className={`ml-2 text-sm ${
                   terminal.id === activeTerminalId

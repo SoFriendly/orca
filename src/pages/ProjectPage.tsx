@@ -1014,7 +1014,11 @@ export default function ProjectPage() {
                     onClick={() => !draggingTabId && setActiveTabId(tab.id)}
                     onMouseDown={(event) => handleTabMouseDown(event, tab.id)}
                   >
-                    <TerminalIcon className="h-3.5 w-3.5 shrink-0" />
+                    {tab.command === "" ? (
+                      <TerminalIcon className="h-3.5 w-3.5 shrink-0" />
+                    ) : (
+                      <Bot className="h-3.5 w-3.5 shrink-0" />
+                    )}
                     {editingTabId === tab.id ? (
                     <Input
                       ref={editInputRef}

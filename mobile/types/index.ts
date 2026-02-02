@@ -135,6 +135,7 @@ export interface RemoteTerminal {
   id: string;
   title: string;
   cwd: string;
+  type: "shell" | "assistant";
 }
 
 export interface StatusUpdateMessage extends BaseMessage {

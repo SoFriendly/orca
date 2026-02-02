@@ -59,6 +59,7 @@ export interface Terminal {
   id: string;
   title: string;
   cwd: string;
+  type: "shell" | "assistant";
 }
 
 // AI types

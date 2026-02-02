@@ -406,12 +406,27 @@ export const usePortalStore = create<PortalState>()(
               const activeTab = tabs.find((t) => t.id === activeTabId);
               const activeProjectId = activeTab?.projectId || null;
 
+              // Known assistant commands - used to infer terminal type
+              const assistantCommands = ["claude", "aider", "gemini", "codex", "opencode"];
+
               // Get list of desktop terminals for mobile to see
-              const terminalList = Object.values(terminals).map((t) => ({
-                id: t.id,
-                title: t.title,
-                cwd: t.cwd,
-              }));
+              // Infer type from title/command
+              const terminalList = Object.values(terminals).map((t) => {
+                const titleLower = t.title.toLowerCase();
+                const isAssistant = assistantCommands.some(cmd =>
+                  titleLower === cmd ||
+                  titleLower.includes(cmd) ||
+                  titleLower.includes("claude code") ||
+                  titleLower.includes("gemini cli") ||
+                  titleLower.includes("openai codex")
+                );
+                return {
+                  id: t.id,
+                  title: t.title,
+                  cwd: t.cwd,
+                  type: isAssistant ? "assistant" : "shell",
+                };
+              });
 
               const statusUpdate: Record<string, unknown> = {
                 type: "status_update",

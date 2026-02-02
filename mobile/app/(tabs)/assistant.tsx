@@ -324,10 +324,17 @@ export default function AssistantTabPage() {
               }`}
               onPress={() => setActiveTabId(tab.id)}
             >
-              <Bot
-                size={14}
-                color={tab.id === activeTabId ? colors.foreground : colors.mutedForeground}
-              />
+              {tab.command === "" ? (
+                <TerminalIcon
+                  size={14}
+                  color={tab.id === activeTabId ? colors.foreground : colors.mutedForeground}
+                />
+              ) : (
+                <Bot
+                  size={14}
+                  color={tab.id === activeTabId ? colors.foreground : colors.mutedForeground}
+                />
+              )}
               <Text
                 className={`ml-2 text-sm ${
                   tab.id === activeTabId
