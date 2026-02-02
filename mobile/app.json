@@ -15,7 +15,10 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.chell.portal"
+      "bundleIdentifier": "com.sofriendly.chell",
+      "infoPlist": {
+        "LSApplicationCategoryType": "public.app-category.developer-tools"
+      }
     },
     "android": {
       "adaptiveIcon": {
