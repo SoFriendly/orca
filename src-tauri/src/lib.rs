@@ -12,6 +12,7 @@ use tauri::Manager;
 #[cfg(target_os = "macos")]
 use tauri::menu::{Menu, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::image::Image;
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use uuid::Uuid;
 
@@ -1291,8 +1292,12 @@ pub fn run() {
                 .item(&quit_item)
                 .build()?;
 
+            // Load custom tray icon
+            let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
+                .expect("Failed to load tray icon");
+
             let _tray = TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
+                .icon(tray_icon)
                 .menu(&tray_menu)
                 .tooltip("Chell - Running in background")
                 .on_menu_event(|app, event| {

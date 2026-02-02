@@ -180,7 +180,7 @@ interface ThemeStore {
 export const useThemeStore = create<ThemeStore>()(
   persist(
     (set, get) => ({
-      theme: "dark",
+      theme: "tokyo",
       customTheme: null,
       syncWithDesktop: true,
 

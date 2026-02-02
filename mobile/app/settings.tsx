@@ -147,8 +147,8 @@ export default function SettingsPage() {
   };
 
   const themes: { id: ThemeOption; name: string; icon: typeof Sun }[] = [
-    { id: "dark", name: "Chell Dark", icon: Moon },
-    { id: "tokyo", name: "Tokyo Night", icon: Sparkles },
+    { id: "tokyo", name: "Chell Blue", icon: Sparkles },
+    { id: "dark", name: "Chell Orange", icon: Moon },
     { id: "light", name: "Light", icon: Sun },
   ];
 

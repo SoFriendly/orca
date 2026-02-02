@@ -23,7 +23,7 @@ The mobile app doesn't run any commands locally. Instead:
 - **Git Panel**: View status, stage/unstage files, view diffs, commit, pull, push, switch branches
 - **Terminal**: Remote shell with command history, Ctrl+C, Tab completion
 - **AI Assistant**: Launch Claude Code, Aider, OpenCode, or shell; Smart Shell for natural language commands
-- **Theme Sync**: Automatically matches your desktop theme (Dark, Tokyo Night, Light, Custom)
+- **Theme Sync**: Automatically matches your desktop theme (Chell Blue, Chell Orange, Light, Custom)
 - **Multi-Desktop**: Link multiple desktop machines and switch between them
 - **Project Switching**: See all projects opened on desktop and switch between them from mobile
 
@@ -200,8 +200,8 @@ Three built-in themes matching the desktop app:
 
 | Theme | Background | Primary | Description |
 |-------|------------|---------|-------------|
-| Dark | #121212 | #FF6B00 (orange) | Default dark theme |
-| Tokyo Night | #1a1b26 | #7aa2f7 (blue) | Inspired by Tokyo Night VSCode theme |
+| Chell Blue | #1a1b26 | #7aa2f7 (blue) | Default theme with blue accents |
+| Chell Orange | #121212 | #FF6B00 (orange) | Dark theme with orange accents |
 | Light | #ffffff | #FF6B00 (orange) | Light mode |
 
 Custom themes are synced from desktop with full color palette support.

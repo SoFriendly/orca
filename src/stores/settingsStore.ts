@@ -55,7 +55,7 @@ export const applyTheme = (theme: ThemeOption, customColors?: CustomThemeColors)
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set, get) => ({
-      theme: 'dark',
+      theme: 'tokyo',
       customTheme: undefined,
       aiProvider: undefined,
       assistantArgs: {},

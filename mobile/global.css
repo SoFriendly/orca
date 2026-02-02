@@ -26,7 +26,7 @@
     --ring: 222.2 84% 4.9%;
   }
 
-  /* Chell Dark Theme */
+  /* Chell Orange Theme */
   .dark {
     --background: 0 0% 7%;
     --foreground: 0 0% 90%;
@@ -49,7 +49,7 @@
     --ring: 24 100% 50%;
   }
 
-  /* Tokyo Night Theme */
+  /* Chell Blue Theme */
   .tokyo {
     --background: 228 18% 12%;
     --foreground: 225 27% 88%;

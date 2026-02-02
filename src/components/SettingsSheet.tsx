@@ -56,8 +56,8 @@ interface ThemeInfo {
 }
 
 const THEMES: ThemeInfo[] = [
-  { id: "dark", name: "Chell Dark", gradient: "from-portal-orange/60 to-neutral-900" },
-  { id: "tokyo", name: "Tokyo Night", gradient: "from-indigo-500/60 to-slate-900" },
+  { id: "tokyo", name: "Chell Blue", gradient: "from-indigo-500/60 to-slate-900" },
+  { id: "dark", name: "Chell Orange", gradient: "from-portal-orange/60 to-neutral-900" },
   { id: "light", name: "Light", gradient: "from-slate-200 to-slate-100" },
   { id: "custom", name: "Custom", gradient: "from-purple-500/60 via-pink-500/60 to-orange-500/60" },
 ];
