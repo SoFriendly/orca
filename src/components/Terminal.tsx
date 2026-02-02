@@ -435,20 +435,35 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
     const terminal = terminalRef.current;
     const fitAddon = fitAddonRef.current;
 
+    // Track last dimensions to avoid redundant resize calls
+    let lastCols = 0;
+    let lastRows = 0;
+    let fitDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
     // Safe fit function that checks if terminal is ready
-    const safeFit = (source?: string) => {
+    const safeFit = () => {
       try {
         if (containerRef.current && containerRef.current.offsetWidth > 0 && containerRef.current.offsetHeight > 0) {
           fitAddon.fit();
           const { cols, rows } = terminal;
-          console.log(`[Terminal] safeFit(${source || 'unknown'}): ${cols}x${rows}, container: ${containerRef.current.offsetWidth}x${containerRef.current.offsetHeight}`);
-          invoke("resize_terminal", { id: terminalId, cols, rows }).catch(console.error);
+          // Only send resize if dimensions actually changed
+          if (cols !== lastCols || rows !== lastRows) {
+            lastCols = cols;
+            lastRows = rows;
+            invoke("resize_terminal", { id: terminalId, cols, rows }).catch(console.error);
+          }
           return true;
         }
       } catch (e) {
         // Ignore fit errors
       }
       return false;
+    };
+
+    // Debounced version for resize observers
+    const debouncedFit = () => {
+      if (fitDebounceTimer) clearTimeout(fitDebounceTimer);
+      fitDebounceTimer = setTimeout(() => safeFit(), 50);
     };
 
     // Handle terminal input
@@ -478,7 +493,7 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
 
     // Handle window resize
     const handleResize = () => {
-      safeFit("window-resize");
+      debouncedFit();
     };
     window.addEventListener("resize", handleResize);
 
@@ -486,7 +501,7 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
-          safeFit("resize-observer");
+          debouncedFit();
         }
       }
     });
@@ -498,7 +513,7 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
     const intersectionObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting) {
-          setTimeout(() => safeFit("intersection"), 10);
+          setTimeout(() => safeFit(), 10);
         }
       }
     });
@@ -510,12 +525,13 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
     // Claude Code gets SIGWINCH and redraws with correct dimensions.
     // The layout may still be settling when we first connect.
     const resizeTimers = [100, 300, 500, 1000].map(delay =>
-      setTimeout(() => safeFit(`delayed-${delay}ms`), delay)
+      setTimeout(() => safeFit(), delay)
     );
 
     const container = containerRef.current;
     return () => {
       try {
+        if (fitDebounceTimer) clearTimeout(fitDebounceTimer);
         resizeTimers.forEach(timer => clearTimeout(timer));
         dataDisposable.dispose();
         resizeDisposable.dispose();
@@ -543,7 +559,6 @@ export default function Terminal({ id, command = "", cwd, onTerminalReady, visib
           const terminal = terminalRef.current;
           if (terminal) {
             const { cols, rows } = terminal;
-            console.log(`[Terminal] visibility fit: ${cols}x${rows}, container: ${containerRef.current?.offsetWidth}x${containerRef.current?.offsetHeight}`);
             invoke("resize_terminal", { id: terminalId, cols, rows }).catch(console.error);
           }
         } catch (e) {

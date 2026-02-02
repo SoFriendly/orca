@@ -766,8 +766,8 @@ export default function ProjectPage() {
         // Only start dragging if clicking in the top 40px and not on interactive elements
         if (e.clientY <= 40) {
           const target = e.target as HTMLElement;
-          // Exclude tab bar area from window dragging
-          if (!target.closest('button, a, input, [role="button"], .tab-scroll')) {
+          // Exclude interactive elements and tab items (but allow empty tab bar space)
+          if (!target.closest('button, a, input, [role="button"], [data-tab-item]')) {
             getCurrentWindow().startDragging();
           }
         }
@@ -972,6 +972,7 @@ export default function ProjectPage() {
                 {terminalTabs.map((tab) => (
                   <div
                     key={tab.id}
+                    data-tab-item
                     ref={(el) => {
                       if (el) tabRefs.current.set(tab.id, el);
                       else tabRefs.current.delete(tab.id);

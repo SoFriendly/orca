@@ -24,7 +24,7 @@
     "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.13",
     "expo-device": "~8.0.10",
-    "expo-file-system": "~18.0.12",
+    "expo-file-system": "^18.1.11",
     "expo-font": "~14.0.11",
     "expo-haptics": "~15.0.8",
     "expo-linking": "~8.0.11",
