@@ -35,10 +35,32 @@ import { useTheme } from "~/components/ThemeProvider";
 import { Button, Card, CardContent } from "~/components/ui";
 import type { ProjectContext } from "~/types";
 
+// Terminal themes matching desktop app themes
+const TERMINAL_THEMES = {
+  dark: {
+    background: "#0d0d0d",
+    foreground: "#e0e0e0",
+    muted: "#6272a4",
+  },
+  tokyo: {
+    background: "#1a1b26",
+    foreground: "#c0caf5",
+    muted: "#414868",
+  },
+  light: {
+    background: "#fafafa",
+    foreground: "#383a42",
+    muted: "#a0a1a7",
+  },
+};
+
 export default function TerminalTabPage() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const { colors, theme: appTheme } = useTheme();
   const { status, activeProject } = useConnectionStore();
+
+  // Get terminal-specific colors based on app theme
+  const terminalColors = TERMINAL_THEMES[appTheme === "custom" ? "dark" : appTheme] || TERMINAL_THEMES.dark;
   const {
     terminals,
     activeTerminalId,
@@ -338,16 +360,16 @@ export default function TerminalTabPage() {
       <ScrollView
         ref={scrollViewRef}
         className="flex-1"
-        style={{ backgroundColor: colors.background }}
+        style={{ backgroundColor: terminalColors.background }}
         contentContainerStyle={{ padding: 8, paddingBottom: 16 }}
       >
         {output.length === 0 ? (
           <View className="items-center justify-center py-8">
-            <TerminalIcon size={32} color={colors.muted} />
-            <Text style={{ color: colors.mutedForeground }} className="mt-4">
+            <TerminalIcon size={32} color={terminalColors.muted} />
+            <Text style={{ color: terminalColors.muted }} className="mt-4">
               Terminal ready
             </Text>
-            <Text style={{ color: colors.mutedForeground }} className="text-sm mt-1">
+            <Text style={{ color: terminalColors.muted }} className="text-sm mt-1">
               {activeTerminal?.cwd}
             </Text>
           </View>
@@ -376,8 +398,12 @@ export default function TerminalTabPage() {
             .map((line, index) => (
               <Text
                 key={index}
-                style={{ color: colors.foreground, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }}
-                className="text-sm leading-5"
+                style={{
+                  color: terminalColors.foreground,
+                  fontFamily: "JetBrainsMono-NF",
+                  fontSize: 13,
+                  lineHeight: 13 * 1.2,
+                }}
                 selectable
               >
                 {line || " "}
@@ -407,7 +433,7 @@ export default function TerminalTabPage() {
           {generatedCommand && (
             <View className="mt-2 p-2 rounded-md bg-secondary">
               <Text className="text-muted-foreground text-xs">Command:</Text>
-              <Text className="text-foreground font-mono text-sm">
+              <Text style={{ fontFamily: "JetBrainsMono-NF" }} className="text-foreground text-sm">
                 $ {generatedCommand}
               </Text>
             </View>
@@ -453,7 +479,7 @@ export default function TerminalTabPage() {
           onPress={handleCtrlC}
           className="mr-2"
         >
-          <Text style={{ color: colors.info, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", fontWeight: "bold" }} className="text-base">^C</Text>
+          <Text style={{ color: colors.info, fontFamily: "JetBrainsMono-NF", fontWeight: "bold" }} className="text-base">^C</Text>
         </Button>
         <Button
           variant="ghost"
@@ -527,13 +553,13 @@ export default function TerminalTabPage() {
 
       {/* Input */}
       <View className="flex-row items-center border-t border-border bg-card p-2">
-        <Text style={{ color: colors.primary, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }} className="mr-2">
+        <Text style={{ color: colors.primary, fontFamily: "JetBrainsMono-NF" }} className="mr-2">
           $
         </Text>
         <TextInput
           ref={inputRef}
           className="flex-1 h-10 text-foreground"
-          style={{ fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }}
+          style={{ fontFamily: "JetBrainsMono-NF" }}
           value={input}
           onChangeText={setInput}
           placeholder="Enter command..."

@@ -71,7 +71,7 @@ const TabsTrigger = React.forwardRef<View, TabsTriggerProps>(
         ref={ref}
         className={cn(
           "flex-1 items-center justify-center rounded-md px-3 py-1.5",
-          isActive && "bg-background",
+          isActive && "bg-primary",
           className
         )}
         onPress={() => context.onValueChange(value)}
@@ -80,7 +80,7 @@ const TabsTrigger = React.forwardRef<View, TabsTriggerProps>(
         <Text
           className={cn(
             "text-sm font-medium",
-            isActive ? "text-foreground" : "text-muted-foreground"
+            isActive ? "text-primary-foreground" : "text-muted-foreground"
           )}
         >
           {children}

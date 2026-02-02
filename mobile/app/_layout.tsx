@@ -2,11 +2,16 @@ import "../global.css";
 import { useEffect } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useFonts } from "expo-font";
+import * as SplashScreen from "expo-splash-screen";
 import { ThemeProvider, useTheme } from "~/components/ThemeProvider";
 import { useConnectionStore } from "~/stores/connectionStore";
 import { useThemeStore } from "~/stores/themeStore";
 import type { WSMessage } from "~/types";
 import { getWebSocket } from "~/lib/websocket";
+
+// Prevent splash screen from auto-hiding before fonts load
+SplashScreen.preventAutoHideAsync();
 
 function RootLayoutContent() {
   const { status, connect, wsUrl, requestStatus } = useConnectionStore();
@@ -109,6 +114,20 @@ function RootLayoutContent() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    "JetBrainsMono-NF": require("../assets/fonts/JetBrainsMonoNerdFont-Regular.ttf"),
+  });
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <ThemeProvider>
       <RootLayoutContent />
