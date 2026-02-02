@@ -467,10 +467,9 @@ export const usePortalStore = create<PortalState>()(
 // Terminal output forwarding - hook into terminal events
 export function setupTerminalForwarding() {
   import("@tauri-apps/api/event").then(({ listen }) => {
-    const decoders = new Map<string, TextDecoder>();
     // Listen for terminal output events and forward to mobile
     // Only forward output for terminals spawned by mobile, not local desktop terminals
-    listen("terminal-output", (event: { payload: { terminalId: string; data: number[] } }) => {
+    listen("terminal-output", (event: { payload: { terminalId: string; data: string } }) => {
       const { isConnected, sendMessage, mobileTerminalIds, localTerminalIds } = usePortalStore.getState();
       if (!isConnected) return;
 
@@ -481,21 +480,21 @@ export function setupTerminalForwarding() {
       // Only forward output for terminals spawned by mobile
       if (!mobileTerminalIds.has(terminalId)) return;
 
-      let decoder = decoders.get(terminalId);
-      if (!decoder) {
-        decoder = new TextDecoder();
-        decoders.set(terminalId, decoder);
+      // Decode base64 to text
+      try {
+        const bytes = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+        const text = new TextDecoder().decode(bytes);
+        if (!text) return;
+
+        sendMessage({
+          type: "terminal_output",
+          id: crypto.randomUUID(),
+          terminalId,
+          data: text,
+        });
+      } catch (e) {
+        console.error("[Portal] Failed to decode terminal output:", e);
       }
-
-      const text = decoder.decode(new Uint8Array(data), { stream: true });
-      if (!text) return;
-
-      sendMessage({
-        type: "terminal_output",
-        id: crypto.randomUUID(),
-        terminalId,
-        data: text,
-      });
     });
   });
 }

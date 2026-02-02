@@ -181,21 +181,39 @@ fn spawn_terminal(
         // Resolve full path for the command if it's not already an absolute path
         let command = parts[0];
         let resolved_command = if command.contains('/') {
-            command.to_string()
+            Some(command.to_string())
         } else {
             // Try to find the full path for this command
-            find_command_path(command)
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_else(|| command.to_string())
+            find_command_path(command).map(|p| p.to_string_lossy().to_string())
         };
 
         println!("DEBUG spawn_terminal - resolved command: {:?}", resolved_command);
 
-        let mut cmd = CommandBuilder::new(&resolved_command);
-        for arg in parts.iter().skip(1) {
-            cmd.arg(*arg);
+        if let Some(full_path) = resolved_command {
+            // We found the command, run it directly
+            let mut cmd = CommandBuilder::new(&full_path);
+            for arg in parts.iter().skip(1) {
+                cmd.arg(*arg);
+            }
+            cmd
+        } else {
+            // Command not found in PATH - run through user's login shell
+            // This ensures shell profile is sourced and command can be found
+            let shell_path = std::env::var("SHELL").unwrap_or_else(|_| {
+                #[cfg(target_os = "macos")]
+                { "/bin/zsh".to_string() }
+                #[cfg(target_os = "linux")]
+                { "/bin/bash".to_string() }
+                #[cfg(target_os = "windows")]
+                { "powershell.exe".to_string() }
+            });
+
+            println!("DEBUG spawn_terminal - running through shell: {} -ilc 'exec {}'", shell_path, shell);
+
+            let mut cmd = CommandBuilder::new(&shell_path);
+            cmd.args(["-i", "-l", "-c", &format!("exec {}", shell)]);
+            cmd
         }
-        cmd
     };
 
     cmd.cwd(&cwd);
@@ -287,7 +305,13 @@ fn spawn_terminal(
                 Ok(n) => {
                     // Use base64 encoding for efficient transfer (much smaller than JSON array)
                     let encoded = BASE64.encode(&buffer[..n]);
-                    let _ = handle.emit(&event_name, encoded);
+                    // Emit to terminal-specific event (for desktop Terminal component)
+                    let _ = handle.emit(&event_name, &encoded);
+                    // Also emit to generic event with terminal ID (for mobile forwarding)
+                    let _ = handle.emit("terminal-output", serde_json::json!({
+                        "terminalId": terminal_id,
+                        "data": encoded
+                    }));
                 }
                 Err(_) => break,
             }
