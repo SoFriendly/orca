@@ -4,8 +4,6 @@ import {
   GitBranch,
   Bot,
   Terminal as TerminalIcon,
-  Eye,
-  Undo2,
   Sparkles,
   ArrowRight,
   ArrowLeft,
