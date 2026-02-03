@@ -129,6 +129,7 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
   const [renameValue, setRenameValue] = useState("");
   const lastDiffsHash = useRef<string>("");
   const hasGeneratedInitialMessage = useRef(false);
+  const pendingAutoGenerate = useRef(false);
   const lastClickedIndex = useRef<number>(-1);
 
   const currentBranch = branches.find((b) => b.isHead);
@@ -190,13 +191,22 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
         return next;
       });
 
-      // Only auto-generate on first load or when files actually change (if enabled)
+      // Mark for auto-generation on first load (if enabled)
+      // We can't call generateCommitMessage() here because filesToCommit won't be updated yet
       if (autoCommitMessage && (!previousHash || !hasGeneratedInitialMessage.current)) {
-        hasGeneratedInitialMessage.current = true;
-        generateCommitMessage();
+        pendingAutoGenerate.current = true;
       }
     }
   }, [diffs]);
+
+  // Auto-generate commit message when filesToCommit is populated and pending
+  useEffect(() => {
+    if (pendingAutoGenerate.current && filesToCommit.size > 0 && autoCommitMessage) {
+      pendingAutoGenerate.current = false;
+      hasGeneratedInitialMessage.current = true;
+      generateCommitMessage();
+    }
+  }, [filesToCommit, autoCommitMessage]);
 
   // Load file tree when switching to files view
   useEffect(() => {
