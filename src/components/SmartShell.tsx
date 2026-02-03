@@ -20,6 +20,8 @@ interface ProjectContext {
   scripts: string[] | null;
   hasDocker: boolean;
   hasMakefile: boolean;
+  configSnippet: string | null;
+  configFiles: string[];
 }
 
 interface SmartShellProps {

@@ -53,10 +53,12 @@ export interface Terminal {
 
 export interface ProjectContext {
   projectType: string;
-  packageManager: string;
-  scripts: string[];
+  packageManager: string | null;
+  scripts: string[] | null;
   hasDocker: boolean;
   hasMakefile: boolean;
+  configSnippet: string | null;
+  configFiles: string[];
 }
 
 // WebSocket message types

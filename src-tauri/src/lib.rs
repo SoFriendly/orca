@@ -1204,6 +1204,12 @@ pub struct ProjectContext {
     pub has_docker: bool,
     #[serde(rename = "hasMakefile")]
     pub has_makefile: bool,
+    /// Config file snippets for AI to analyze (package.json, pyproject.toml, Cargo.toml, etc.)
+    #[serde(rename = "configSnippet")]
+    pub config_snippet: Option<String>,
+    /// List of config files found in the project
+    #[serde(rename = "configFiles")]
+    pub config_files: Vec<String>,
 }
 
 #[tauri::command]
@@ -1378,9 +1384,29 @@ fn test_ai_connection(
 fn detect_project_context(path: &std::path::Path) -> ProjectContext {
     use std::fs;
 
+    // Find all config files that exist
+    let config_file_checks = [
+        "package.json", "Cargo.toml", "pyproject.toml", "setup.py", "requirements.txt",
+        "go.mod", "CMakeLists.txt", "Makefile", "Dockerfile", "docker-compose.yml",
+        "docker-compose.yaml", ".env", "tsconfig.json", "vite.config.ts", "vite.config.js",
+        "webpack.config.js", "next.config.js", "nuxt.config.ts", "svelte.config.js",
+    ];
+    let config_files: Vec<String> = config_file_checks.iter()
+        .filter(|f| path.join(f).exists())
+        .map(|f| f.to_string())
+        .collect();
+
+    let has_docker = path.join("Dockerfile").exists()
+        || path.join("docker-compose.yml").exists()
+        || path.join("docker-compose.yaml").exists();
+    let has_makefile = path.join("Makefile").exists();
+
+    // Build a combined config snippet from all relevant files
+    let mut snippets: Vec<String> = Vec::new();
+
     // Check for package.json (Node.js project)
     let package_json_path = path.join("package.json");
-    if package_json_path.exists() {
+    let (project_type, package_manager, scripts) = if package_json_path.exists() {
         let content = fs::read_to_string(&package_json_path).unwrap_or_default();
         let pkg: serde_json::Value = serde_json::from_str(&content).unwrap_or(serde_json::Value::Null);
 
@@ -1390,7 +1416,7 @@ fn detect_project_context(path: &std::path::Path) -> ProjectContext {
             .filter(|s| !s.is_empty());
 
         // Detect package manager by lockfile
-        let package_manager = if path.join("bun.lockb").exists() {
+        let pm = if path.join("bun.lockb").exists() {
             Some("bun".to_string())
         } else if path.join("pnpm-lock.yaml").exists() {
             Some("pnpm".to_string())
@@ -1400,65 +1426,140 @@ fn detect_project_context(path: &std::path::Path) -> ProjectContext {
             Some("npm".to_string())
         };
 
-        return ProjectContext {
-            project_type: "node".to_string(),
-            package_manager,
-            scripts,
-            has_docker: path.join("Dockerfile").exists() || path.join("docker-compose.yml").exists(),
-            has_makefile: path.join("Makefile").exists(),
-        };
-    }
+        // Extract useful snippet from package.json
+        let mut snippet = serde_json::Map::new();
+        if let Some(scripts) = pkg.get("scripts") {
+            snippet.insert("scripts".to_string(), scripts.clone());
+        }
+        if let Some(deps) = pkg.get("dependencies").and_then(|d| d.as_object()) {
+            // Include all dependencies - let AI figure out what's important
+            let limited: serde_json::Map<String, serde_json::Value> = deps.iter()
+                .take(20) // Limit to avoid huge prompts
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            snippet.insert("dependencies".to_string(), serde_json::Value::Object(limited));
+        }
+        if let Some(dev_deps) = pkg.get("devDependencies").and_then(|d| d.as_object()) {
+            let limited: serde_json::Map<String, serde_json::Value> = dev_deps.iter()
+                .take(15)
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            snippet.insert("devDependencies".to_string(), serde_json::Value::Object(limited));
+        }
+        if !snippet.is_empty() {
+            snippets.push(format!("=== package.json ===\n{}", serde_json::to_string_pretty(&snippet).unwrap_or_default()));
+        }
+
+        ("node".to_string(), pm, scripts)
+    } else {
+        ("unknown".to_string(), None, None)
+    };
 
     // Check for Cargo.toml (Rust project)
-    if path.join("Cargo.toml").exists() {
-        return ProjectContext {
-            project_type: "rust".to_string(),
-            package_manager: Some("cargo".to_string()),
-            scripts: Some(vec!["build".to_string(), "run".to_string(), "test".to_string(), "check".to_string()]),
-            has_docker: path.join("Dockerfile").exists() || path.join("docker-compose.yml").exists(),
-            has_makefile: path.join("Makefile").exists(),
-        };
-    }
+    let cargo_path = path.join("Cargo.toml");
+    let (project_type, package_manager, scripts) = if cargo_path.exists() {
+        let content = fs::read_to_string(&cargo_path).unwrap_or_default();
+        // Include first ~50 lines of Cargo.toml
+        let snippet: String = content.lines().take(50).collect::<Vec<_>>().join("\n");
+        snippets.push(format!("=== Cargo.toml ===\n{}", snippet));
 
-    // Check for pyproject.toml or requirements.txt (Python project)
-    if path.join("pyproject.toml").exists() || path.join("requirements.txt").exists() {
-        let package_manager = if path.join("poetry.lock").exists() {
+        if project_type == "node" {
+            // Both Node and Rust (possibly Tauri)
+            (project_type, package_manager, scripts)
+        } else {
+            ("rust".to_string(), Some("cargo".to_string()), Some(vec!["build".to_string(), "run".to_string(), "test".to_string(), "check".to_string()]))
+        }
+    } else {
+        (project_type, package_manager, scripts)
+    };
+
+    // Check for pyproject.toml (Python project)
+    let pyproject_path = path.join("pyproject.toml");
+    let (project_type, package_manager, scripts) = if pyproject_path.exists() {
+        let content = fs::read_to_string(&pyproject_path).unwrap_or_default();
+        let snippet: String = content.lines().take(60).collect::<Vec<_>>().join("\n");
+        snippets.push(format!("=== pyproject.toml ===\n{}", snippet));
+
+        let pm = if path.join("poetry.lock").exists() {
             Some("poetry".to_string())
         } else if path.join("Pipfile").exists() {
             Some("pipenv".to_string())
         } else if path.join("uv.lock").exists() {
             Some("uv".to_string())
+        } else if path.join("pdm.lock").exists() {
+            Some("pdm".to_string())
         } else {
             Some("pip".to_string())
         };
 
-        return ProjectContext {
-            project_type: "python".to_string(),
-            package_manager,
-            scripts: None,
-            has_docker: path.join("Dockerfile").exists() || path.join("docker-compose.yml").exists(),
-            has_makefile: path.join("Makefile").exists(),
-        };
-    }
+        if project_type == "unknown" {
+            ("python".to_string(), pm, None)
+        } else {
+            (project_type, package_manager.or(pm), scripts)
+        }
+    } else if path.join("requirements.txt").exists() && project_type == "unknown" {
+        ("python".to_string(), Some("pip".to_string()), None)
+    } else {
+        (project_type, package_manager, scripts)
+    };
 
     // Check for go.mod (Go project)
-    if path.join("go.mod").exists() {
-        return ProjectContext {
-            project_type: "go".to_string(),
-            package_manager: Some("go".to_string()),
-            scripts: Some(vec!["build".to_string(), "run".to_string(), "test".to_string()]),
-            has_docker: path.join("Dockerfile").exists() || path.join("docker-compose.yml").exists(),
-            has_makefile: path.join("Makefile").exists(),
-        };
+    let gomod_path = path.join("go.mod");
+    let (project_type, package_manager, scripts) = if gomod_path.exists() {
+        let content = fs::read_to_string(&gomod_path).unwrap_or_default();
+        snippets.push(format!("=== go.mod ===\n{}", content));
+
+        if project_type == "unknown" {
+            ("go".to_string(), Some("go".to_string()), Some(vec!["build".to_string(), "run".to_string(), "test".to_string()]))
+        } else {
+            (project_type, package_manager, scripts)
+        }
+    } else {
+        (project_type, package_manager, scripts)
+    };
+
+    // Check for CMakeLists.txt (C/C++ project)
+    let cmake_path = path.join("CMakeLists.txt");
+    let (project_type, package_manager, scripts) = if cmake_path.exists() {
+        let content = fs::read_to_string(&cmake_path).unwrap_or_default();
+        let snippet: String = content.lines().take(40).collect::<Vec<_>>().join("\n");
+        snippets.push(format!("=== CMakeLists.txt ===\n{}", snippet));
+
+        if project_type == "unknown" {
+            ("cpp".to_string(), Some("cmake".to_string()), Some(vec!["configure".to_string(), "build".to_string()]))
+        } else {
+            (project_type, package_manager, scripts)
+        }
+    } else {
+        (project_type, package_manager, scripts)
+    };
+
+    // Check for Makefile
+    if has_makefile && snippets.iter().all(|s| !s.contains("Makefile")) {
+        let makefile_path = path.join("Makefile");
+        if let Ok(content) = fs::read_to_string(&makefile_path) {
+            // Extract target names from Makefile
+            let targets: Vec<&str> = content.lines()
+                .filter(|l| l.contains(':') && !l.starts_with('\t') && !l.starts_with('#') && !l.starts_with('.'))
+                .filter_map(|l| l.split(':').next())
+                .take(20)
+                .collect();
+            if !targets.is_empty() {
+                snippets.push(format!("=== Makefile targets ===\n{}", targets.join(", ")));
+            }
+        }
     }
 
-    // Unknown project type
+    let config_snippet = if snippets.is_empty() { None } else { Some(snippets.join("\n\n")) };
+
     ProjectContext {
-        project_type: "unknown".to_string(),
-        package_manager: None,
-        scripts: None,
-        has_docker: path.join("Dockerfile").exists() || path.join("docker-compose.yml").exists(),
-        has_makefile: path.join("Makefile").exists(),
+        project_type,
+        package_manager,
+        scripts,
+        has_docker,
+        has_makefile,
+        config_snippet,
+        config_files,
     }
 }
 
@@ -1517,28 +1618,49 @@ async fn ai_shell_command(
         return Err("No API key provided. Set your Groq API key in Settings.".to_string());
     }
 
-    // Build the prompt with project context
-    let scripts_info = context.scripts
-        .map(|s| format!("Available scripts/commands: {}", s.join(", ")))
+    let pm = context.package_manager.clone().unwrap_or_else(|| "unknown".to_string());
+
+    // Include config snippets if available
+    let config_info = context.config_snippet.clone()
+        .map(|s| format!("\n{}", s))
         .unwrap_or_default();
+
+    let files_info = if context.config_files.is_empty() {
+        String::new()
+    } else {
+        format!("\nConfig files found: {}", context.config_files.join(", "))
+    };
 
     let prompt = format!(
         r#"You are a terminal command assistant. Convert the user's natural language request into a shell command.
 
-Project type: {} ({})
-{}
+Project type: {}
+Package manager: {}
 Has Docker: {}
-Has Makefile: {}
+Has Makefile: {}{}
+{}
 
 User request: "{}"
 
-Respond with ONLY the shell command. No explanation, no markdown, no code blocks, no quotes around the command.
-If you're unsure, make your best guess based on common conventions."#,
+RULES:
+1. Respond with ONLY the exact shell command. No explanation, no markdown, no code blocks.
+2. Analyze the config files above to understand what kind of project this is and how to run it.
+3. For Node.js projects, use the correct package manager syntax:
+   - npm: "npm run <script>"
+   - yarn: "yarn <script>"
+   - pnpm: "pnpm <script>"
+   - bun: "bun run <script>"
+4. For Python projects: use poetry/pip/uv as appropriate based on lock files.
+5. For Rust projects: use cargo commands.
+6. For C++ projects: use cmake/make as appropriate.
+7. If both package.json and Cargo.toml exist with Tauri dependencies, this is a Tauri desktop app.
+8. Always prefer running via defined scripts/targets rather than raw commands."#,
         context.project_type,
-        context.package_manager.unwrap_or_else(|| "unknown".to_string()),
-        scripts_info,
+        pm,
         context.has_docker,
         context.has_makefile,
+        files_info,
+        config_info,
         request
     );
 
