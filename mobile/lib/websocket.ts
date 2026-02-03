@@ -6,6 +6,13 @@ import type {
   TerminalInputMessage,
   PairMessage,
 } from "~/types";
+import {
+  deriveKey,
+  encryptMessage,
+  decryptMessage,
+  shouldEncrypt,
+  type EncryptionKey,
+} from "./portalCrypto";
 
 type MessageHandler = (message: WSMessage) => void;
 type ConnectionHandler = () => void;
@@ -20,6 +27,7 @@ export class ChellWebSocket {
   private ws: WebSocket | null = null;
   private url: string;
   private sessionToken: string | null = null;
+  private encryptionKey: EncryptionKey | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
@@ -30,6 +38,17 @@ export class ChellWebSocket {
 
   constructor(url: string) {
     this.url = url;
+  }
+
+  // Derive and store encryption key from passphrase and desktop ID
+  async setEncryptionKey(passphrase: string, desktopId: string): Promise<void> {
+    try {
+      this.encryptionKey = await deriveKey(passphrase, desktopId);
+      console.log("[ChellWS] Encryption key derived successfully");
+    } catch (err) {
+      console.error("[ChellWS] Failed to derive encryption key:", err);
+      throw err;
+    }
   }
 
   connect(): Promise<void> {
@@ -46,10 +65,32 @@ export class ChellWebSocket {
           resolve();
         };
 
-        this.ws.onmessage = (event) => {
+        this.ws.onmessage = async (event) => {
           try {
-            const message: WSMessage = JSON.parse(event.data);
+            let message: WSMessage = JSON.parse(event.data);
             console.log("[ChellWS] Received message:", message.type, JSON.stringify(message).slice(0, 200));
+
+            // Decrypt message if it has encrypted payload
+            if ((message as any).encrypted && this.encryptionKey) {
+              const { type, timestamp, encrypted } = message as any;
+              try {
+                const decrypted = await decryptMessage(
+                  this.encryptionKey,
+                  encrypted.iv,
+                  encrypted.ciphertext,
+                  type,
+                  timestamp
+                );
+                // Merge decrypted payload back into message
+                message = { ...message, ...decrypted } as WSMessage;
+                delete (message as any).encrypted;
+                console.log("[ChellWS] Decrypted message type:", type);
+              } catch (err) {
+                console.error("[ChellWS] Failed to decrypt message:", err);
+                return;
+              }
+            }
+
             this.handleMessage(message);
           } catch (err) {
             console.error("[ChellWS] Failed to parse message:", err);
@@ -135,7 +176,65 @@ export class ChellWebSocket {
     this.messageHandlers.forEach((handler) => handler(message));
   }
 
+  async sendAsync(message: Omit<WSMessage, "timestamp">): Promise<void> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.error("[ChellWS] send failed - WebSocket not connected, state:", this.ws?.readyState);
+      throw new Error("WebSocket not connected");
+    }
+
+    const timestamp = Date.now();
+    const type = message.type;
+
+    // Check if this message type should be encrypted
+    if (this.encryptionKey && shouldEncrypt(type)) {
+      try {
+        // Extract routing fields that stay plaintext
+        const { type: msgType, id, sessionToken, ...payload } = message as any;
+
+        const encrypted = await encryptMessage(
+          this.encryptionKey,
+          payload,
+          type,
+          timestamp
+        );
+
+        const fullMessage = {
+          type: msgType,
+          id,
+          sessionToken,
+          timestamp,
+          encrypted,
+        };
+
+        console.log("[ChellWS] Sending encrypted message type:", message.type);
+        this.ws.send(JSON.stringify(fullMessage));
+        return;
+      } catch (err) {
+        console.error("[ChellWS] Failed to encrypt message:", err);
+        // Fall through to send unencrypted as fallback
+      }
+    }
+
+    // Send unencrypted (for registration/pairing messages or if encryption failed)
+    const fullMessage = {
+      ...message,
+      timestamp,
+    };
+
+    console.log("[ChellWS] Sending message type:", message.type);
+    this.ws.send(JSON.stringify(fullMessage));
+  }
+
+  // Synchronous wrapper for compatibility (logs warning if encryption needed)
   send(message: Omit<WSMessage, "timestamp">): void {
+    // For messages that need encryption, use sendAsync
+    if (this.encryptionKey && shouldEncrypt(message.type)) {
+      this.sendAsync(message).catch((err) => {
+        console.error("[ChellWS] Failed to send encrypted message:", err);
+      });
+      return;
+    }
+
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       console.error("[ChellWS] send failed - WebSocket not connected, state:", this.ws?.readyState);
       throw new Error("WebSocket not connected");

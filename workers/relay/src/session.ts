@@ -158,9 +158,12 @@ export class SessionDO implements DurableObject {
     // Use provided device ID (for reconnects) or generate new one
     const deviceId = providedDeviceId || generateDeviceId();
 
-    // Check for existing session to preserve linked mobiles
+    // Check for existing session
     const existingSession = this.sessions.get(deviceId);
-    const linkedMobiles = existingSession?.linkedMobiles || [];
+
+    // Clear linked mobiles if passphrase changed (old devices can't reconnect anyway)
+    const passphraseChanged = existingSession && existingSession.pairingPassphrase !== pairingPassphrase;
+    const linkedMobiles = passphraseChanged ? [] : (existingSession?.linkedMobiles || []);
 
     // Create or update session data, preserving linked devices
     const sessionData: SessionData = {

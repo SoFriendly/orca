@@ -71,6 +71,7 @@ interface ConnectionStore extends ConnectionState {
 }
 
 const SECURE_TOKEN_PREFIX = "chell_session_";
+const SECURE_PASSPHRASE_PREFIX = "chell_passphrase_";
 
 function getDeviceName(): string {
   if (Device.deviceName) return Device.deviceName;
@@ -83,9 +84,10 @@ function setupMessageHandler(
   ws: ChellWebSocket,
   get: () => ConnectionStore,
   set: (partial: any) => void,
-  desktopNameOverride?: string
+  desktopNameOverride?: string,
+  pendingPassphrase?: string
 ) {
-  ws.onMessage((message: WSMessage) => {
+  ws.onMessage(async (message: WSMessage) => {
     switch (message.type) {
       case "pair_response":
         if (message.success && message.sessionToken) {
@@ -97,6 +99,21 @@ function setupMessageHandler(
             message.sessionToken
           );
           ws.setSessionToken(message.sessionToken);
+
+          // Derive and set encryption key if we have the passphrase
+          if (pendingPassphrase && portalId) {
+            try {
+              await ws.setEncryptionKey(pendingPassphrase, portalId);
+              // Save passphrase securely for future reconnects
+              await SecureStore.setItemAsync(
+                SECURE_PASSPHRASE_PREFIX + portalId,
+                pendingPassphrase
+              );
+              console.log("[ConnectionStore] Encryption key derived and passphrase saved");
+            } catch (err) {
+              console.error("[ConnectionStore] Failed to derive encryption key:", err);
+            }
+          }
 
           // Add to linked portals
           const newPortal: LinkedPortal = {
@@ -272,6 +289,21 @@ export const useConnectionStore = create<ConnectionStore>()(
             if (savedToken) {
               ws.setSessionToken(savedToken);
 
+              // Derive encryption key from saved passphrase
+              const savedPassphrase = await SecureStore.getItemAsync(
+                SECURE_PASSPHRASE_PREFIX + activePortalId
+              );
+              if (savedPassphrase) {
+                try {
+                  await ws.setEncryptionKey(savedPassphrase, activePortalId);
+                  console.log("[ConnectionStore] Encryption key derived from saved passphrase");
+                } catch (err) {
+                  console.error("[ConnectionStore] Failed to derive encryption key:", err);
+                }
+              } else {
+                console.warn("[ConnectionStore] No saved passphrase for encryption");
+              }
+
               // Resume session with relay so it knows to forward messages to us
               console.log("[ConnectionStore] Resuming session...");
               ws.resumeSession(get().deviceId || "mobile");
@@ -352,7 +384,8 @@ export const useConnectionStore = create<ConnectionStore>()(
           const ws = initWebSocket(relay);
 
           // Set up full message handler (handles pair_response, status_update, etc.)
-          setupMessageHandler(ws, get, set, desktopName);
+          // Pass passphrase so we can derive encryption key after pairing
+          setupMessageHandler(ws, get, set, desktopName, passphrase);
 
           await ws.connect();
 
@@ -385,6 +418,7 @@ export const useConnectionStore = create<ConnectionStore>()(
 
       removePortal: (portalId: string) => {
         SecureStore.deleteItemAsync(SECURE_TOKEN_PREFIX + portalId);
+        SecureStore.deleteItemAsync(SECURE_PASSPHRASE_PREFIX + portalId);
         set((state) => ({
           linkedPortals: state.linkedPortals.filter((p) => p.id !== portalId),
           activePortalId:

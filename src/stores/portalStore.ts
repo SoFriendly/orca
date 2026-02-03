@@ -2,6 +2,12 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { LinkedDevice } from "@/types";
 import { useSettingsStore } from "./settingsStore";
+import {
+  deriveKey,
+  encryptMessage,
+  decryptMessage,
+  shouldEncrypt,
+} from "@/lib/portalCrypto";
 
 // Word list for passphrase generation
 const WORD_LIST = [
@@ -49,6 +55,9 @@ interface PortalState {
   pairingCode: string;
   pairingPassphrase: string;
   linkedDevices: LinkedDevice[];
+
+  // E2E encryption key (shared by all paired devices)
+  encryptionKey: CryptoKey | null;
 
   // Mobile-spawned terminals (only forward output for these)
   mobileTerminalIds: Set<string>;
@@ -103,6 +112,7 @@ export const usePortalStore = create<PortalState>()(
       pairingCode: generatePairingCode(),
       pairingPassphrase: generatePassphrase(),
       linkedDevices: [],
+      encryptionKey: null,
       mobileTerminalIds: new Set(),
       localTerminalIds: new Set(),
       ws: null,
@@ -148,9 +158,18 @@ export const usePortalStore = create<PortalState>()(
         try {
           const ws = new WebSocket(`${relayUrl}/ws`);
 
-          ws.onopen = () => {
+          ws.onopen = async () => {
             console.log("[Portal] Connected to relay");
             set({ isConnected: true, ws });
+
+            // Derive encryption key from passphrase and deviceId
+            try {
+              const key = await deriveKey(pairingPassphrase, deviceId);
+              set({ encryptionKey: key });
+              console.log("[Portal] Derived encryption key");
+            } catch (err) {
+              console.error("[Portal] Failed to derive encryption key:", err);
+            }
 
             // Register desktop with deviceId so relay can find existing session
             get().sendMessage({
@@ -210,20 +229,33 @@ export const usePortalStore = create<PortalState>()(
         set({ isConnected: false, ws: null });
       },
 
-      regeneratePairingCode: () => {
+      regeneratePairingCode: async () => {
         const newCode = generatePairingCode();
         const newPassphrase = generatePassphrase();
+        const { deviceId } = get();
+
+        // Clear linked devices since new passphrase invalidates old pairings
         set({
           pairingCode: newCode,
           pairingPassphrase: newPassphrase,
+          linkedDevices: [],
         });
+
+        // Re-derive encryption key with new passphrase
+        try {
+          const key = await deriveKey(newPassphrase, deviceId);
+          set({ encryptionKey: key });
+          console.log("[Portal] Re-derived encryption key after passphrase change");
+        } catch (err) {
+          console.error("[Portal] Failed to re-derive encryption key:", err);
+        }
 
         // Update relay if connected
         if (get().isConnected) {
           get().sendMessage({
             type: "register_desktop",
             id: crypto.randomUUID(),
-            deviceId: get().deviceId,
+            deviceId,
             deviceName: get().deviceName,
             pairingCode: newCode,
             pairingPassphrase: newPassphrase,
@@ -265,8 +297,44 @@ export const usePortalStore = create<PortalState>()(
         });
       },
 
-      handleMessage: (data: unknown) => {
-        const message = data as Record<string, unknown>;
+      handleMessage: async (data: unknown) => {
+        let message = data as Record<string, unknown>;
+
+        // Decrypt message if it has encrypted payload
+        if (message.encrypted && typeof message.encrypted === "object") {
+          console.log("[Portal] Received encrypted message, type:", message.type);
+          const { type, timestamp } = message as {
+            type: string;
+            timestamp: number;
+            encrypted: { iv: string; ciphertext: string };
+          };
+          const encrypted = message.encrypted as { iv: string; ciphertext: string };
+
+          const { encryptionKey } = get();
+
+          if (!encryptionKey) {
+            console.error("[Portal] No encryption key available for decryption");
+            return;
+          }
+
+          console.log("[Portal] Attempting decryption with key present");
+          try {
+            const decrypted = await decryptMessage(
+              encryptionKey,
+              encrypted.iv,
+              encrypted.ciphertext,
+              type,
+              timestamp
+            );
+            // Merge decrypted payload back into message
+            message = { ...message, ...decrypted };
+            delete message.encrypted;
+            console.log("[Portal] Decrypted message type:", type);
+          } catch (err) {
+            console.error("[Portal] Failed to decrypt message:", err);
+            return;
+          }
+        }
 
         switch (message.type) {
           case "device_list":
@@ -550,16 +618,50 @@ export const usePortalStore = create<PortalState>()(
         }
       },
 
-      sendMessage: (message: Record<string, unknown>) => {
-        const { ws } = get();
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(
-            JSON.stringify({
-              ...message,
-              timestamp: Date.now(),
-            })
-          );
+      sendMessage: async (message: Record<string, unknown>) => {
+        const { ws, encryptionKey } = get();
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+        const timestamp = Date.now();
+        const type = message.type as string;
+
+        // Check if this message type should be encrypted
+        if (encryptionKey && shouldEncrypt(type)) {
+          try {
+            // Extract routing fields that stay plaintext
+            const { type: msgType, id, sessionToken, ...payload } = message;
+
+            const encrypted = await encryptMessage(
+              encryptionKey,
+              payload,
+              type,
+              timestamp
+            );
+
+            console.log("[Portal] Sending encrypted message type:", msgType);
+            ws.send(
+              JSON.stringify({
+                type: msgType,
+                id,
+                sessionToken,
+                timestamp,
+                encrypted,
+              })
+            );
+            return;
+          } catch (err) {
+            console.error("[Portal] Failed to encrypt message:", err);
+            // Fall through to send unencrypted as fallback
+          }
         }
+
+        // Send unencrypted (for registration messages or if encryption failed)
+        ws.send(
+          JSON.stringify({
+            ...message,
+            timestamp,
+          })
+        );
       },
     }),
     {
@@ -569,6 +671,8 @@ export const usePortalStore = create<PortalState>()(
         relayUrl: state.relayUrl,
         deviceId: state.deviceId,
         deviceName: state.deviceName,
+        pairingCode: state.pairingCode,
+        pairingPassphrase: state.pairingPassphrase,
         linkedDevices: state.linkedDevices,
       }),
       onRehydrateStorage: () => (state) => {

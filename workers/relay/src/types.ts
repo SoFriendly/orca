@@ -17,10 +17,18 @@ export type MessageType =
   | "ping"
   | "pong";
 
+// E2E encryption payload (present on encrypted messages, relay passes through)
+export interface EncryptedPayload {
+  iv: string;        // Base64 encoded 12-byte IV
+  ciphertext: string; // Base64 encoded encrypted payload + auth tag
+}
+
 export interface BaseMessage {
   type: MessageType;
   id: string;
   timestamp: number;
+  // Optional E2E encrypted payload (relay passes through without decryption)
+  encrypted?: EncryptedPayload;
 }
 
 // Desktop registration
