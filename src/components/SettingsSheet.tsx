@@ -544,6 +544,11 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                           type="password"
                           value={groqApiKey || ""}
                           onChange={(e) => setGroqApiKey(e.target.value || undefined)}
+                          onBlur={(e) => {
+                            if (e.target.value) {
+                              toast.success("API key saved");
+                            }
+                          }}
                           placeholder="gsk_..."
                           className="w-56 h-9 bg-muted/50 font-mono text-xs"
                         />

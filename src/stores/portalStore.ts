@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { LinkedDevice } from "@/types";
+import { useSettingsStore } from "./settingsStore";
 
 // Word list for passphrase generation
 const WORD_LIST = [
@@ -282,12 +283,16 @@ export const usePortalStore = create<PortalState>()(
 
             console.log("[Portal] Received command from mobile:", command, "id:", id, "params:", JSON.stringify(params).slice(0, 100));
 
-            // Inject API key for AI commands
+            // Inject API key for AI commands from settings
             let finalParams = { ...params };
             if (command === "generate_commit_message" || command === "ai_shell_command") {
-              const GROQ_API_KEY = "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";
-              finalParams.apiKey = GROQ_API_KEY;
-              console.log("[Portal] Injected API key for", command);
+              const groqApiKey = useSettingsStore.getState().groqApiKey;
+              if (groqApiKey) {
+                finalParams.apiKey = groqApiKey;
+                console.log("[Portal] Injected API key for", command);
+              } else {
+                console.warn("[Portal] No Groq API key configured in settings");
+              }
             }
 
             // Import invoke dynamically to avoid issues
