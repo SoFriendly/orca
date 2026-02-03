@@ -199,10 +199,11 @@ impl GitService {
         let workdir = repo.workdir().ok_or("No working directory")?.to_path_buf();
 
         // Add all changes to index, skipping directories
+        // Use both "*" and ".*" to include hidden files/directories
         let mut index = repo.index().map_err(|e| e.to_string())?;
         index
             .add_all(
-                ["*"].iter(),
+                ["*", ".*"].iter(),
                 git2::IndexAddOption::DEFAULT,
                 Some(&mut |path: &std::path::Path, _matched_spec: &[u8]| {
                     // Skip directories - only add files
