@@ -141,6 +141,7 @@ export interface Settings {
   autoCommitMessage: boolean;
   autoFetchRemote: boolean;
   groqApiKey?: string;
+  preferredEditor?: string;
   // Remote Portal settings
   portalEnabled?: boolean;
   portalRelayUrl?: string;

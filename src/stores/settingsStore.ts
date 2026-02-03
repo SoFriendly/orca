@@ -19,6 +19,7 @@ interface SettingsState extends Settings {
   setAutoFetchRemote: (enabled: boolean) => void;
   setHasSeenOnboarding: (seen: boolean) => void;
   setGroqApiKey: (key: string | undefined) => void;
+  setPreferredEditor: (editor: string | undefined) => void;
   // Custom theme actions
   setCustomTheme: (theme: CustomThemeColors | undefined) => void;
   setCustomThemeColor: (colorKey: keyof CustomThemeColors['colors'], value: string) => void;
@@ -66,6 +67,7 @@ export const useSettingsStore = create<SettingsState>()(
       autoFetchRemote: false,
       hasSeenOnboarding: false,
       groqApiKey: undefined,
+      preferredEditor: undefined,
 
       setTheme: (theme) => {
         const customTheme = get().customTheme;
@@ -104,6 +106,8 @@ export const useSettingsStore = create<SettingsState>()(
       setHasSeenOnboarding: (seen) => set({ hasSeenOnboarding: seen }),
 
       setGroqApiKey: (key) => set({ groqApiKey: key }),
+
+      setPreferredEditor: (editor) => set({ preferredEditor: editor }),
 
       setCustomTheme: (customTheme) => {
         set({ customTheme });

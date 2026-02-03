@@ -28,6 +28,7 @@ import {
   FolderOpen,
   EyeOff,
   ExternalLink,
+  SquareTerminal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -100,7 +101,7 @@ interface FileTreeNode {
 
 export default function GitPanel({ projectPath, projectName, onRefresh, onFileDragStart, onFileDragEnd }: GitPanelProps) {
   const { diffs, branches, loading, status, history } = useGitStore();
-  const { autoCommitMessage, groqApiKey } = useSettingsStore();
+  const { autoCommitMessage, groqApiKey, preferredEditor } = useSettingsStore();
   const [commitSubject, setCommitSubject] = useState("");
   const [commitDescription, setCommitDescription] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
@@ -277,6 +278,19 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
     if (platform.indexOf('MAC') >= 0) return 'Reveal in Finder';
     if (platform.indexOf('WIN') >= 0) return 'Show in Explorer';
     return 'Show in File Manager';
+  };
+
+  const handleOpenInTerminalEditor = (filePath: string) => {
+    if (!preferredEditor) {
+      toast.error("No preferred editor set. Configure it in Settings.");
+      return;
+    }
+    invoke("open_in_terminal_editor", {
+      path: `${projectPath}/${filePath}`,
+      editor: preferredEditor
+    }).catch((err) => {
+      toast.error(`Failed to open in ${preferredEditor}: ${err}`);
+    });
   };
 
   const generateCommitMessage = async () => {
@@ -669,6 +683,12 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
               <FolderOpen className="mr-2 h-4 w-4" />
               {getRevealLabel()}
             </ContextMenuItem>
+            {preferredEditor && (
+              <ContextMenuItem onClick={() => handleOpenInTerminalEditor(diff.path)}>
+                <SquareTerminal className="mr-2 h-4 w-4" />
+                Open in {preferredEditor}
+              </ContextMenuItem>
+            )}
             <ContextMenuSeparator />
             <ContextMenuItem
               className="text-destructive focus:text-destructive"
@@ -899,6 +919,12 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
                   <FolderOpen className="mr-2 h-4 w-4" />
                   {getRevealLabel()}
                 </ContextMenuItem>
+                {preferredEditor && (
+                  <ContextMenuItem onClick={() => handleOpenInTerminalEditor(node.path)}>
+                    <SquareTerminal className="mr-2 h-4 w-4" />
+                    Open in {preferredEditor}
+                  </ContextMenuItem>
+                )}
                 <ContextMenuSeparator />
                 <ContextMenuItem onClick={() => handleCopyPath(node.path)}>
                   <Copy className="mr-2 h-4 w-4" />

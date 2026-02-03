@@ -970,6 +970,80 @@ fn open_file_in_editor(path: String, line: Option<u32>, column: Option<u32>) -> 
     Ok(())
 }
 
+#[tauri::command]
+fn open_in_terminal_editor(path: String, editor: String) -> Result<(), String> {
+    use std::path::Path;
+
+    let file_path = Path::new(&path);
+    if !file_path.exists() {
+        return Err(format!("File not found: {}", path));
+    }
+
+    // Escape the path for shell use
+    let escaped_path = path.replace("'", "'\\''");
+
+    #[cfg(target_os = "macos")]
+    {
+        // Use osascript to open a new Terminal window with the editor
+        let script = format!(
+            r#"tell application "Terminal"
+                activate
+                do script "{} '{}'"
+            end tell"#,
+            editor, escaped_path
+        );
+        std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(&script)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Open a new cmd window with the editor
+        std::process::Command::new("cmd")
+            .args(["/c", "start", "cmd", "/k", &format!("{} \"{}\"", editor, path)])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Try common terminal emulators
+        let terminals = ["gnome-terminal", "konsole", "xfce4-terminal", "xterm"];
+        let mut spawned = false;
+
+        for term in terminals {
+            let result = match term {
+                "gnome-terminal" => std::process::Command::new(term)
+                    .args(["--", &editor, &path])
+                    .spawn(),
+                "konsole" => std::process::Command::new(term)
+                    .args(["-e", &editor, &path])
+                    .spawn(),
+                "xfce4-terminal" => std::process::Command::new(term)
+                    .args(["-e", &format!("{} '{}'", editor, escaped_path)])
+                    .spawn(),
+                _ => std::process::Command::new(term)
+                    .args(["-e", &format!("{} '{}'", editor, escaped_path)])
+                    .spawn(),
+            };
+
+            if result.is_ok() {
+                spawned = true;
+                break;
+            }
+        }
+
+        if !spawned {
+            return Err("Could not find a terminal emulator".to_string());
+        }
+    }
+
+    Ok(())
+}
+
 // List directories in a path
 #[tauri::command]
 fn list_directories(path: String) -> Result<Vec<String>, String> {
@@ -1613,6 +1687,7 @@ pub fn run() {
             open_in_finder,
             reveal_in_file_manager,
             open_file_in_editor,
+            open_in_terminal_editor,
             list_directories,
             get_shell_history,
             get_file_tree,

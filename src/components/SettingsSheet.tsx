@@ -126,6 +126,8 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
     setAutoFetchRemote,
     groqApiKey,
     setGroqApiKey,
+    preferredEditor,
+    setPreferredEditor,
   } = useSettingsStore();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
@@ -339,6 +341,22 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                         <Switch
                           checked={autoFetchRemote}
                           onCheckedChange={setAutoFetchRemote}
+                        />
+                      </div>
+
+                      {/* Preferred Editor */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Preferred Editor</p>
+                          <p className="text-xs text-muted-foreground">
+                            Terminal editor for "Open in Editor" (e.g., vim, nvim, nano)
+                          </p>
+                        </div>
+                        <Input
+                          value={preferredEditor || ""}
+                          onChange={(e) => setPreferredEditor(e.target.value || undefined)}
+                          placeholder="nvim"
+                          className="w-32 h-9 bg-muted/50 font-mono text-sm"
                         />
                       </div>
                     </div>
