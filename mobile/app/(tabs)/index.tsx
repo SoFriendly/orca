@@ -43,7 +43,6 @@ import {
   TabsContent,
   Separator,
   SectionHeader,
-  FileStatusDot,
 } from "~/components/ui";
 import { useTheme } from "~/components/ThemeProvider";
 import { formatTimestamp, truncate } from "~/lib/utils";
@@ -80,6 +79,7 @@ export default function GitTabPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [newBranchName, setNewBranchName] = useState("");
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
+  const [filesToCommit, setFilesToCommit] = useState<Set<string>>(new Set());
 
   const lastDiffsHash = useRef<string>("");
   const hasGeneratedInitialMessage = useRef(false);
@@ -104,29 +104,31 @@ export default function GitTabPage() {
   }, [projectPath, isConnected]);
 
   const handleGenerateMessage = async () => {
-    console.log("[Git] handleGenerateMessage called, diffs:", diffs.length, "gitStatus:", gitStatus);
+    // Filter diffs to only include selected files
+    const selectedDiffs = diffs.filter((d) => filesToCommit.has(d.path));
+    console.log("[Git] handleGenerateMessage called, selectedDiffs:", selectedDiffs.length, "gitStatus:", gitStatus);
 
     // Give immediate haptic feedback so user knows button was pressed
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     // Use diffs if available, otherwise create fallback
-    if (diffs.length === 0) {
-      // Fallback: just list the files
-      const allFiles = [...(gitStatus?.staged || []), ...(gitStatus?.unstaged || []), ...(gitStatus?.untracked || [])];
-      console.log("[Git] No diffs, allFiles:", allFiles.length);
-      if (allFiles.length > 0) {
-        const fileNames = allFiles.map(f => f.split('/').pop()).slice(0, 3).join(', ');
-        setCommitSubject(`Update ${fileNames}${allFiles.length > 3 ? '...' : ''}`);
+    if (selectedDiffs.length === 0) {
+      // Fallback: just list the selected files
+      const selectedFiles = Array.from(filesToCommit);
+      console.log("[Git] No diffs for selected files, selectedFiles:", selectedFiles.length);
+      if (selectedFiles.length > 0) {
+        const fileNames = selectedFiles.map(f => f.split('/').pop()).slice(0, 3).join(', ');
+        setCommitSubject(`Update ${fileNames}${selectedFiles.length > 3 ? '...' : ''}`);
       } else {
-        Alert.alert("No Changes", "No changes detected. Make sure you're connected to your desktop and have uncommitted changes.");
+        Alert.alert("No Files Selected", "Please select at least one file to commit.");
       }
       return;
     }
 
     setIsGenerating(true);
-    console.log("[Git] Calling generateCommitMessage with", diffs.length, "diffs");
+    console.log("[Git] Calling generateCommitMessage with", selectedDiffs.length, "diffs");
     try {
-      const { subject, description } = await generateCommitMessage(diffs);
+      const { subject, description } = await generateCommitMessage(selectedDiffs);
       console.log("[Git] Got response:", subject);
       setCommitSubject(subject);
       setCommitDescription(description);
@@ -135,7 +137,7 @@ export default function GitTabPage() {
       console.error("[Git] Failed to generate commit message:", err);
       Alert.alert("AI Error", err instanceof Error ? err.message : "Failed to generate commit message");
       // Fallback to simple message
-      const fileNames = diffs.map(d => d.path.split('/').pop()).join(', ');
+      const fileNames = selectedDiffs.map(d => d.path.split('/').pop()).join(', ');
       setCommitSubject(`Update ${fileNames}`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     } finally {
@@ -143,12 +145,14 @@ export default function GitTabPage() {
     }
   };
 
-  // Auto-generate commit message when diffs change
+  // Auto-generate commit message when diffs/selection change
   useEffect(() => {
     const runAutoGenerate = async () => {
-      const diffsHash = JSON.stringify(diffs.map(d => d.path + d.status).sort());
+      // Filter diffs to only include selected files
+      const selectedDiffs = diffs.filter((d) => filesToCommit.has(d.path));
+      const diffsHash = JSON.stringify(selectedDiffs.map(d => d.path + d.status).sort());
 
-      if (diffs.length === 0) {
+      if (selectedDiffs.length === 0) {
         // Only clear if there are truly no changes at all
         const hasAnyChanges = (gitStatus?.staged?.length || 0) + (gitStatus?.unstaged?.length || 0) + (gitStatus?.untracked?.length || 0) > 0;
         if (!hasAnyChanges) {
@@ -166,12 +170,12 @@ export default function GitTabPage() {
           hasGeneratedInitialMessage.current = true;
           setIsGenerating(true);
           try {
-            const { subject, description } = await generateCommitMessage(diffs);
+            const { subject, description } = await generateCommitMessage(selectedDiffs);
             setCommitSubject(subject);
             setCommitDescription(description);
           } catch (err) {
             console.error("Failed to generate commit message:", err);
-            const fileNames = diffs.map(d => d.path.split('/').pop()).join(', ');
+            const fileNames = selectedDiffs.map(d => d.path.split('/').pop()).join(', ');
             setCommitSubject(`Update ${fileNames}`);
           } finally {
             setIsGenerating(false);
@@ -181,11 +185,27 @@ export default function GitTabPage() {
     };
 
     runAutoGenerate();
-  }, [diffs, gitStatus, generateCommitMessage]);
+  }, [diffs, filesToCommit, gitStatus, generateCommitMessage]);
+
+  // Auto-populate filesToCommit when diffs change (all files checked by default)
+  useEffect(() => {
+    if (diffs.length === 0) {
+      setFilesToCommit(new Set());
+      return;
+    }
+    // Default all files to checked
+    setFilesToCommit(new Set(diffs.map((d) => d.path)));
+  }, [diffs]);
 
   const handleCommit = async () => {
     if (!commitSubject?.trim()) {
       Alert.alert("Error", "Please enter a commit message");
+      return;
+    }
+
+    const files = Array.from(filesToCommit);
+    if (files.length === 0) {
+      Alert.alert("Error", "Please select at least one file to commit");
       return;
     }
 
@@ -194,7 +214,7 @@ export default function GitTabPage() {
       : commitSubject;
 
     try {
-      await commit(projectPath, fullMessage);
+      await commit(projectPath, fullMessage, files);
       setCommitSubject("");
       setCommitDescription("");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -315,6 +335,19 @@ export default function GitTabPage() {
     });
   };
 
+  const toggleFileToCommit = (filePath: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setFilesToCommit((prev) => {
+      const next = new Set(prev);
+      if (next.has(filePath)) {
+        next.delete(filePath);
+      } else {
+        next.add(filePath);
+      }
+      return next;
+    });
+  };
+
   // Get diff for a file
   const getDiffForFile = (filePath: string) => {
     return diffs.find((d) => d.path === filePath);
@@ -325,6 +358,18 @@ export default function GitTabPage() {
     if (status === "added") return "added";
     if (status === "deleted") return "deleted";
     return "modified"; // renamed, modified, or unknown -> modified
+  };
+
+  // Get checkbox background color based on status
+  const getCheckboxColor = (status: "added" | "modified" | "deleted") => {
+    switch (status) {
+      case "added":
+        return colors.success;
+      case "deleted":
+        return colors.destructive;
+      default:
+        return colors.primary;
+    }
   };
 
   // Not connected state
@@ -470,24 +515,44 @@ export default function GitTabPage() {
 
                     return (
                       <View key={file}>
-                        <Pressable
+                        <View
                           className={`flex-row items-center gap-3 px-3 py-2 ${
                             index < stagedFiles.length - 1 ? "border-b border-border" : ""
                           }`}
-                          onPress={() => toggleFileExpanded(file)}
-                          onLongPress={() => showFileContextMenu(file, false)}
                         >
-                          <View style={{ transform: [{ rotate: isExpanded ? "90deg" : "0deg" }] }}>
-                            <ChevronRight size={16} color={colors.mutedForeground} />
-                          </View>
-                          <FileStatusDot status={fileStatus} />
-                          <Text
-                            className="text-foreground font-mono text-sm flex-1"
-                            numberOfLines={1}
+                          <Pressable
+                            onPress={() => toggleFileToCommit(file)}
+                            style={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: 4,
+                              borderWidth: 1.5,
+                              borderColor: filesToCommit.has(file) ? "transparent" : getCheckboxColor(fileStatus),
+                              backgroundColor: filesToCommit.has(file) ? getCheckboxColor(fileStatus) : "transparent",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
                           >
-                            {file}
-                          </Text>
-                        </Pressable>
+                            {filesToCommit.has(file) && (
+                              <Check size={14} color="#fff" strokeWidth={3} />
+                            )}
+                          </Pressable>
+                          <Pressable
+                            className="flex-row items-center gap-2 flex-1"
+                            onPress={() => toggleFileExpanded(file)}
+                            onLongPress={() => showFileContextMenu(file, false)}
+                          >
+                            <View style={{ transform: [{ rotate: isExpanded ? "90deg" : "0deg" }] }}>
+                              <ChevronRight size={16} color={colors.mutedForeground} />
+                            </View>
+                            <Text
+                              className="text-foreground font-mono text-sm flex-1"
+                              numberOfLines={1}
+                            >
+                              {file}
+                            </Text>
+                          </Pressable>
+                        </View>
 
                         {/* Diff view */}
                         {isExpanded && (
@@ -554,24 +619,44 @@ export default function GitTabPage() {
 
                     return (
                       <View key={file}>
-                        <Pressable
+                        <View
                           className={`flex-row items-center gap-3 px-3 py-2 ${
                             !isLast ? "border-b border-border" : ""
                           }`}
-                          onPress={() => toggleFileExpanded(file)}
-                          onLongPress={() => showFileContextMenu(file, true)}
                         >
-                          <View style={{ transform: [{ rotate: isExpanded ? "90deg" : "0deg" }] }}>
-                            <ChevronRight size={16} color={colors.mutedForeground} />
-                          </View>
-                          <FileStatusDot status={fileStatus} />
-                          <Text
-                            className="text-foreground font-mono text-sm flex-1"
-                            numberOfLines={1}
+                          <Pressable
+                            onPress={() => toggleFileToCommit(file)}
+                            style={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: 4,
+                              borderWidth: 1.5,
+                              borderColor: filesToCommit.has(file) ? "transparent" : getCheckboxColor(fileStatus),
+                              backgroundColor: filesToCommit.has(file) ? getCheckboxColor(fileStatus) : "transparent",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
                           >
-                            {file}
-                          </Text>
-                        </Pressable>
+                            {filesToCommit.has(file) && (
+                              <Check size={14} color="#fff" strokeWidth={3} />
+                            )}
+                          </Pressable>
+                          <Pressable
+                            className="flex-row items-center gap-2 flex-1"
+                            onPress={() => toggleFileExpanded(file)}
+                            onLongPress={() => showFileContextMenu(file, true)}
+                          >
+                            <View style={{ transform: [{ rotate: isExpanded ? "90deg" : "0deg" }] }}>
+                              <ChevronRight size={16} color={colors.mutedForeground} />
+                            </View>
+                            <Text
+                              className="text-foreground font-mono text-sm flex-1"
+                              numberOfLines={1}
+                            >
+                              {file}
+                            </Text>
+                          </Pressable>
+                        </View>
 
                         {/* Diff view */}
                         {isExpanded && (
@@ -624,25 +709,45 @@ export default function GitTabPage() {
                     const isLast = index === untrackedFiles.length - 1;
 
                     return (
-                      <Pressable
+                      <View
                         key={file}
                         className={`flex-row items-center gap-3 px-3 py-2 ${
                           !isLast ? "border-b border-border" : ""
                         }`}
-                        onPress={() => toggleFileExpanded(file)}
-                        onLongPress={() => showFileContextMenu(file, true)}
                       >
-                        <View style={{ transform: [{ rotate: isExpanded ? "90deg" : "0deg" }] }}>
-                          <ChevronRight size={16} color={colors.mutedForeground} />
-                        </View>
-                        <FileStatusDot status="added" />
-                        <Text
-                          className="text-foreground font-mono text-sm flex-1"
-                          numberOfLines={1}
+                        <Pressable
+                          onPress={() => toggleFileToCommit(file)}
+                          style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: 4,
+                            borderWidth: 1.5,
+                            borderColor: filesToCommit.has(file) ? "transparent" : getCheckboxColor("added"),
+                            backgroundColor: filesToCommit.has(file) ? getCheckboxColor("added") : "transparent",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
                         >
-                          {file}
-                        </Text>
-                      </Pressable>
+                          {filesToCommit.has(file) && (
+                            <Check size={14} color="#fff" strokeWidth={3} />
+                          )}
+                        </Pressable>
+                        <Pressable
+                          className="flex-row items-center gap-2 flex-1"
+                          onPress={() => toggleFileExpanded(file)}
+                          onLongPress={() => showFileContextMenu(file, true)}
+                        >
+                          <View style={{ transform: [{ rotate: isExpanded ? "90deg" : "0deg" }] }}>
+                            <ChevronRight size={16} color={colors.mutedForeground} />
+                          </View>
+                          <Text
+                            className="text-foreground font-mono text-sm flex-1"
+                            numberOfLines={1}
+                          >
+                            {file}
+                          </Text>
+                        </Pressable>
+                      </View>
                     );
                   })}
                 </CardContent>
@@ -706,9 +811,11 @@ export default function GitTabPage() {
                   <Button
                     onPress={handleCommit}
                     loading={loading}
-                    disabled={!commitSubject?.trim() || diffs.length === 0}
+                    disabled={!commitSubject?.trim() || filesToCommit.size === 0}
                   >
-                    {loading ? "Committing..." : `Commit to ${currentBranch?.name || "main"}`}
+                    {loading
+                      ? "Committing..."
+                      : `Commit ${filesToCommit.size} file${filesToCommit.size !== 1 ? "s" : ""}`}
                   </Button>
                 </CardContent>
               </Card>

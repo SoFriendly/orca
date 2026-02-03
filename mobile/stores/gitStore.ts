@@ -16,7 +16,7 @@ interface GitStore {
   setShowBranchPicker: (show: boolean) => void;
   toggleBranchPicker: () => void;
   refresh: (projectPath: string) => Promise<void>;
-  commit: (projectPath: string, message: string) => Promise<void>;
+  commit: (projectPath: string, message: string, files?: string[]) => Promise<void>;
   stageFile: (projectPath: string, filePath: string) => Promise<void>;
   unstageFile: (projectPath: string, filePath: string) => Promise<void>;
   discardFile: (projectPath: string, filePath: string) => Promise<void>;
@@ -60,12 +60,12 @@ export const useGitStore = create<GitStore>((set, get) => ({
     }
   },
 
-  commit: async (projectPath: string, message: string) => {
+  commit: async (projectPath: string, message: string, files?: string[]) => {
     const { invoke } = useConnectionStore.getState();
     set({ loading: true, error: null });
 
     try {
-      await invoke("commit", { repoPath: projectPath, message });
+      await invoke("commit", { repoPath: projectPath, message, files });
       await get().refresh(projectPath);
     } catch (err) {
       set({
