@@ -461,7 +461,7 @@ export default function GitTabPage() {
           {stagedFiles.length > 0 && (
             <View className="mb-4">
               <SectionHeader>Staged Changes ({stagedFiles.length})</SectionHeader>
-              <Card>
+              <Card className="py-2">
                 <CardContent className="p-0">
                   {stagedFiles.map((file, index) => {
                     const diff = getDiffForFile(file);
@@ -471,7 +471,7 @@ export default function GitTabPage() {
                     return (
                       <View key={file}>
                         <Pressable
-                          className={`flex-row items-center gap-3 px-4 py-3 ${
+                          className={`flex-row items-center gap-3 px-3 py-2 ${
                             index < stagedFiles.length - 1 ? "border-b border-border" : ""
                           }`}
                           onPress={() => toggleFileExpanded(file)}
@@ -543,7 +543,7 @@ export default function GitTabPage() {
           {(unstagedFiles.length > 0 || untrackedFiles.length > 0) && (
             <View className="mb-4">
               <SectionHeader>Unstaged Changes ({unstagedFiles.length + untrackedFiles.length})</SectionHeader>
-              <Card>
+              <Card className="py-2">
                 <CardContent className="p-0">
                   {/* Modified files */}
                   {unstagedFiles.map((file, index) => {
@@ -555,7 +555,7 @@ export default function GitTabPage() {
                     return (
                       <View key={file}>
                         <Pressable
-                          className={`flex-row items-center gap-3 px-4 py-3 ${
+                          className={`flex-row items-center gap-3 px-3 py-2 ${
                             !isLast ? "border-b border-border" : ""
                           }`}
                           onPress={() => toggleFileExpanded(file)}
@@ -626,7 +626,7 @@ export default function GitTabPage() {
                     return (
                       <Pressable
                         key={file}
-                        className={`flex-row items-center gap-3 px-4 py-3 ${
+                        className={`flex-row items-center gap-3 px-3 py-2 ${
                           !isLast ? "border-b border-border" : ""
                         }`}
                         onPress={() => toggleFileExpanded(file)}

@@ -1,0 +1,20 @@
+{
+  "projectType": "node",
+  "packageManager": "npm",
+  "scripts": [
+    "android",
+    "format",
+    "ios",
+    "lint",
+    "start",
+    "typecheck",
+    "web"
+  ],
+  "hasDocker": false,
+  "hasMakefile": false,
+  "configSnippet": "=== package.json ===\n{\n  \"dependencies\": {\n    \"@expo/ngrok\": \"^4.1.3\",\n    \"@expo/vector-icons\": \"^15.0.3\",\n    \"@react-native-async-storage/async-storage\": \"^2.0.0\",\n    \"@react-navigation/native\": \"^7.0.0\",\n    \"@rn-primitives/accordion\": \"^1.2.0\",\n    \"@rn-primitives/alert-dialog\": \"^1.2.0\",\n    \"@rn-primitives/checkbox\": \"^1.2.0\",\n    \"@rn-primitives/collapsible\": \"^1.2.0\",\n    \"@rn-primitives/dialog\": \"^1.2.0\",\n    \"@rn-primitives/dropdown-menu\": \"^1.2.0\",\n    \"@rn-primitives/label\": \"^1.2.0\",\n    \"@rn-primitives/portal\": \"^1.3.0\",\n    \"@rn-primitives/progress\": \"^1.2.0\",\n    \"@rn-primitives/radio-group\": \"^1.2.0\",\n    \"@rn-primitives/select\": \"^1.2.0\",\n    \"@rn-primitives/separator\": \"^1.2.0\",\n    \"@rn-primitives/slot\": \"^1.2.0\",\n    \"@rn-primitives/switch\": \"^1.2.0\",\n    \"@rn-primitives/tabs\": \"^1.2.0\",\n    \"@rn-primitives/toggle\": \"^1.2.0\"\n  },\n  \"devDependencies\": {\n    \"@babel/core\": \"^7.25.0\",\n    \"@types/react\": \"~19.1.10\",\n    \"babel-preset-expo\": \"^54.0.10\",\n    \"eslint\": \"^9.0.0\",\n    \"prettier\": \"^3.3.0\",\n    \"tailwindcss\": \"^3.4.0\",\n    \"typescript\": \"^5.6.0\"\n  },\n  \"scripts\": {\n    \"android\": \"expo run:android\",\n    \"format\": \"prettier --write .\",\n    \"ios\": \"expo run:ios\",\n    \"lint\": \"eslint .\",\n    \"start\": \"expo start\",\n    \"typecheck\": \"tsc --noEmit\",\n    \"web\": \"expo start --web\"\n  }\n}",
+  "configFiles": [
+    "package.json",
+    "tsconfig.json"
+  ]
+}
