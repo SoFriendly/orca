@@ -64,7 +64,7 @@ fi
 # Stage version files
 echo ""
 echo "=== Committing version bump ==="
-git add src-tauri/tauri.conf.json src-tauri/Cargo.toml package.json Cargo.lock 2>/dev/null || true
+git add src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock package.json
 
 # Commit
 git commit -m "Bump version to $NEW_VERSION"
