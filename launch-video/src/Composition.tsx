@@ -1,5 +1,6 @@
 import {
   AbsoluteFill,
+  Audio,
   Img,
   interpolate,
   spring,
@@ -622,8 +623,15 @@ function FeatureScene({
   // Subtle floating animation
   const floatY = Math.sin(frame * 0.05) * 6;
 
+  // Title slam animation
+  const titleProgress = spring({
+    frame,
+    fps,
+    config: { damping: 12, stiffness: 200 },
+  });
+
   // Text animations
-  const textOpacity = interpolate(frame, [0.2 * fps, 0.5 * fps], [0, 1], {
+  const textOpacity = interpolate(frame, [0.3 * fps, 0.6 * fps], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -650,29 +658,34 @@ function FeatureScene({
       />
 
       {/* Main content */}
-      <div className="absolute inset-0 flex items-center justify-center px-28">
+      <div className="absolute inset-0 flex items-center justify-center">
         <div
           className={cn(
-            "flex items-center gap-36 w-full max-w-[1760px]",
+            "flex items-center justify-center gap-24",
             panDirection === "right" && "flex-row-reverse"
           )}
         >
           {/* Text */}
           <div
-            className="flex-1 max-w-[580px]"
+            className="w-[520px]"
             style={{
-              opacity: textOpacity,
               transform: `translateY(${floatY * 0.5}px)`,
             }}
           >
-            <h2 className="text-7xl font-bold text-[hsl(var(--foreground))] leading-[1.1] mb-8">
-              <TypewriterText
-                text={title}
-                startFrame={0.15 * fps}
-                charactersPerFrame={2}
-              />
+            <h2
+              className="text-6xl font-bold text-[hsl(var(--foreground))] leading-[1.1] mb-6"
+              style={{
+                opacity: interpolate(titleProgress, [0, 0.3], [0, 1], { extrapolateRight: "clamp" }),
+                transform: `scale(${interpolate(titleProgress, [0, 1], [1.3, 1])})`,
+                transformOrigin: panDirection === "right" ? "right center" : "left center",
+              }}
+            >
+              {title}
             </h2>
-            <p className="text-3xl text-[hsl(var(--muted-foreground))] leading-relaxed">
+            <p
+              className="text-3xl text-[hsl(var(--muted-foreground))] leading-relaxed"
+              style={{ opacity: textOpacity }}
+            >
               <TypewriterText
                 text={description}
                 startFrame={0.4 * fps}
@@ -774,16 +787,40 @@ function ClosingScene() {
   );
 }
 
-// Main composition
-// Total duration: 105 + 150 + 150 + 150 + 150 + 105 - (5 * 12) = 750 frames = 25 seconds
+// Background music with fade out
+function BackgroundMusic() {
+  const frame = useCurrentFrame();
+  const { fps, durationInFrames } = useVideoConfig();
+
+  // Fade out over last 1.5 seconds
+  const fadeOutStart = durationInFrames - 1.5 * fps;
+  const volume = interpolate(
+    frame,
+    [0, 0.5 * fps, fadeOutStart, durationInFrames],
+    [0, 0.7, 0.7, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
+
+  return (
+    <Audio
+      src={staticFile("Aylex - Blast (freetouse.com).mp3")}
+      volume={volume}
+    />
+  );
+}
+
+// Main composition - synced to 75 BPM (1 beat = 24 frames)
+// Total duration: (120 + 144 + 144 + 144 + 144 + 144) - (5 * 24) = 720 frames = 24 seconds
 export const MyComposition = () => {
-  const TRANSITION_DURATION = 12;
+  const BEAT = 24; // 75 BPM = 24 frames per beat
+  const TRANSITION_DURATION = BEAT; // 1 beat transition
 
   return (
     <AbsoluteFill className="bg-[hsl(var(--background))]">
+      <BackgroundMusic />
       <TransitionSeries>
-        {/* Scene 1: Opening - 3.5s */}
-        <TransitionSeries.Sequence durationInFrames={105}>
+        {/* Scene 1: Opening - 5 beats (4s) */}
+        <TransitionSeries.Sequence durationInFrames={BEAT * 5}>
           <OpeningScene />
         </TransitionSeries.Sequence>
 
@@ -792,8 +829,8 @@ export const MyComposition = () => {
           timing={linearTiming({ durationInFrames: TRANSITION_DURATION })}
         />
 
-        {/* Scene 2: Git Panel - 5s */}
-        <TransitionSeries.Sequence durationInFrames={150}>
+        {/* Scene 2: Git Panel - 6 beats (4.8s) */}
+        <TransitionSeries.Sequence durationInFrames={BEAT * 6}>
           <FeatureScene
             title="Pull, push, and see what changed"
             description="Every git operation is one click away. Expand any file to see the inline diff with syntax highlighting. Discard hunks you don't want, keep the ones you do."
@@ -810,8 +847,8 @@ export const MyComposition = () => {
           timing={linearTiming({ durationInFrames: TRANSITION_DURATION })}
         />
 
-        {/* Scene 3: Commit Panel - 5s */}
-        <TransitionSeries.Sequence durationInFrames={150}>
+        {/* Scene 3: Commit Panel - 6 beats (4.8s) */}
+        <TransitionSeries.Sequence durationInFrames={BEAT * 6}>
           <FeatureScene
             title="One-click commits that make sense"
             description="Chell analyzes your changes and generates meaningful commit messages. Review, edit if needed, and commit with confidence."
@@ -828,8 +865,8 @@ export const MyComposition = () => {
           timing={linearTiming({ durationInFrames: TRANSITION_DURATION })}
         />
 
-        {/* Scene 4: Assistant Panel - 5s */}
-        <TransitionSeries.Sequence durationInFrames={150}>
+        {/* Scene 4: Assistant Panel - 6 beats (4.8s) */}
+        <TransitionSeries.Sequence durationInFrames={BEAT * 6}>
           <FeatureScene
             title="Claude Code, OpenAI Codex, and whatever's next"
             description="Switch between assistants with tabs. Chell doesn't lock you into one AI—it gives you a great terminal that understands what any assistant is doing to your codebase."
@@ -846,8 +883,8 @@ export const MyComposition = () => {
           timing={linearTiming({ durationInFrames: TRANSITION_DURATION })}
         />
 
-        {/* Scene 5: Shell Panel - 5s */}
-        <TransitionSeries.Sequence durationInFrames={150}>
+        {/* Scene 5: Shell Panel - 6 beats (4.8s) */}
+        <TransitionSeries.Sequence durationInFrames={BEAT * 6}>
           <FeatureScene
             title="Your Terminal, Smarter"
             description="Run your dev server, watch your logs, and keep everything visible in one place. Type what you want in plain English and let NLT generate the command for you."
@@ -864,8 +901,8 @@ export const MyComposition = () => {
           timing={linearTiming({ durationInFrames: TRANSITION_DURATION })}
         />
 
-        {/* Scene 6: Closing - 3.5s */}
-        <TransitionSeries.Sequence durationInFrames={105}>
+        {/* Scene 6: Closing - 6 beats (4.8s) */}
+        <TransitionSeries.Sequence durationInFrames={BEAT * 6}>
           <ClosingScene />
         </TransitionSeries.Sequence>
       </TransitionSeries>

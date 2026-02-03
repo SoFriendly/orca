@@ -2,9 +2,9 @@ import "./index.css";
 import { Composition } from "remotion";
 import { MyComposition } from "./Composition";
 
-// 25 seconds at 30fps = 750 frames
-// With TransitionSeries: (105 + 150 + 150 + 150 + 150 + 105) - (5 * 12) = 750 frames
-const DURATION_IN_FRAMES = 750;
+// 24 seconds at 30fps = 720 frames (synced to 75 BPM)
+// With TransitionSeries: (120 + 144 + 144 + 144 + 144 + 144) - (5 * 24) = 720 frames
+const DURATION_IN_FRAMES = 720;
 const FPS = 30;
 const WIDTH = 1920;
 const HEIGHT = 1080;
