@@ -53,7 +53,7 @@ import { useProjectStore } from "@/stores/projectStore";
 import { useGitStore } from "@/stores/gitStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { cn } from "@/lib/utils";
-import type { Project, GitStatus, FileDiff, Branch, Commit } from "@/types";
+import type { Project, GitStatus, FileDiff, Branch, Commit, CustomThemeColors } from "@/types";
 
 // Map file extensions to Monaco language IDs
 const getMonacoLanguage = (filePath: string): string => {
@@ -93,7 +93,10 @@ const getMonacoLanguage = (filePath: string): string => {
 };
 
 // Define custom Monaco themes matching app themes
-const defineMonacoThemes = (monaco: Parameters<NonNullable<Parameters<typeof Editor>[0]['beforeMount']>>[0]) => {
+const defineMonacoThemes = (
+  monaco: Parameters<NonNullable<Parameters<typeof Editor>[0]['beforeMount']>>[0],
+  customTheme?: CustomThemeColors
+) => {
   // Dark theme (matches app dark theme)
   monaco.editor.defineTheme('chell-dark', {
     base: 'vs-dark',
@@ -177,6 +180,52 @@ const defineMonacoThemes = (monaco: Parameters<NonNullable<Parameters<typeof Edi
       'editor.findMatchHighlightBackground': '#526eff20',
     },
   });
+
+  // Custom theme (uses user-defined colors)
+  if (customTheme) {
+    const { colors, baseTheme } = customTheme;
+    // Derive a slightly lighter/darker shade for line highlight
+    const lineHighlightBg = baseTheme === 'light'
+      ? colors.muted
+      : colors.secondary;
+
+    monaco.editor.defineTheme('chell-custom', {
+      base: baseTheme === 'light' ? 'vs' : 'vs-dark',
+      inherit: true,
+      rules: baseTheme === 'light' ? [
+        { token: 'comment', foreground: colors.mutedForeground.replace('#', ''), fontStyle: 'italic' },
+        { token: 'keyword', foreground: 'a626a4' },
+        { token: 'string', foreground: '50a14f' },
+        { token: 'number', foreground: 'c18401' },
+        { token: 'type', foreground: '0184bc' },
+        { token: 'function', foreground: colors.primary.replace('#', '') },
+        { token: 'variable', foreground: colors.foreground.replace('#', '') },
+        { token: 'constant', foreground: 'c18401' },
+        { token: 'operator', foreground: 'a626a4' },
+      ] : [
+        { token: 'comment', foreground: colors.mutedForeground.replace('#', ''), fontStyle: 'italic' },
+        { token: 'keyword', foreground: 'ff79c6' },
+        { token: 'string', foreground: 'f1fa8c' },
+        { token: 'number', foreground: 'bd93f9' },
+        { token: 'type', foreground: '8be9fd' },
+        { token: 'function', foreground: colors.primary.replace('#', '') },
+        { token: 'variable', foreground: colors.foreground.replace('#', '') },
+        { token: 'constant', foreground: 'bd93f9' },
+        { token: 'operator', foreground: 'ff79c6' },
+      ],
+      colors: {
+        'editor.background': colors.background,
+        'editor.foreground': colors.foreground,
+        'editor.lineHighlightBackground': lineHighlightBg,
+        'editor.selectionBackground': colors.primary + '40',
+        'editorCursor.foreground': colors.primary,
+        'editorLineNumber.foreground': colors.mutedForeground,
+        'editorLineNumber.activeForeground': colors.foreground,
+        'editor.findMatchBackground': colors.primary + '60',
+        'editor.findMatchHighlightBackground': colors.primary + '30',
+      },
+    });
+  }
 };
 
 // Map app theme to Monaco theme name
@@ -184,6 +233,7 @@ const getMonacoTheme = (appTheme: string): string => {
   switch (appTheme) {
     case 'tokyo': return 'chell-tokyo';
     case 'light': return 'chell-light';
+    case 'custom': return 'chell-custom';
     default: return 'chell-dark';
   }
 };
@@ -208,7 +258,7 @@ export default function ProjectPage() {
   const navigate = useNavigate();
   const { projects, openTab } = useProjectStore();
   const { setStatus, setDiffs, setBranches, setHistory, setLoading } = useGitStore();
-  const { assistantArgs, defaultAssistant, autoFetchRemote, theme } = useSettingsStore();
+  const { assistantArgs, defaultAssistant, autoFetchRemote, theme, customTheme } = useSettingsStore();
 
   // Terminal background colors per theme
   const terminalBgColors: Record<string, string> = {
@@ -1613,7 +1663,7 @@ export default function ProjectPage() {
                   language={getMonacoLanguage(markdownFile.path)}
                   value={markdownFile.content}
                   onChange={(value) => setMarkdownFile({ ...markdownFile, content: value || '' })}
-                  beforeMount={defineMonacoThemes}
+                  beforeMount={(monaco) => defineMonacoThemes(monaco, customTheme)}
                   theme={getMonacoTheme(theme)}
                   onMount={handleEditorMount}
                   options={{
@@ -1636,7 +1686,7 @@ export default function ProjectPage() {
                   height="100%"
                   language={getMonacoLanguage(markdownFile.path)}
                   value={markdownFile.content}
-                  beforeMount={defineMonacoThemes}
+                  beforeMount={(monaco) => defineMonacoThemes(monaco, customTheme)}
                   theme={getMonacoTheme(theme)}
                   onMount={handleEditorMount}
                   options={{

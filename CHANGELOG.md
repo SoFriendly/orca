@@ -2,6 +2,18 @@
 
 All notable changes to Chell will be documented in this file.
 
+## [0.1.62]
+
+- Add built-in file editor with Monaco (syntax highlighting, find/replace)
+  - Double-click files in Git panel to open in editor
+  - Right-click "Open Here" option for in-app editing
+  - Themes matching app themes (dark, tokyo, light, custom)
+- Drag files from Git panel into terminals to insert file paths
+- Proportional panel resizing when window is resized
+- Only show ahead/behind status when no files to commit
+- Improve terminal command assistant with shell detection and file I/O commands
+- Update dependencies
+
 ## [0.1.60]
 
 - Auto-load macOS Keychain secrets as environment variables
