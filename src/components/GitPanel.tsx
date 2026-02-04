@@ -1423,7 +1423,7 @@ export default function GitPanel({ projectPath, projectName, onRefresh, onFileDr
         )}
 
         {/* Commit or Undo Commit button */}
-        {status && status.ahead > 0 && diffs.length === 0 && history.length > 1 ? (
+        {status && status.ahead > 0 && filesToCommit.size === 0 && history.length > 1 ? (
           <Button
             className="w-full bg-muted hover:bg-muted/80 text-foreground font-medium"
             onClick={handleUndoCommit}
