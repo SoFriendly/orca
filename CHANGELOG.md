@@ -2,6 +2,15 @@
 
 All notable changes to Chell will be documented in this file.
 
+## [0.1.60]
+
+- Auto-load macOS Keychain secrets as environment variables
+  - Automatically discovers Keychain items with `env/` prefix (e.g., `env/MY_API_KEY`)
+  - Fetches secrets in Chell's GUI context, so authorization dialogs appear properly
+  - Exports as environment variables with prefix stripped (e.g., `MY_API_KEY`)
+  - No configuration required - just store secrets with `env/` prefix in Keychain
+- Add macOS entitlements for proper code signing and security context
+
 ## [0.1.58]
 
 - Inherit environment variables from parent process

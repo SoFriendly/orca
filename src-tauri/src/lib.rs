@@ -145,6 +145,85 @@ fn debug_log(message: String) {
     println!("[DEBUG] {}", message);
 }
 
+/// Fetch secrets from macOS Keychain for environment variables.
+/// Automatically discovers Keychain items with service names starting with "env/"
+/// and exports them as environment variables (stripping the "env/" prefix).
+/// This runs in Chell's GUI context, so authorization dialogs appear properly.
+#[cfg(target_os = "macos")]
+fn fetch_keychain_env_vars() -> HashMap<String, String> {
+    let mut env_vars = HashMap::new();
+
+    // First, dump keychain metadata to find items with "env/" prefix
+    // We use dump-keychain without -d to avoid triggering auth for each item
+    let dump_output = std::process::Command::new("/usr/bin/security")
+        .args(["dump-keychain"])
+        .output();
+
+    let dump_output = match dump_output {
+        Ok(o) => o,
+        Err(e) => {
+            println!("[Keychain] Failed to dump keychain: {}", e);
+            return env_vars;
+        }
+    };
+
+    let dump_text = String::from_utf8_lossy(&dump_output.stdout);
+
+    // Parse dump output to find service names starting with "env/"
+    // Format: 0x00000007 <blob>="env/SERVICE_NAME"
+    // or: "svce"<blob>="env/SERVICE_NAME"
+    let mut service_names: Vec<String> = Vec::new();
+
+    for line in dump_text.lines() {
+        let line = line.trim();
+        // Look for service attribute (0x00000007 or "svce")
+        if (line.contains("0x00000007") || line.contains("\"svce\"")) && line.contains("=\"env/") {
+            // Extract the service name between quotes
+            if let Some(start) = line.find("=\"env/") {
+                let rest = &line[start + 2..]; // skip ="
+                if let Some(end) = rest.find('"') {
+                    let service = &rest[..end];
+                    if !service_names.contains(&service.to_string()) {
+                        service_names.push(service.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    if service_names.is_empty() {
+        return env_vars;
+    }
+
+    println!("[Keychain] Found {} env items: {:?}", service_names.len(), service_names);
+
+    // Fetch each secret
+    for service in service_names {
+        let output = std::process::Command::new("/usr/bin/security")
+            .args(["find-generic-password", "-s", &service, "-w"])
+            .output();
+
+        if let Ok(output) = output {
+            if output.status.success() {
+                let secret = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+                // Derive env var name: "env/PARCEL_API_KEY" -> "PARCEL_API_KEY"
+                let env_name = service.strip_prefix("env/").unwrap_or(&service).to_string();
+
+                if !env_name.is_empty() && !secret.is_empty() {
+                    println!("[Keychain] Loaded secret for {}", env_name);
+                    env_vars.insert(env_name, secret);
+                }
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                println!("[Keychain] Failed to get {}: {}", service, stderr.trim());
+            }
+        }
+    }
+
+    env_vars
+}
+
 // Terminal commands
 #[tauri::command]
 fn spawn_terminal(
@@ -325,6 +404,13 @@ fn spawn_terminal(
         let pyenv_root = format!("{}/.pyenv", home);
         if std::path::Path::new(&pyenv_root).exists() {
             cmd.env("PYENV_ROOT", &pyenv_root);
+        }
+
+        // Pre-fetch Keychain secrets and set as environment variables
+        // This runs in Chell's GUI context, so authorization dialogs appear properly
+        let keychain_vars = fetch_keychain_env_vars();
+        for (key, value) in keychain_vars {
+            cmd.env(key, value);
         }
     }
 
