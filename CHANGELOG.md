@@ -2,6 +2,12 @@
 
 All notable changes to Chell will be documented in this file.
 
+## [0.1.63]
+
+- Make file editor editable by default for non-markdown files
+- Only show edit/preview toggle for markdown files
+- Disable TypeScript/JavaScript diagnostics in Monaco editor
+
 ## [0.1.62]
 
 - Add built-in file editor with Monaco (syntax highlighting, find/replace)

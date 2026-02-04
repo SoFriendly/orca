@@ -226,6 +226,16 @@ const defineMonacoThemes = (
       },
     });
   }
+
+  // Disable TypeScript/JavaScript diagnostics since we don't have access to node_modules
+  monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+    noSemanticValidation: true,
+    noSyntaxValidation: true,
+  });
+  monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+    noSemanticValidation: true,
+    noSyntaxValidation: true,
+  });
 };
 
 // Map app theme to Monaco theme name
@@ -1595,7 +1605,7 @@ export default function ProjectPage() {
               </span>
             </div>
             <div className="flex items-center gap-1">
-              {markdownFile && (
+              {markdownFile && markdownFile.path.endsWith('.md') && (
                 <>
                   <Tooltip delayDuration={0}>
                     <TooltipTrigger asChild>
@@ -1696,7 +1706,7 @@ export default function ProjectPage() {
                     wordWrap: 'on',
                     scrollBeyondLastLine: false,
                     automaticLayout: true,
-                    readOnly: true,
+                    readOnly: false,
                   }}
                 />
               )
