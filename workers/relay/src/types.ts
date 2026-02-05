@@ -96,6 +96,13 @@ export interface TerminalInputMessage extends BaseMessage {
   data: string;
 }
 
+// Project folder info for multi-folder workspaces
+export interface ProjectFolder {
+  id: string;
+  name: string;
+  path: string;
+}
+
 // Status update from desktop
 export interface StatusUpdateMessage extends BaseMessage {
   type: "status_update";
@@ -104,6 +111,7 @@ export interface StatusUpdateMessage extends BaseMessage {
     id: string;
     name: string;
     path: string;
+    folders?: ProjectFolder[];
   };
   gitStatus?: {
     branch: string;
@@ -117,6 +125,7 @@ export interface StatusUpdateMessage extends BaseMessage {
     id: string;
     name: string;
     path: string;
+    folders?: ProjectFolder[];
   }>;
   activeProjectId?: string;
   theme?: string;

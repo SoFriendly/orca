@@ -76,11 +76,19 @@ impl Database {
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 path TEXT NOT NULL,
-                last_opened TEXT NOT NULL
+                last_opened TEXT NOT NULL,
+                folders TEXT
             )",
             [],
         )
         .map_err(|e| e.to_string())?;
+
+        // Migration: Add folders column if it doesn't exist
+        conn.execute(
+            "ALTER TABLE projects ADD COLUMN folders TEXT",
+            [],
+        )
+        .ok(); // Ignore if column already exists
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS portal_config (
@@ -114,6 +122,10 @@ impl Database {
     }
 
     pub fn add_project(&self, project: &Project) -> Result<(), String> {
+        // Serialize folders to JSON
+        let folders_json = project.folders.as_ref()
+            .map(|f| serde_json::to_string(f).unwrap_or_default());
+
         // Check if project with same path already exists
         let existing_id: Option<String> = self.conn
             .query_row(
@@ -127,16 +139,16 @@ impl Database {
             // Update existing project by path
             self.conn
                 .execute(
-                    "UPDATE projects SET name = ?1, last_opened = ?2 WHERE id = ?3",
-                    params![project.name, project.last_opened, existing],
+                    "UPDATE projects SET name = ?1, last_opened = ?2, folders = ?3 WHERE id = ?4",
+                    params![project.name, project.last_opened, folders_json, existing],
                 )
                 .map_err(|e| e.to_string())?;
         } else {
             // Insert new project
             self.conn
                 .execute(
-                    "INSERT INTO projects (id, name, path, last_opened) VALUES (?1, ?2, ?3, ?4)",
-                    params![project.id, project.name, project.path, project.last_opened],
+                    "INSERT INTO projects (id, name, path, last_opened, folders) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    params![project.id, project.name, project.path, project.last_opened, folders_json],
                 )
                 .map_err(|e| e.to_string())?;
         }
@@ -153,7 +165,7 @@ impl Database {
     pub fn get_project(&self, id: &str) -> Result<Option<Project>, String> {
         let mut stmt = self
             .conn
-            .prepare("SELECT id, name, path, last_opened FROM projects WHERE id = ?1")
+            .prepare("SELECT id, name, path, last_opened, folders FROM projects WHERE id = ?1")
             .map_err(|e| e.to_string())?;
 
         let mut rows = stmt
@@ -161,12 +173,15 @@ impl Database {
             .map_err(|e| e.to_string())?;
 
         if let Some(row) = rows.next().map_err(|e| e.to_string())? {
+            let folders_json: Option<String> = row.get(4).ok();
+            let folders = folders_json.and_then(|json| serde_json::from_str(&json).ok());
+
             Ok(Some(Project {
                 id: row.get(0).map_err(|e| e.to_string())?,
                 name: row.get(1).map_err(|e| e.to_string())?,
                 path: row.get(2).map_err(|e| e.to_string())?,
                 last_opened: row.get(3).map_err(|e| e.to_string())?,
-                folders: None, // Folders not stored in DB, managed via .chell files
+                folders,
             }))
         } else {
             Ok(None)
@@ -176,17 +191,20 @@ impl Database {
     pub fn get_all_projects(&self) -> Result<Vec<Project>, String> {
         let mut stmt = self
             .conn
-            .prepare("SELECT id, name, path, last_opened FROM projects ORDER BY last_opened DESC")
+            .prepare("SELECT id, name, path, last_opened, folders FROM projects ORDER BY last_opened DESC")
             .map_err(|e| e.to_string())?;
 
         let rows = stmt
             .query_map([], |row| {
+                let folders_json: Option<String> = row.get(4).ok();
+                let folders = folders_json.and_then(|json| serde_json::from_str(&json).ok());
+
                 Ok(Project {
                     id: row.get(0)?,
                     name: row.get(1)?,
                     path: row.get(2)?,
                     last_opened: row.get(3)?,
-                    folders: None, // Folders not stored in DB, managed via .chell files
+                    folders,
                 })
             })
             .map_err(|e| e.to_string())?;

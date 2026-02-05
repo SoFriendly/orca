@@ -108,10 +108,19 @@ pub enum PortalMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectFolderInfo {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectInfo {
     pub id: String,
     pub name: String,
     pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub folders: Option<Vec<ProjectFolderInfo>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -328,9 +337,16 @@ async fn handle_message(
                 .unwrap_or_default()
                 .into_iter()
                 .map(|p| ProjectInfo {
-                    id: p.id,
+                    id: p.id.clone(),
                     name: p.name,
-                    path: p.path,
+                    path: p.path.clone(),
+                    folders: p.folders.map(|folders| {
+                        folders.into_iter().map(|f| ProjectFolderInfo {
+                            id: f.id,
+                            name: f.name,
+                            path: f.path,
+                        }).collect()
+                    }),
                 })
                 .collect();
 

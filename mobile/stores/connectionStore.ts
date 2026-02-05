@@ -16,12 +16,20 @@ export interface LinkedPortal {
   isOnline: boolean;
 }
 
+// Project folder for multi-folder workspaces
+export interface ProjectFolder {
+  id: string;
+  name: string;
+  path: string;
+}
+
 // Simple project info from desktop
 export interface DesktopProject {
   id: string;
   name: string;
   path: string;
   lastOpened?: number;
+  folders?: ProjectFolder[];
 }
 
 interface ConnectionStore extends ConnectionState {

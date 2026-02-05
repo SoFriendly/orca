@@ -1,9 +1,16 @@
 // Shared types between mobile and desktop
+export interface ProjectFolder {
+  id: string;
+  name: string;
+  path: string;
+}
+
 export interface Project {
   id: string;
   name: string;
   path: string;
   lastOpened: number;
+  folders?: ProjectFolder[];
 }
 
 export interface GitStatus {
@@ -157,6 +164,7 @@ export interface StatusUpdateMessage extends BaseMessage {
     id: string;
     name: string;
     path: string;
+    folders?: ProjectFolder[];
   }>;
   activeProjectId?: string;
   theme?: string;
