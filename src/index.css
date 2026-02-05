@@ -418,9 +418,9 @@
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-.dark input:not([type="checkbox"]):not([type="radio"]):focus,
-.tokyo input:not([type="checkbox"]):not([type="radio"]):focus,
-.custom input:not([type="checkbox"]):not([type="radio"]):focus,
+.dark input:not([type="checkbox"]):not([type="radio"]):not([data-no-focus-ring]):focus,
+.tokyo input:not([type="checkbox"]):not([type="radio"]):not([data-no-focus-ring]):focus,
+.custom input:not([type="checkbox"]):not([type="radio"]):not([data-no-focus-ring]):focus,
 .dark textarea:focus,
 .tokyo textarea:focus,
 .custom textarea:focus {

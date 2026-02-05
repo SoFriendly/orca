@@ -12,6 +12,8 @@ import {
   FolderOpen,
   ArrowRight,
   HelpCircle,
+  Search,
+  X,
 } from "lucide-react";
 import { ChellIcon } from "@/components/icons/ChellIcon";
 import ChellLogo from "@/components/ChellLogo";
@@ -32,18 +34,17 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useProjectStore } from "@/stores/projectStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { cn } from "@/lib/utils";
-import type { Project } from "@/types";
+import type { Project, ProjectFileData } from "@/types";
 import SettingsSheet from "@/components/SettingsSheet";
 import Onboarding from "@/components/Onboarding";
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { projects, addProject, removeProject } = useProjectStore();
+  const { projects, addProject, removeProject, updateProject } = useProjectStore();
   const { defaultClonePath, hasSeenOnboarding, setHasSeenOnboarding } = useSettingsStore();
   const [cloneUrl, setCloneUrl] = useState("");
   const [clonePath, setClonePath] = useState("");
@@ -54,11 +55,13 @@ export default function HomePage() {
   const [newRepoName, setNewRepoName] = useState("");
   const [newRepoPath, setNewRepoPath] = useState("");
   const [activeSidebarItem, setActiveSidebarItem] = useState<"home" | "settings">("home");
+  const [projectSearch, setProjectSearch] = useState("");
+  const [showProjectSearch, setShowProjectSearch] = useState(false);
 
-  // Sort projects by last opened
-  const sortedProjects = [...projects].sort(
-    (a, b) => new Date(b.lastOpened).getTime() - new Date(a.lastOpened).getTime()
-  );
+  // Sort and filter projects
+  const sortedProjects = [...projects]
+    .sort((a, b) => new Date(b.lastOpened).getTime() - new Date(a.lastOpened).getTime())
+    .filter(p => !projectSearch || p.name.toLowerCase().includes(projectSearch.toLowerCase()) || p.path.toLowerCase().includes(projectSearch.toLowerCase()));
 
   useEffect(() => {
     if (showCloneDialog && defaultClonePath && !clonePath) {
@@ -94,6 +97,59 @@ export default function HomePage() {
       }
     } catch (error) {
       toast.error("Failed to open project");
+      console.error(error);
+    }
+  };
+
+  // Open a .chell project file (Issue #6)
+  const handleOpenProjectFile = async () => {
+    try {
+      const selected = await open({
+        directory: false,
+        multiple: false,
+        title: "Open Workspace",
+        filters: [{ name: "Chell Project", extensions: ["chell"] }],
+      });
+
+      if (selected && typeof selected === "string") {
+        const projectData = await invoke<ProjectFileData>("load_project_file", { path: selected });
+        const primaryPath = projectData.folders[0]?.path || "";
+
+        if (!primaryPath) {
+          toast.error("Project file has no folders");
+          return;
+        }
+
+        // Check if project with this path already exists
+        const existingProject = projects.find(p => p.path === primaryPath);
+        if (existingProject) {
+          // Update existing project with new folders from .chell file
+          const updatedProject = {
+            ...existingProject,
+            name: projectData.name,
+            folders: projectData.folders,
+            lastOpened: new Date().toISOString(),
+          };
+          updateProject(existingProject.id, updatedProject);
+          navigate(`/project/${existingProject.id}`);
+          toast.success(`Opened project: ${projectData.name}`);
+        } else {
+          // Create new project
+          const project: Project = {
+            id: crypto.randomUUID(),
+            name: projectData.name,
+            path: primaryPath,
+            folders: projectData.folders,
+            lastOpened: new Date().toISOString(),
+          };
+          addProject(project);
+          await invoke("add_project", { project });
+          navigate(`/project/${project.id}`);
+          toast.success(`Opened project: ${projectData.name}`);
+        }
+      }
+    } catch (error) {
+      toast.error("Failed to open project file");
       console.error(error);
     }
   };
@@ -297,7 +353,19 @@ export default function HomePage() {
                 <Plus className="h-5 w-5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">Open Project</TooltipContent>
+            <TooltipContent side="right">Open Folder</TooltipContent>
+          </Tooltip>
+
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleOpenProjectFile}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <FolderOpen className="h-5 w-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Open Workspace</TooltipContent>
           </Tooltip>
 
           <Tooltip delayDuration={0}>
@@ -341,120 +409,154 @@ export default function HomePage() {
       </div>
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col">
-        <ScrollArea className="flex-1">
-          <div className="px-6 py-8">
-            <div className="mx-auto max-w-md space-y-8">
-              {/* Hero */}
-              <div className="text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30">
-                  <ChellLogo size={36} />
-                </div>
-                <h2 className="text-xl font-semibold">Welcome to Chell</h2>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Think in changes, not commands.
-                </p>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden px-6 py-8">
+          <div className="mx-auto w-full max-w-md flex flex-col flex-1 overflow-hidden">
+            {/* Hero */}
+            <div className="text-center shrink-0">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30">
+                <ChellLogo size={36} />
               </div>
-
-              {/* Quick actions */}
-              <div className="space-y-3">
-                <button
-                  onClick={() => setShowCloneDialog(true)}
-                  className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-all hover:border-primary/50 hover:bg-muted/50"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                    <Download className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Clone repository</p>
-                    <p className="text-xs text-muted-foreground">
-                      Clone from GitHub, GitLab, or any URL
-                    </p>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                </button>
-
-                <button
-                  onClick={handleOpenProject}
-                  className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-all hover:border-primary/50 hover:bg-muted/50"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                    <FolderOpen className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Open existing folder</p>
-                    <p className="text-xs text-muted-foreground">
-                      Browse to a local project folder
-                    </p>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                </button>
-
-                <button
-                  onClick={() => setShowCreateDialog(true)}
-                  className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-all hover:border-primary/50 hover:bg-muted/50"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                    <Plus className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Create new repository</p>
-                    <p className="text-xs text-muted-foreground">
-                      Initialize a new git repository
-                    </p>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                </button>
-              </div>
-
-              {/* Recent projects */}
-              {sortedProjects.length > 0 && (
-                <div className="space-y-3">
-                  <h2 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground px-1">
-                    Recent Projects
-                  </h2>
-                  <div className="space-y-1">
-                    {sortedProjects.map((project) => (
-                      <ContextMenu key={project.id}>
-                        <ContextMenuTrigger>
-                          <button
-                            className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
-                            onClick={() => handleProjectClick(project)}
-                          >
-                            <FolderGit2 className="h-4 w-4 shrink-0 text-primary" />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-medium">{project.name}</p>
-                              <p className="truncate text-[11px] text-muted-foreground font-mono">
-                                {project.path}
-                              </p>
-                            </div>
-                            <span className="shrink-0 text-[11px] text-muted-foreground">
-                              {getRelativeTime(project.lastOpened)}
-                            </span>
-                          </button>
-                        </ContextMenuTrigger>
-                        <ContextMenuContent>
-                          <ContextMenuItem onClick={() => handleOpenInFinder(project.path)}>
-                            <FolderOpen className="mr-2 h-4 w-4" />
-                            Open in Finder
-                          </ContextMenuItem>
-                          <ContextMenuItem
-                            className="text-destructive"
-                            onClick={() => handleDeleteProject(project)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Remove from list
-                          </ContextMenuItem>
-                        </ContextMenuContent>
-                      </ContextMenu>
-                    ))}
-                  </div>
-                </div>
-              )}
-
+              <h2 className="text-xl font-semibold">Welcome to Chell</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Think in changes, not commands.
+              </p>
             </div>
+
+            {/* Quick actions */}
+            <div className="space-y-3 mt-8 shrink-0">
+              <button
+                onClick={() => setShowCloneDialog(true)}
+                className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-all hover:border-primary/50 hover:bg-muted/50"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                  <Download className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Clone repository</p>
+                  <p className="text-xs text-muted-foreground">
+                    Clone from GitHub, GitLab, or any URL
+                  </p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+              </button>
+
+              <button
+                onClick={handleOpenProject}
+                className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-all hover:border-primary/50 hover:bg-muted/50"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                  <FolderOpen className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Open existing folder</p>
+                  <p className="text-xs text-muted-foreground">
+                    Browse to a local project folder
+                  </p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+              </button>
+
+              <button
+                onClick={() => setShowCreateDialog(true)}
+                className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card p-4 text-left transition-all hover:border-primary/50 hover:bg-muted/50"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                  <Plus className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Create new repository</p>
+                  <p className="text-xs text-muted-foreground">
+                    Initialize a new git repository
+                  </p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+              </button>
+            </div>
+
+            {/* Recent projects */}
+            {projects.length > 0 && (
+              <div className="flex flex-col mt-8 flex-1 min-h-0 overflow-hidden">
+                <div className="flex items-center justify-between px-1 mb-3 shrink-0">
+                  {showProjectSearch ? (
+                    <div className="flex items-center gap-2 flex-1">
+                      <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <input
+                        type="text"
+                        placeholder="Search projects..."
+                        value={projectSearch}
+                        onChange={(e) => setProjectSearch(e.target.value)}
+                        autoFocus
+                        data-no-focus-ring
+                        className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                      />
+                      <button
+                        onClick={() => {
+                          setShowProjectSearch(false);
+                          setProjectSearch("");
+                        }}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <h2 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                        Recent Projects
+                      </h2>
+                      <button
+                        onClick={() => setShowProjectSearch(true)}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <Search className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-1">
+                  {sortedProjects.length === 0 && projectSearch ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No projects match "{projectSearch}"</p>
+                  ) : sortedProjects.map((project) => (
+                    <ContextMenu key={project.id}>
+                      <ContextMenuTrigger>
+                        <button
+                          className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
+                          onClick={() => handleProjectClick(project)}
+                        >
+                          <FolderGit2 className="h-4 w-4 shrink-0 text-primary" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{project.name}</p>
+                            <p className="truncate text-[11px] text-muted-foreground font-mono">
+                              {project.path}
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-[11px] text-muted-foreground">
+                            {getRelativeTime(project.lastOpened)}
+                          </span>
+                        </button>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent>
+                        <ContextMenuItem onClick={() => handleOpenInFinder(project.path)}>
+                          <FolderOpen className="mr-2 h-4 w-4" />
+                          Open in Finder
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          className="text-destructive"
+                          onClick={() => handleDeleteProject(project)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Remove from list
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
-        </ScrollArea>
+        </div>
       </div>
 
       {/* Clone Dialog */}

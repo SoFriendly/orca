@@ -166,6 +166,7 @@ impl Database {
                 name: row.get(1).map_err(|e| e.to_string())?,
                 path: row.get(2).map_err(|e| e.to_string())?,
                 last_opened: row.get(3).map_err(|e| e.to_string())?,
+                folders: None, // Folders not stored in DB, managed via .chell files
             }))
         } else {
             Ok(None)
@@ -185,6 +186,7 @@ impl Database {
                     name: row.get(1)?,
                     path: row.get(2)?,
                     last_opened: row.get(3)?,
+                    folders: None, // Folders not stored in DB, managed via .chell files
                 })
             })
             .map_err(|e| e.to_string())?;

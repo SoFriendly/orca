@@ -30,6 +30,8 @@ import {
   EyeOff,
   ExternalLink,
   SquareTerminal,
+  MoreHorizontal,
+  Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -72,7 +74,7 @@ import {
 import { useGitStore } from "@/stores/gitStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { cn, formatTimestamp } from "@/lib/utils";
-import type { FileDiff, DiffHunk } from "@/types";
+import type { FileDiff, DiffHunk, ProjectFolder } from "@/types";
 
 
 interface GitPanelProps {
@@ -83,6 +85,11 @@ interface GitPanelProps {
   onInitRepo: () => Promise<void>;
   onOpenMarkdown?: (filePath: string) => void;
   shellCwd?: string; // Current working directory from terminal (Issue #7)
+  folders?: ProjectFolder[]; // All folders in the project (Issue #6)
+  onAddFolder?: () => void; // Callback to add a new folder
+  workspaceName?: string; // Custom workspace name (Issue #6)
+  onRenameWorkspace?: (name: string) => void; // Callback to rename workspace
+  onSaveWorkspace?: () => void; // Callback to save workspace file
 }
 
 interface CommitSuggestion {
@@ -125,11 +132,21 @@ const isPreviewable = (path: string): boolean => {
   return !binaryExtensions.some(ext => lower.endsWith(ext));
 };
 
-export default function GitPanel({ projectPath, projectName, isGitRepo, onRefresh, onInitRepo, onOpenMarkdown, shellCwd }: GitPanelProps) {
+export default function GitPanel({ projectPath, projectName, isGitRepo, onRefresh, onInitRepo, onOpenMarkdown, shellCwd, folders, onAddFolder, workspaceName, onRenameWorkspace, onSaveWorkspace }: GitPanelProps) {
   const { diffs, branches, loading, status, history } = useGitStore();
   const { autoCommitMessage, groqApiKey, preferredEditor, showHiddenFiles } = useSettingsStore();
   // Track the current root path for the file tree (can be changed by cd command)
   const [fileTreeRoot, setFileTreeRoot] = useState(projectPath);
+  // Workspace name editing state (Issue #6)
+  const [isEditingWorkspaceName, setIsEditingWorkspaceName] = useState(false);
+  const [editedWorkspaceName, setEditedWorkspaceName] = useState(workspaceName || "My Workspace");
+  // Track the active folder for git operations (Issue #6)
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(folders?.[0]?.id ?? null);
+  const activeFolder = folders?.find(f => f.id === activeFolderId) ?? folders?.[0];
+  // Use active folder path for git operations, falling back to projectPath
+  // TODO: Replace projectPath usages with gitRepoPath for multi-folder git support
+  const _gitRepoPath = activeFolder?.path ?? projectPath;
+  void _gitRepoPath; // Suppress unused warning
   const [commitSubject, setCommitSubject] = useState("");
   const [commitDescription, setCommitDescription] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
@@ -150,6 +167,8 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
   const [isResetting, setIsResetting] = useState(false);
   const [isUndoing, setIsUndoing] = useState(false);
   const [fileTree, setFileTree] = useState<FileTreeNode[]>([]);
+  const [fileTrees, setFileTrees] = useState<Record<string, FileTreeNode[]>>({}); // File trees per folder (Issue #6)
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set()); // Which root folders are expanded (Issue #6)
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [renamingFile, setRenamingFile] = useState<string | null>(null);
@@ -246,28 +265,71 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
 
   // Load file tree when switching to files view
   useEffect(() => {
-    if (viewMode === "files" && fileTree.length === 0) {
-      loadFileTree();
+    if (viewMode === "files") {
+      if (folders && folders.length > 0) {
+        // Multi-folder mode: load all folder trees
+        const missingTrees = folders.filter(f => !fileTrees[f.id]);
+        if (missingTrees.length > 0) {
+          loadAllFolderTrees();
+        }
+        // Expand all folders by default
+        if (expandedFolders.size === 0) {
+          setExpandedFolders(new Set(folders.map(f => f.id)));
+        }
+      } else if (fileTree.length === 0) {
+        // Single folder mode (backward compat)
+        loadFileTree();
+      }
     }
-  }, [viewMode]);
+  }, [viewMode, folders]);
 
   // Reload file tree when showHiddenFiles setting changes
   useEffect(() => {
     if (viewMode === "files") {
-      loadFileTree();
+      if (folders && folders.length > 0) {
+        loadAllFolderTrees();
+      } else {
+        loadFileTree();
+      }
     }
   }, [showHiddenFiles]);
 
   // Watch for file system changes and auto-refresh file tree (Issue #8)
   useEffect(() => {
+    // Multi-folder mode: watch all folders
+    if (folders && folders.length > 0) {
+      // Start watchers for all folders
+      folders.forEach(folder => {
+        invoke("watch_project_files", { projectPath: folder.path }).catch((err) => {
+          console.error(`Failed to start file watcher for ${folder.path}:`, err);
+        });
+      });
+
+      const unlisten = listen<string>("fs-files-changed", (event) => {
+        if (viewMode === "files") {
+          // Find which folder changed and reload its tree
+          const changedFolder = folders.find(f => f.path === event.payload);
+          if (changedFolder) {
+            loadFolderTree(changedFolder.id, changedFolder.path);
+          }
+        }
+      });
+
+      return () => {
+        folders.forEach(folder => {
+          invoke("unwatch_project_files", { projectPath: folder.path }).catch(() => {});
+        });
+        unlisten.then((fn) => fn());
+      };
+    }
+
+    // Single folder mode (backward compat)
     if (!fileTreeRoot) return;
 
-    // Start watching the current file tree root
     invoke("watch_project_files", { projectPath: fileTreeRoot }).catch((err) => {
       console.error("Failed to start file watcher:", err);
     });
 
-    // Listen for file change events
     const unlisten = listen<string>("fs-files-changed", (event) => {
       if (event.payload === fileTreeRoot && viewMode === "files") {
         loadFileTree();
@@ -275,11 +337,10 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
     });
 
     return () => {
-      // Stop watching and remove listener on cleanup
       invoke("unwatch_project_files", { projectPath: fileTreeRoot }).catch(() => {});
       unlisten.then((fn) => fn());
     };
-  }, [fileTreeRoot, viewMode]);
+  }, [fileTreeRoot, viewMode, folders]);
 
   // Update file tree root when shell cwd changes (Issue #7)
   useEffect(() => {
@@ -313,6 +374,40 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
     } finally {
       setIsLoadingFiles(false);
     }
+  };
+
+  // Load file tree for a specific folder (Issue #6)
+  const loadFolderTree = async (folderId: string, folderPath: string) => {
+    try {
+      const tree = await invoke<FileTreeNode[]>("get_file_tree", { path: folderPath, showHidden: showHiddenFiles });
+      setFileTrees(prev => ({ ...prev, [folderId]: tree }));
+    } catch (error) {
+      console.error(`Failed to load file tree for ${folderPath}:`, error);
+    }
+  };
+
+  // Load all folder trees (Issue #6)
+  const loadAllFolderTrees = async () => {
+    if (!folders || folders.length === 0) return;
+    setIsLoadingFiles(true);
+    try {
+      await Promise.all(folders.map(folder => loadFolderTree(folder.id, folder.path)));
+    } finally {
+      setIsLoadingFiles(false);
+    }
+  };
+
+  // Toggle root folder expansion (Issue #6)
+  const toggleFolderExpanded = (folderId: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) {
+        next.delete(folderId);
+      } else {
+        next.add(folderId);
+      }
+      return next;
+    });
   };
 
   const toggleDir = (path: string) => {
@@ -1323,68 +1418,111 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
       {/* Scrollable content */}
       <ScrollArea className="flex-1">
         <div className="px-4 pb-4 pt-4">
-          {/* Project name and branch */}
-          <div className="flex items-center gap-1.5 mb-4">
-            <span className="text-sm font-medium truncate">{projectName}</span>
-            <span className="text-muted-foreground">/</span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 gap-1 px-1.5 text-xs font-normal text-muted-foreground hover:text-foreground"
-                  disabled={isSwitchingBranch}
-                >
-                  <GitBranch className="h-3 w-3" />
-                  <span className="max-w-[100px] truncate">{currentBranch?.name || "main"}</span>
-                  {isSwitchingBranch ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <ChevronDown className="h-3 w-3" />
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto">
-                {localBranches.length > 0 && (
-                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                    Local
-                  </div>
-                )}
-                {localBranches.map((branch) => (
-                  <DropdownMenuItem
-                    key={branch.name}
-                    onClick={() => handleSwitchBranch(branch.name)}
-                    className="flex items-center justify-between"
-                  >
-                    <span className="truncate">{branch.name}</span>
-                    {branch.isHead && <Check className="h-3 w-3 text-primary" />}
-                  </DropdownMenuItem>
-                ))}
-                {remoteBranches.length > 0 && (
-                  <>
-                    <DropdownMenuSeparator />
+          {/* Project name (with folder selector chevron if multiple folders) and branch - hidden in files view */}
+          {viewMode !== "files" && (
+            <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+              {folders && folders.length > 1 ? (
+                /* Multi-folder: active folder name with chevron dropdown */
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 gap-1 px-1.5 text-sm font-medium hover:bg-muted/50 max-w-[120px]"
+                    >
+                      <span className="truncate">{activeFolder?.name || projectName}</span>
+                      <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto">
                     <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                      Remote
+                      Folders
                     </div>
-                    {remoteBranches.map((branch) => (
+                    {folders.map((folder) => (
                       <DropdownMenuItem
-                        key={branch.name}
-                        onClick={() => handleSwitchBranch(branch.name.replace(/^origin\//, ""))}
-                        className="flex items-center justify-between text-muted-foreground"
+                        key={folder.id}
+                        onClick={() => setActiveFolderId(folder.id)}
+                        className="flex items-center justify-between"
                       >
-                        <span className="truncate">{branch.name}</span>
+                        <span className="truncate">{folder.name}</span>
+                        {folder.id === activeFolderId && <Check className="h-3 w-3 text-primary" />}
                       </DropdownMenuItem>
                     ))}
-                  </>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setShowBranchDialog(true)}>
-                  <Plus className="mr-2 h-3 w-3" />
-                  New branch
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                    {onAddFolder && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={onAddFolder}>
+                          <Plus className="mr-2 h-3 w-3" />
+                          Add Folder to Workspace
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                /* Single folder: just show project name */
+                <span className="text-sm font-medium truncate">{projectName}</span>
+              )}
+              <span className="text-muted-foreground">/</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 gap-1 px-1.5 text-xs font-normal text-muted-foreground hover:text-foreground"
+                    disabled={isSwitchingBranch}
+                  >
+                    <GitBranch className="h-3 w-3" />
+                    <span className="max-w-[100px] truncate">{currentBranch?.name || "main"}</span>
+                    {isSwitchingBranch ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3" />
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto">
+                  {localBranches.length > 0 && (
+                    <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                      Local
+                    </div>
+                  )}
+                  {localBranches.map((branch) => (
+                    <DropdownMenuItem
+                      key={branch.name}
+                      onClick={() => handleSwitchBranch(branch.name)}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="truncate">{branch.name}</span>
+                      {branch.isHead && <Check className="h-3 w-3 text-primary" />}
+                    </DropdownMenuItem>
+                  ))}
+                  {remoteBranches.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                        Remote
+                      </div>
+                      {remoteBranches.map((branch) => (
+                        <DropdownMenuItem
+                          key={branch.name}
+                          onClick={() => handleSwitchBranch(branch.name.replace(/^origin\//, ""))}
+                          className="flex items-center justify-between text-muted-foreground"
+                        >
+                          <span className="truncate">{branch.name}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setShowBranchDialog(true)}>
+                    <Plus className="mr-2 h-3 w-3" />
+                    New branch
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
 
           {/* Changes View */}
           {viewMode === "changes" && (
@@ -1580,30 +1718,165 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
           {viewMode === "files" && (
             <div className="space-y-1">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Project Files
-                </h3>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5"
-                  onClick={loadFileTree}
-                  disabled={isLoadingFiles}
-                >
-                  <RefreshCw className={cn("h-3 w-3", isLoadingFiles && "animate-spin")} />
-                </Button>
+                {folders && folders.length > 1 ? (
+                  /* Multi-folder workspace header */
+                  isEditingWorkspaceName ? (
+                    <input
+                      type="text"
+                      value={editedWorkspaceName}
+                      onChange={(e) => setEditedWorkspaceName(e.target.value)}
+                      onBlur={() => {
+                        setIsEditingWorkspaceName(false);
+                        if (editedWorkspaceName.trim() && onRenameWorkspace) {
+                          onRenameWorkspace(editedWorkspaceName.trim());
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          setIsEditingWorkspaceName(false);
+                          if (editedWorkspaceName.trim() && onRenameWorkspace) {
+                            onRenameWorkspace(editedWorkspaceName.trim());
+                          }
+                        } else if (e.key === "Escape") {
+                          setIsEditingWorkspaceName(false);
+                          setEditedWorkspaceName(workspaceName || "My Workspace");
+                        }
+                      }}
+                      autoFocus
+                      className="text-sm font-medium bg-muted border border-border rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-primary w-32"
+                    />
+                  ) : (
+                    <span className="text-sm font-medium">{workspaceName || "My Workspace"}</span>
+                  )
+                ) : (
+                  /* Single folder header */
+                  <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Project Files
+                  </h3>
+                )}
+                {folders && folders.length > 1 ? (
+                  /* Multi-folder: ellipsis menu with all options */
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-5 w-5">
+                        <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => {
+                        if (folders && folders.length > 0) {
+                          loadAllFolderTrees();
+                        } else {
+                          loadFileTree();
+                        }
+                      }}>
+                        <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                        Refresh
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {onAddFolder && (
+                        <DropdownMenuItem onClick={onAddFolder}>
+                          <Plus className="mr-2 h-3.5 w-3.5" />
+                          Add Folder
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => {
+                        setEditedWorkspaceName(workspaceName || "My Workspace");
+                        setIsEditingWorkspaceName(true);
+                      }}>
+                        <Pencil className="mr-2 h-3.5 w-3.5" />
+                        Rename Workspace
+                      </DropdownMenuItem>
+                      {onSaveWorkspace && (
+                        <DropdownMenuItem onClick={onSaveWorkspace}>
+                          <Save className="mr-2 h-3.5 w-3.5" />
+                          Save Workspace
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  /* Single folder: just refresh button */
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5"
+                    onClick={() => loadFileTree()}
+                    disabled={isLoadingFiles}
+                  >
+                    <RefreshCw className={cn("h-3 w-3", isLoadingFiles && "animate-spin")} />
+                  </Button>
+                )}
               </div>
               {isLoadingFiles ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
+              ) : folders && folders.length > 0 ? (
+                /* Multi-folder view - show all folders as collapsible roots (Issue #6) */
+                <div className="space-y-1">
+                  {folders.map((folder) => (
+                    <div key={folder.id}>
+                      {/* Folder header - collapsible */}
+                      <div
+                        className="flex items-center gap-1.5 py-1 px-1 rounded hover:bg-muted/50 cursor-pointer"
+                        onClick={() => toggleFolderExpanded(folder.id)}
+                      >
+                        {expandedFolders.has(folder.id) ? (
+                          <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                        ) : (
+                          <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                        )}
+                        <Folder className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <span className="text-xs font-medium truncate">{folder.name}</span>
+                      </div>
+                      {/* Folder contents */}
+                      {expandedFolders.has(folder.id) && (
+                        <div className="ml-3 border-l border-border/50 pl-2">
+                          {fileTrees[folder.id] ? (
+                            fileTrees[folder.id].length > 0 ? (
+                              <FileTreeView
+                                nodes={fileTrees[folder.id]}
+                                expandedDirs={expandedDirs}
+                                onToggleDir={toggleDir}
+                                projectPath={folder.path}
+                              />
+                            ) : (
+                              <div className="py-2 text-center text-xs text-muted-foreground">Empty folder</div>
+                            )
+                          ) : (
+                            <div className="py-2 flex items-center justify-center gap-2">
+                              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">Loading...</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               ) : fileTree.length > 0 ? (
-                <FileTreeView
-                  nodes={fileTree}
-                  expandedDirs={expandedDirs}
-                  onToggleDir={toggleDir}
-                  projectPath={projectPath}
-                />
+                /* Single folder view (backward compat) */
+                <>
+                  <FileTreeView
+                    nodes={fileTree}
+                    expandedDirs={expandedDirs}
+                    onToggleDir={toggleDir}
+                    projectPath={projectPath}
+                  />
+                  {/* Add folder button - only shown in single folder mode */}
+                  {onAddFolder && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground mt-2"
+                      onClick={onAddFolder}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add Folder to Workspace
+                    </Button>
+                  )}
+                </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <FolderTree className="mb-2 h-8 w-8 text-muted-foreground" />

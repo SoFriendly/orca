@@ -28,12 +28,28 @@ use portal::Portal;
 
 // Types for IPC
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectFolder {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
     pub id: String,
     pub name: String,
     pub path: String,
     #[serde(rename = "lastOpened")]
     pub last_opened: String,
+    pub folders: Option<Vec<ProjectFolder>>,
+}
+
+// Project file format for .chell files
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectFileData {
+    pub version: u32,
+    pub name: String,
+    pub folders: Vec<ProjectFolder>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2018,6 +2034,23 @@ fn write_text_file(path: String, content: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to write file: {}", e))
 }
 
+// Project file commands for .chell files (Issue #6)
+#[tauri::command]
+fn save_project_file(path: String, data: ProjectFileData) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(&data)
+        .map_err(|e| format!("Failed to serialize project: {}", e))?;
+    std::fs::write(&path, &json)
+        .map_err(|e| format!("Failed to write project file: {}", e))
+}
+
+#[tauri::command]
+fn load_project_file(path: String) -> Result<ProjectFileData, String> {
+    let content = std::fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read project file: {}", e))?;
+    serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse project file: {}", e))
+}
+
 #[tauri::command]
 fn scan_project_context(cwd: String, _force_refresh: Option<bool>) -> Result<ProjectContext, String> {
     use std::path::Path;
@@ -2206,6 +2239,8 @@ pub fn run() {
             write_text_file,
             watch_project_files,
             unwatch_project_files,
+            save_project_file,
+            load_project_file,
             // Assistants
             check_installed_assistants,
             install_assistant,

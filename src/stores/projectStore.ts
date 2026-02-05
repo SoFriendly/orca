@@ -1,6 +1,22 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Project, ProjectTab } from '@/types';
+import type { Project, ProjectTab, ProjectFolder } from '@/types';
+
+// Helper to ensure project has folders array (backward compat migration)
+const ensureFolders = (project: Project): Project => {
+  if (!project.folders || project.folders.length === 0) {
+    const folderName = project.path.split('/').pop() || project.name;
+    return {
+      ...project,
+      folders: [{
+        id: crypto.randomUUID(),
+        name: folderName,
+        path: project.path,
+      }],
+    };
+  }
+  return project;
+};
 
 interface ProjectState {
   projects: Project[];
@@ -12,6 +28,8 @@ interface ProjectState {
   addProject: (project: Project) => void;
   removeProject: (id: string) => void;
   updateProject: (id: string, updates: Partial<Project>) => void;
+  addFolderToProject: (projectId: string, folder: ProjectFolder) => void;
+  removeFolderFromProject: (projectId: string, folderId: string) => void;
 
   openTab: (project: Project) => void;
   closeTab: (tabId: string) => void;
@@ -25,20 +43,23 @@ export const useProjectStore = create<ProjectState>()(
       tabs: [],
       activeTabId: null,
 
-      setProjects: (projects) => set({ projects }),
+      setProjects: (projects) => set({
+        projects: projects.map(ensureFolders)
+      }),
 
       addProject: (project) => set((state) => {
+        const migratedProject = ensureFolders(project);
         // Check if project already exists (by path)
-        const exists = state.projects.some(p => p.path === project.path);
+        const exists = state.projects.some(p => p.path === migratedProject.path);
         if (exists) {
           // Update lastOpened instead
           return {
             projects: state.projects.map(p =>
-              p.path === project.path ? { ...p, lastOpened: project.lastOpened } : p
+              p.path === migratedProject.path ? { ...p, lastOpened: migratedProject.lastOpened } : p
             ),
           };
         }
-        return { projects: [...state.projects, project] };
+        return { projects: [...state.projects, migratedProject] };
       }),
 
       removeProject: (id) => set((state) => ({
@@ -50,6 +71,28 @@ export const useProjectStore = create<ProjectState>()(
         projects: state.projects.map((p) =>
           p.id === id ? { ...p, ...updates } : p
         ),
+      })),
+
+      addFolderToProject: (projectId, folder) => set((state) => ({
+        projects: state.projects.map((p) => {
+          if (p.id !== projectId) return p;
+          const folders = p.folders || [];
+          // Don't add duplicate paths
+          if (folders.some(f => f.path === folder.path)) return p;
+          return { ...p, folders: [...folders, folder] };
+        }),
+      })),
+
+      removeFolderFromProject: (projectId, folderId) => set((state) => ({
+        projects: state.projects.map((p) => {
+          if (p.id !== projectId) return p;
+          const folders = (p.folders || []).filter(f => f.id !== folderId);
+          // Keep at least one folder
+          if (folders.length === 0) return p;
+          // Update primary path if we removed the first folder
+          const newPath = folders[0].path;
+          return { ...p, folders, path: newPath };
+        }),
       })),
 
       openTab: (project) => set((state) => {

@@ -1,9 +1,23 @@
 // Project types
-export interface Project {
+export interface ProjectFolder {
   id: string;
   name: string;
   path: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  path: string;           // Primary folder path (backward compat)
+  folders?: ProjectFolder[]; // All folders (optional for backward compat)
   lastOpened: string;
+}
+
+// Project file format for .chell files
+export interface ProjectFileData {
+  version: number;
+  name: string;
+  folders: ProjectFolder[];
 }
 
 // Git types

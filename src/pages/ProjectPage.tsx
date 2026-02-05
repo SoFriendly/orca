@@ -5,6 +5,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import {
   Settings,
   Terminal as TerminalIcon,
@@ -14,6 +15,7 @@ import {
   Bot,
   GitBranch,
   Folder,
+  FolderOpen,
   ChevronDown,
   Search,
   Sparkles,
@@ -35,6 +37,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import {
@@ -53,7 +62,7 @@ import { useProjectStore } from "@/stores/projectStore";
 import { useGitStore } from "@/stores/gitStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { cn } from "@/lib/utils";
-import type { Project, GitStatus, FileDiff, Branch, Commit, CustomThemeColors } from "@/types";
+import type { Project, GitStatus, FileDiff, Branch, Commit, CustomThemeColors, ProjectFolder, ProjectFileData } from "@/types";
 
 // Map file extensions to Monaco language IDs
 const getMonacoLanguage = (filePath: string): string => {
@@ -253,6 +262,7 @@ interface TerminalTab {
   name: string;
   command: string;  // Command to run (empty for shell)
   terminalId: string | null;  // Set by Terminal component after spawning
+  cwd?: string;  // Working directory for this terminal - empty means needs selection (Issue #6)
 }
 
 interface AssistantOption {
@@ -266,7 +276,7 @@ interface AssistantOption {
 export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { projects, openTab } = useProjectStore();
+  const { projects, openTab, addFolderToProject, updateProject, addProject } = useProjectStore();
   const { setStatus, setDiffs, setBranches, setHistory, setLoading } = useGitStore();
   const { assistantArgs, defaultAssistant, autoFetchRemote, theme, customTheme } = useSettingsStore();
 
@@ -305,6 +315,10 @@ export default function ProjectPage() {
   const [showHistorySearch, setShowHistorySearch] = useState(false);
   const [shellHistory, setShellHistory] = useState<string[]>([]);
   const [showNlt, setShowNlt] = useState(false);
+  // Track selected folders for tabs pending folder selection (Issue #6)
+  const [pendingTabFolders, setPendingTabFolders] = useState<Record<string, string>>({});
+  const [pendingShellFolder, setPendingShellFolder] = useState<string>("");
+  const [pendingEmptyStateFolder, setPendingEmptyStateFolder] = useState<string>("");
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
   const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
@@ -378,8 +392,13 @@ export default function ProjectPage() {
     }
   };
 
-  const handleEditorMount = (editor: editor.IStandaloneCodeEditor) => {
+  const handleEditorMount = (editor: editor.IStandaloneCodeEditor, monaco: typeof import("monaco-editor")) => {
     editorRef.current = editor;
+
+    // Add Cmd/Ctrl+S keyboard shortcut for save
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      handleSaveMarkdown();
+    });
   };
 
   const handleEditorFind = () => {
@@ -637,11 +656,14 @@ export default function ProjectPage() {
     }
   }, [currentProject]);
 
-  // Initialize shell cwd when project loads
+  // Initialize shell cwd when project loads (only for single-folder projects)
   useEffect(() => {
     if (currentProject) {
-      setShellCwd(currentProject.path);
-      loadShellDirectories(currentProject.path);
+      // For multi-folder projects, don't auto-set cwd - let user pick
+      if (!currentProject.folders || currentProject.folders.length <= 1) {
+        setShellCwd(currentProject.path);
+        loadShellDirectories(currentProject.path);
+      }
     }
   }, [currentProject]);
 
@@ -698,6 +720,72 @@ export default function ProjectPage() {
     if (newCwd !== shellCwd) {
       setShellCwd(newCwd);
       loadShellDirectories(newCwd);
+    }
+  };
+
+  // Add a folder to the current project (Issue #6)
+  const handleAddFolder = async () => {
+    if (!currentProject) return;
+
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: "Add Folder to Project",
+    });
+
+    if (selected && typeof selected === "string") {
+      const folderName = selected.split("/").pop() || selected.split("\\").pop() || "folder";
+      const newFolder: ProjectFolder = {
+        id: crypto.randomUUID(),
+        name: folderName,
+        path: selected,
+      };
+
+      addFolderToProject(currentProject.id, newFolder);
+      // Update local state to reflect the change
+      setCurrentProject(prev => prev ? {
+        ...prev,
+        folders: [...(prev.folders || []), newFolder],
+      } : null);
+      toast.success(`Added folder: ${folderName}`);
+    }
+  };
+
+  // Rename workspace (Issue #6)
+  const handleRenameWorkspace = (name: string) => {
+    if (!currentProject) return;
+    updateProject(currentProject.id, { name });
+    setCurrentProject(prev => prev ? { ...prev, name } : null);
+  };
+
+  // Save project as .chell file (Issue #6)
+  const handleSaveProject = async () => {
+    if (!currentProject) return;
+
+    const filePath = await save({
+      defaultPath: `${currentProject.name}.chell`,
+      filters: [{ name: "Chell Project", extensions: ["chell"] }],
+      title: "Save Project",
+    });
+
+    if (filePath) {
+      const projectData: ProjectFileData = {
+        version: 1,
+        name: currentProject.name,
+        folders: currentProject.folders || [{
+          id: crypto.randomUUID(),
+          name: currentProject.name,
+          path: currentProject.path,
+        }],
+      };
+
+      try {
+        await invoke("save_project_file", { path: filePath, data: projectData });
+        toast.success("Project saved successfully");
+      } catch (error) {
+        console.error("Failed to save project:", error);
+        toast.error("Failed to save project");
+      }
     }
   };
 
@@ -765,7 +853,8 @@ export default function ProjectPage() {
     );
   };
 
-  const createNewTab = async (_projectPath: string, assistantId?: string) => {
+  // Actually create the terminal tab with a specific cwd
+  const doCreateTerminalTab = async (cwd: string, assistantId?: string) => {
     try {
       // Check installed assistants fresh (don't rely on stale state)
       const currentInstalled = await invoke<string[]>("check_installed_assistants");
@@ -816,6 +905,7 @@ export default function ProjectPage() {
         name,
         command,  // Store command, Terminal will spawn with correct dimensions
         terminalId: null,  // Will be set by Terminal component
+        cwd,  // Working directory for this terminal
       };
 
       setTerminalTabs(prev => [...prev, newTab]);
@@ -830,6 +920,28 @@ export default function ProjectPage() {
       console.error("Failed to create terminal tab:", error);
       return null;
     }
+  };
+
+  // Create a new terminal tab - if multiple folders, tab shows folder selector in pane (Issue #6)
+  const createNewTab = async (_projectPath: string, assistantId?: string) => {
+    if (!currentProject) return null;
+
+    // If project has multiple folders, create tab without cwd (will show folder selector in pane)
+    if (currentProject.folders && currentProject.folders.length > 1) {
+      return doCreateTerminalTab("", assistantId); // Empty cwd triggers folder selection UI
+    }
+
+    // Single folder or no folders - use project path directly
+    return doCreateTerminalTab(currentProject.path, assistantId);
+  };
+
+  // Set cwd for a tab that needs folder selection (Issue #6)
+  const setTabCwd = (tabId: string, cwd: string) => {
+    setTerminalTabs(prev =>
+      prev.map(tab =>
+        tab.id === tabId ? { ...tab, cwd } : tab
+      )
+    );
   };
 
   const closeTab = (tabId: string) => {
@@ -1182,6 +1294,58 @@ export default function ProjectPage() {
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
               <button
+                onClick={async () => {
+                  const selected = await open({
+                    directory: false,
+                    multiple: false,
+                    title: "Open Workspace",
+                    filters: [{ name: "Chell Project", extensions: ["chell"] }],
+                  });
+                  if (selected && typeof selected === "string") {
+                    const projectData = await invoke<ProjectFileData>("load_project_file", { path: selected });
+                    const primaryPath = projectData.folders[0]?.path || "";
+                    if (!primaryPath) {
+                      toast.error("Project file has no folders");
+                      return;
+                    }
+                    // Check if project with this path already exists
+                    const existingProject = projects.find(p => p.path === primaryPath);
+                    if (existingProject) {
+                      // Update existing project with new folders from .chell file
+                      const updatedProject = {
+                        ...existingProject,
+                        name: projectData.name,
+                        folders: projectData.folders,
+                        lastOpened: new Date().toISOString(),
+                      };
+                      updateProject(existingProject.id, updatedProject);
+                      navigate(`/project/${existingProject.id}`);
+                    } else {
+                      // Create new project
+                      const project: Project = {
+                        id: crypto.randomUUID(),
+                        name: projectData.name,
+                        path: primaryPath,
+                        folders: projectData.folders,
+                        lastOpened: new Date().toISOString(),
+                      };
+                      addProject(project);
+                      await invoke("add_project", { project });
+                      navigate(`/project/${project.id}`);
+                    }
+                  }
+                }}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <FolderOpen className="h-5 w-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Open Workspace</TooltipContent>
+          </Tooltip>
+
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button
                 onClick={() => {
                   setActiveSidebarItem("settings");
                   setShowSettings(true);
@@ -1307,6 +1471,11 @@ export default function ProjectPage() {
             onInitRepo={initGitRepo}
             onOpenMarkdown={handleOpenMarkdownInPanel}
             shellCwd={shellCwd}
+            folders={currentProject.folders}
+            onAddFolder={handleAddFolder}
+            workspaceName={currentProject.name}
+            onRenameWorkspace={handleRenameWorkspace}
+            onSaveWorkspace={handleSaveProject}
           />
         </div>
         {/* Resize handle for git panel */}
@@ -1448,14 +1617,58 @@ export default function ProjectPage() {
                 className="flex-1 overflow-hidden"
                 style={{ backgroundColor: terminalBg }}
               >
-                <Terminal
-                  id={tab.terminalId || undefined}
-                  command={tab.command}
-                  cwd={currentProject.path}
-                  onTerminalReady={(terminalId) => handleTerminalReady(tab.id, terminalId)}
-                  visible={showAssistantPanel && activeTabId === tab.id}
-                  autoFocusOnWindowFocus
-                />
+                {tab.cwd ? (
+                  <Terminal
+                    id={tab.terminalId || undefined}
+                    command={tab.command}
+                    cwd={tab.cwd}
+                    onTerminalReady={(terminalId) => handleTerminalReady(tab.id, terminalId)}
+                    visible={showAssistantPanel && activeTabId === tab.id}
+                    autoFocusOnWindowFocus
+                  />
+                ) : (
+                  /* Folder selector for multi-folder projects (Issue #6) */
+                  <div className="flex h-full flex-col items-center justify-center p-8">
+                    <div className="flex flex-col items-center text-center max-w-[280px]">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted/30 mb-4">
+                        <Bot className="h-7 w-7 text-muted-foreground/70" />
+                      </div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">
+                        Start {tab.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground/60 mb-4">
+                        Select a working directory and start the assistant
+                      </p>
+                      <div className="flex flex-col gap-2 w-48">
+                        <Select
+                          value={pendingTabFolders[tab.id] || currentProject.folders?.[0]?.path || ""}
+                          onValueChange={(value) => setPendingTabFolders(prev => ({ ...prev, [tab.id]: value }))}
+                        >
+                          <SelectTrigger>
+                            <Folder className="h-3.5 w-3.5 mr-2 shrink-0" />
+                            <SelectValue placeholder="Select a folder" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {currentProject.folders?.map((folder) => (
+                              <SelectItem key={folder.id} value={folder.path}>
+                                {folder.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          onClick={() => {
+                            const folder = pendingTabFolders[tab.id] || currentProject.folders?.[0]?.path;
+                            if (folder) setTabCwd(tab.id, folder);
+                          }}
+                          className="w-full"
+                        >
+                          Start {tab.name}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -1471,33 +1684,84 @@ export default function ProjectPage() {
                   No assistants running
                 </p>
                 <p className="text-xs text-muted-foreground/60 mb-4">
-                  Start an AI coding assistant to help with your project
+                  Start an AI coding assistant in a directory
                 </p>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-2">
-                      <Plus className="h-3.5 w-3.5" />
-                      New Assistant
-                      <ChevronDown className="h-3 w-3 opacity-50" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="center">
-                    {assistantOptions.filter(a => a.installed).length > 0 ? (
-                      assistantOptions.filter(a => a.installed).map((assistant) => (
-                        <DropdownMenuItem
-                          key={assistant.id}
-                          onClick={() => currentProject && createNewTab(currentProject.path, assistant.id)}
-                        >
-                          {assistant.name}
+                {currentProject.folders && currentProject.folders.length > 1 ? (
+                  /* Multi-folder: show both folder and assistant dropdowns */
+                  <div className="flex flex-col gap-2 w-48">
+                    <Select
+                      value={pendingEmptyStateFolder || currentProject.folders?.[0]?.path || ""}
+                      onValueChange={(value) => setPendingEmptyStateFolder(value)}
+                    >
+                      <SelectTrigger>
+                        <Folder className="h-3.5 w-3.5 mr-2 shrink-0" />
+                        <SelectValue placeholder="Select a folder" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {currentProject.folders?.map((folder) => (
+                          <SelectItem key={folder.id} value={folder.path}>
+                            {folder.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button className="w-full gap-2">
+                          <Plus className="h-3.5 w-3.5" />
+                          New Assistant
+                          <ChevronDown className="h-3 w-3 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="center">
+                        {assistantOptions.filter(a => a.installed).length > 0 ? (
+                          assistantOptions.filter(a => a.installed).map((assistant) => (
+                            <DropdownMenuItem
+                              key={assistant.id}
+                              onClick={() => {
+                                const folder = pendingEmptyStateFolder || currentProject.folders?.[0]?.path;
+                                if (folder) doCreateTerminalTab(folder, assistant.id);
+                              }}
+                            >
+                              {assistant.name}
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
+                          <DropdownMenuItem disabled>
+                            No assistants installed
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                ) : (
+                  /* Single folder: just assistant dropdown */
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Plus className="h-3.5 w-3.5" />
+                        New Assistant
+                        <ChevronDown className="h-3 w-3 opacity-50" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="center">
+                      {assistantOptions.filter(a => a.installed).length > 0 ? (
+                        assistantOptions.filter(a => a.installed).map((assistant) => (
+                          <DropdownMenuItem
+                            key={assistant.id}
+                            onClick={() => currentProject && createNewTab(currentProject.path, assistant.id)}
+                          >
+                            {assistant.name}
+                          </DropdownMenuItem>
+                        ))
+                      ) : (
+                        <DropdownMenuItem disabled>
+                          No assistants installed
                         </DropdownMenuItem>
-                      ))
-                    ) : (
-                      <DropdownMenuItem disabled>
-                        No assistants installed
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             </div>
           )}
@@ -1527,36 +1791,38 @@ export default function ProjectPage() {
           <div className="flex h-10 items-center justify-between px-2 border-b border-border">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <TerminalIcon className="h-4 w-4 shrink-0 text-primary" />
-              <DropdownMenu onOpenChange={(open) => open && loadShellDirectories(shellCwd)}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 gap-1 px-1.5 text-xs font-normal text-muted-foreground hover:text-foreground min-w-0"
-                  >
-                    <Folder className="h-3 w-3 shrink-0" />
-                    <span className="truncate max-w-[120px]">
-                      {shellCwd.split("/").pop() || "/"}
-                    </span>
-                    <ChevronDown className="h-3 w-3 shrink-0" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="max-h-64 overflow-auto">
-                  {shellDirs.map((dir) => (
-                    <DropdownMenuItem
-                      key={dir}
-                      onClick={() => handleShellCd(dir)}
-                      className="flex items-center gap-2"
+              {shellCwd && (
+                <DropdownMenu onOpenChange={(open) => open && loadShellDirectories(shellCwd)}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 gap-1 px-1.5 text-xs font-normal text-muted-foreground hover:text-foreground min-w-0"
                     >
-                      <Folder className="h-3 w-3" />
-                      <span className="truncate">{dir}</span>
-                    </DropdownMenuItem>
-                  ))}
-                  {shellDirs.length === 0 && (
-                    <DropdownMenuItem disabled>No subdirectories</DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                      <Folder className="h-3 w-3 shrink-0" />
+                      <span className="truncate max-w-[120px]">
+                        {shellCwd.split("/").pop() || "/"}
+                      </span>
+                      <ChevronDown className="h-3 w-3 shrink-0" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="max-h-64 overflow-auto">
+                    {shellDirs.map((dir) => (
+                      <DropdownMenuItem
+                        key={dir}
+                        onClick={() => handleShellCd(dir)}
+                        className="flex items-center gap-2"
+                      >
+                        <Folder className="h-3 w-3" />
+                        <span className="truncate">{dir}</span>
+                      </DropdownMenuItem>
+                    ))}
+                    {shellDirs.length === 0 && (
+                      <DropdownMenuItem disabled>No subdirectories</DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
             <div className="flex items-center gap-1">
               {utilityTerminalId && utilityTerminalId !== "closed" && (
@@ -1618,39 +1884,130 @@ export default function ProjectPage() {
             className="flex-1 overflow-hidden"
             style={{ backgroundColor: terminalBg }}
           >
-            {utilityTerminalId !== "closed" ? (
-              <SmartShell
-                cwd={shellCwd || currentProject.path}
-                terminalId={utilityTerminalId}
-                onTerminalReady={(id) => setUtilityTerminalId(id)}
-                onCwdChange={handleShellCwdChange}
-                visible={showShellPanel}
-                showNlt={showNlt}
-                onNltVisibilityChange={setShowNlt}
-              />
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center p-6">
-                <div className="flex flex-col items-center text-center max-w-[200px]">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50 mb-4">
-                    <TerminalIcon className="h-6 w-6 text-muted-foreground" />
+            {utilityTerminalId === "closed" ? (
+              /* Shell was explicitly closed */
+              currentProject.folders && currentProject.folders.length > 1 ? (
+                /* Multi-folder: show folder picker to reopen */
+                <div className="flex h-full flex-col items-center justify-center p-6">
+                  <div className="flex flex-col items-center text-center max-w-[200px]">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50 mb-4">
+                      <TerminalIcon className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">
+                      Shell closed
+                    </p>
+                    <p className="text-xs text-muted-foreground/70 mb-4">
+                      Select a folder to reopen the shell
+                    </p>
+                    <div className="flex flex-col gap-2 w-44">
+                      <Select
+                        value={pendingShellFolder || currentProject.folders?.[0]?.path || ""}
+                        onValueChange={(value) => setPendingShellFolder(value)}
+                      >
+                        <SelectTrigger>
+                          <Folder className="h-3.5 w-3.5 mr-2 shrink-0" />
+                          <SelectValue placeholder="Select a folder" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currentProject.folders?.map((folder) => (
+                            <SelectItem key={folder.id} value={folder.path}>
+                              {folder.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        onClick={() => {
+                          const folder = pendingShellFolder || currentProject.folders?.[0]?.path;
+                          if (folder) {
+                            setShellCwd(folder);
+                            setUtilityTerminalId(null);
+                          }
+                        }}
+                        className="w-full"
+                      >
+                        Open Shell
+                      </Button>
+                    </div>
                   </div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">
-                    Shell closed
-                  </p>
-                  <p className="text-xs text-muted-foreground/70 mb-4">
-                    Run commands, scripts, and interact with your project
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setUtilityTerminalId(null)}
-                    className="gap-2"
-                  >
-                    <TerminalIcon className="h-3.5 w-3.5" />
-                    Open Shell
-                  </Button>
                 </div>
-              </div>
+              ) : (
+                /* Single folder: simple reopen */
+                <div className="flex h-full flex-col items-center justify-center p-6">
+                  <div className="flex flex-col items-center text-center max-w-[200px]">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50 mb-4">
+                      <TerminalIcon className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">
+                      Shell closed
+                    </p>
+                    <p className="text-xs text-muted-foreground/70 mb-4">
+                      Run commands, scripts, and interact with your project
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setUtilityTerminalId(null)}
+                      className="gap-2"
+                    >
+                      <TerminalIcon className="h-3.5 w-3.5" />
+                      Open Shell
+                    </Button>
+                  </div>
+                </div>
+              )
+            ) : !shellCwd && currentProject.folders && currentProject.folders.length > 1 ? (
+              /* Multi-folder project needs folder selection first */
+                <div className="flex h-full flex-col items-center justify-center p-8">
+                  <div className="flex flex-col items-center text-center max-w-[280px]">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted/30 mb-4">
+                      <TerminalIcon className="h-7 w-7 text-muted-foreground/70" />
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">
+                      Start Shell
+                    </p>
+                    <p className="text-xs text-muted-foreground/60 mb-4">
+                      Select a working directory and start the shell
+                    </p>
+                    <div className="flex flex-col gap-2 w-48">
+                      <Select
+                        value={pendingShellFolder || currentProject.folders?.[0]?.path || ""}
+                        onValueChange={(value) => setPendingShellFolder(value)}
+                      >
+                        <SelectTrigger>
+                          <Folder className="h-3.5 w-3.5 mr-2 shrink-0" />
+                          <SelectValue placeholder="Select a folder" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currentProject.folders?.map((folder) => (
+                            <SelectItem key={folder.id} value={folder.path}>
+                              {folder.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        onClick={() => {
+                          const folder = pendingShellFolder || currentProject.folders?.[0]?.path;
+                          if (folder) setShellCwd(folder);
+                        }}
+                        className="w-full"
+                      >
+                        Start Shell
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <SmartShell
+                  cwd={shellCwd || currentProject.path}
+                  terminalId={utilityTerminalId}
+                  onTerminalReady={(id) => setUtilityTerminalId(id)}
+                  onCwdChange={handleShellCwdChange}
+                  visible={showShellPanel}
+                  showNlt={showNlt}
+                  onNltVisibilityChange={setShowNlt}
+                />
               )}
           </div>
         </div>
@@ -1712,6 +2069,22 @@ export default function ProjectPage() {
                   )}
                 </>
               )}
+              {/* Show save button for non-markdown files */}
+              {markdownFile && !markdownFile.path.endsWith('.md') && (
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={handleSaveMarkdown}
+                    >
+                      <Save className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Save</TooltipContent>
+                </Tooltip>
+              )}
               {/* Show search button when Monaco editor is visible */}
               {markdownFile && (markdownEditMode || !markdownFile.path.endsWith('.md')) && (
                 <Tooltip delayDuration={0}>
@@ -1771,6 +2144,7 @@ export default function ProjectPage() {
                   height="100%"
                   language={getMonacoLanguage(markdownFile.path)}
                   value={markdownFile.content}
+                  onChange={(value) => setMarkdownFile({ ...markdownFile, content: value || '' })}
                   beforeMount={(monaco) => defineMonacoThemes(monaco, customTheme)}
                   theme={getMonacoTheme(theme)}
                   onMount={handleEditorMount}
@@ -1781,7 +2155,6 @@ export default function ProjectPage() {
                     wordWrap: 'on',
                     scrollBeyondLastLine: false,
                     automaticLayout: true,
-                    readOnly: false,
                   }}
                 />
               )
