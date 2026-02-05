@@ -79,7 +79,7 @@ interface GitPanelProps {
   projectName: string;
   isGitRepo: boolean;
   onRefresh: () => void;
-  onInitRepo: () => void;
+  onInitRepo: () => Promise<void>;
   onOpenMarkdown?: (filePath: string) => void;
 }
 

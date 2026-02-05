@@ -1052,7 +1052,7 @@ export default function ProjectPage() {
       try {
         await invoke("init_repo", { path });
         toast.success("Git repository initialized");
-        loadGitData(path);
+        await loadGitData(path);
       } catch (error) {
         console.error("Failed to initialize git repo:", error);
         toast.error("Failed to initialize git repository");
