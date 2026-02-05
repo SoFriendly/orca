@@ -2,6 +2,16 @@
 
 All notable changes to Chell will be documented in this file.
 
+## [0.1.64]
+
+- Move portal WebSocket connection to Rust backend
+  - Portal now stays connected when app is minimized to tray
+  - Mobile app can access projects list without requiring desktop window to be open
+  - Portal configuration stored in SQLite database instead of localStorage
+- Enhance UI with subtle noise overlay and animations
+  - Add film grain texture overlay for visual depth
+  - Smooth fade-in animations for dialogs, tooltips, and menus
+
 ## [0.1.63]
 
 - Make file editor editable by default for non-markdown files

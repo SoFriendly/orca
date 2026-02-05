@@ -1430,11 +1430,42 @@ export default function ProjectPage() {
 
           {/* Empty state when no tabs */}
           {terminalTabs.length === 0 && (
-            <div className="flex flex-1 flex-col items-center justify-center gap-4" style={{ backgroundColor: terminalBg }}>
-              <Bot className="h-12 w-12 text-muted-foreground/50" />
-              <div className="flex flex-col items-center gap-1">
-                <p className="text-sm font-medium text-muted-foreground">No assistants open</p>
-                <p className="text-xs text-muted-foreground/70">Press + to start a new conversation</p>
+            <div className="flex flex-1 flex-col items-center justify-center p-8" style={{ backgroundColor: terminalBg }}>
+              <div className="flex flex-col items-center text-center max-w-[280px]">
+                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted/30 mb-4">
+                  <Bot className="h-7 w-7 text-muted-foreground/70" />
+                </div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">
+                  No assistants running
+                </p>
+                <p className="text-xs text-muted-foreground/60 mb-4">
+                  Start an AI coding assistant to help with your project
+                </p>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Plus className="h-3.5 w-3.5" />
+                      New Assistant
+                      <ChevronDown className="h-3 w-3 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center">
+                    {assistantOptions.filter(a => a.installed).length > 0 ? (
+                      assistantOptions.filter(a => a.installed).map((assistant) => (
+                        <DropdownMenuItem
+                          key={assistant.id}
+                          onClick={() => currentProject && createNewTab(currentProject.path, assistant.id)}
+                        >
+                          {assistant.name}
+                        </DropdownMenuItem>
+                      ))
+                    ) : (
+                      <DropdownMenuItem disabled>
+                        No assistants installed
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           )}
@@ -1566,15 +1597,27 @@ export default function ProjectPage() {
                 onNltVisibilityChange={setShowNlt}
               />
             ) : (
-              <div className="flex h-full flex-col items-center justify-center gap-3">
-                <TerminalIcon className="h-6 w-6 text-muted-foreground" />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setUtilityTerminalId(null)}
-                >
-                  Start Shell
-                </Button>
+              <div className="flex h-full flex-col items-center justify-center p-6">
+                <div className="flex flex-col items-center text-center max-w-[200px]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50 mb-4">
+                    <TerminalIcon className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                    Shell closed
+                  </p>
+                  <p className="text-xs text-muted-foreground/70 mb-4">
+                    Run commands, scripts, and interact with your project
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setUtilityTerminalId(null)}
+                    className="gap-2"
+                  >
+                    <TerminalIcon className="h-3.5 w-3.5" />
+                    Open Shell
+                  </Button>
+                </div>
               </div>
               )}
           </div>
