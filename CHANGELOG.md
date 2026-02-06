@@ -2,7 +2,7 @@
 
 All notable changes to Chell will be documented in this file.
 
-## [0.1.69]
+## [0.1.70]
 
 ### Notes Panel
 - Add per-project notes panel with markdown support
