@@ -1229,6 +1229,25 @@ export default function ProjectPage() {
     };
   }, [currentProject?.path]);
 
+  // Auto-refresh markdown preview when the file changes on disk
+  useEffect(() => {
+    if (!markdownFile || !showMarkdownPanel || markdownEditMode) return;
+
+    const filePath = markdownFile.path;
+    const unlisten = listen<string>("git-files-changed", async () => {
+      try {
+        const content = await invoke<string>("read_text_file", { path: filePath });
+        setMarkdownFile((prev) => prev && prev.path === filePath ? { ...prev, content } : prev);
+      } catch {
+        // File may have been deleted; ignore
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [markdownFile?.path, showMarkdownPanel, markdownEditMode]);
+
   if (!currentProject) {
     return (
       <div className="flex h-full items-center justify-center bg-background">

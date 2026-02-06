@@ -4,6 +4,30 @@ All notable changes to Chell will be documented in this file.
 
 ## [0.1.69]
 
+### Notes Panel
+- Add per-project notes panel with markdown support
+  - Create, edit, and delete notes stored as `.md` files alongside your project
+  - Markdown rendering with GFM support (tables, checklists, etc.)
+  - Notes sidebar toggleable from the project toolbar
+  - Drag-and-drop reordering of notes
+  - Right-click context menu with copy and delete options
+
+### Custom Assistants & Pi Support
+- Add Pi as a built-in AI coding assistant
+- Add support for user-defined custom assistants
+  - Define name, run command, install command, description, and docs URL
+  - Custom assistants appear alongside built-in ones in Settings and the + tab menu
+  - Delete button for custom assistants (built-in assistants cannot be removed)
+- Add ability to hide assistants from the + tab menu
+  - Eye/EyeOff toggle per assistant in Settings
+  - Hidden assistants are filtered out of the new tab dropdown
+- Replace "Copy Install" with an Install button that opens a terminal window
+  - Runs the install command through a login shell (supports pipes and env vars)
+  - Button shows a spinner and polls for installation status every 3 seconds
+  - Automatically detects when installation completes and updates the UI
+- Centralize assistant definitions into a single registry (`src/lib/assistants.ts`)
+- Improve assistant detection with augmented PATH scanning and interactive shell fallback
+
 - Add "Add to .gitignore" context menu item in the Git panel file tree
 - Fix editor panel making window gigantic on HiDPI/Retina laptop screens
   - Window auto-sizing was using physical pixels instead of logical pixels when opening or closing the editor panel
