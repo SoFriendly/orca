@@ -174,6 +174,11 @@ fn debug_log(message: String) {
     println!("[DEBUG] {}", message);
 }
 
+#[tauri::command]
+fn get_home_dir() -> Result<String, String> {
+    std::env::var("HOME").map_err(|_| "Could not find HOME directory".to_string())
+}
+
 /// Fetch secrets from macOS Keychain for environment variables.
 /// Automatically discovers Keychain items with service names starting with "env/"
 /// and exports them as environment variables (stripping the "env/" prefix).
@@ -261,6 +266,7 @@ fn spawn_terminal(
     cols: Option<u16>,
     rows: Option<u16>,
     args: Option<Vec<String>>,
+    is_assistant: Option<bool>,
     app_handle: tauri::AppHandle,
     state: tauri::State<Arc<AppState>>,
 ) -> Result<String, String> {
@@ -524,10 +530,12 @@ fn spawn_terminal(
     };
 
     // Determine terminal type based on command
-    let assistant_commands = ["claude", "aider", "gemini", "codex", "opencode"];
-    let terminal_type = if shell.is_empty() {
+    let terminal_type = if is_assistant == Some(true) {
+        "assistant".to_string()
+    } else if shell.is_empty() {
         "shell".to_string()
     } else {
+        let assistant_commands = ["claude", "aider", "gemini", "codex", "opencode", "pi"];
         let cmd = shell.split_whitespace().next().unwrap_or("");
         if assistant_commands.contains(&cmd) {
             "assistant".to_string()
@@ -1557,6 +1565,94 @@ fn check_installed_assistants() -> Result<Vec<String>, String> {
         installed.push("opencode".to_string());
     }
 
+    // Check for Pi
+    if command_exists("pi") {
+        installed.push("pi".to_string());
+    }
+
+    Ok(installed)
+}
+
+#[tauri::command]
+fn check_commands_installed(commands: Vec<String>) -> Result<Vec<String>, String> {
+    // First try the fast in-process check
+    let mut installed: Vec<String> = commands.iter()
+        .filter(|cmd| command_exists(cmd))
+        .cloned()
+        .collect();
+
+    // For any commands not found, scan the augmented PATH directories directly
+    // (same paths that spawn_terminal provides to child processes)
+    let not_found: Vec<&String> = commands.iter()
+        .filter(|cmd| !installed.contains(cmd))
+        .collect();
+
+    if !not_found.is_empty() {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/Users".to_string());
+        let current_path = std::env::var("PATH").unwrap_or_default();
+
+        // Build the same augmented PATH that spawn_terminal uses
+        let mut search_dirs: Vec<String> = vec![
+            format!("{}/bin", home),
+            format!("{}/.local/bin", home),
+            format!("{}/.cargo/bin", home),
+            format!("{}/.pyenv/bin", home),
+            format!("{}/.pyenv/shims", home),
+            format!("{}/.nvm/versions/node/default/bin", home),
+            "/opt/homebrew/bin".to_string(),
+            "/opt/homebrew/sbin".to_string(),
+            "/usr/local/bin".to_string(),
+            "/usr/local/sbin".to_string(),
+        ];
+
+        // Also scan all nvm node version bin dirs
+        let nvm_versions = format!("{}/.nvm/versions/node", home);
+        if let Ok(entries) = std::fs::read_dir(&nvm_versions) {
+            for entry in entries.flatten() {
+                let bin_dir = entry.path().join("bin");
+                if bin_dir.exists() {
+                    search_dirs.push(bin_dir.to_string_lossy().to_string());
+                }
+            }
+        }
+
+        // Add existing PATH entries
+        for dir in current_path.split(':') {
+            if !dir.is_empty() && !search_dirs.contains(&dir.to_string()) {
+                search_dirs.push(dir.to_string());
+            }
+        }
+
+        for cmd in &not_found {
+            for dir in &search_dirs {
+                let candidate = std::path::Path::new(dir).join(cmd.as_str());
+                if candidate.exists() {
+                    installed.push((*cmd).clone());
+                    break;
+                }
+            }
+        }
+
+        // Last resort: try an interactive login shell for anything still missing
+        let still_not_found: Vec<&&String> = not_found.iter()
+            .filter(|cmd| !installed.contains(cmd))
+            .collect();
+
+        if !still_not_found.is_empty() {
+            let shell_path = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+            for cmd in still_not_found {
+                let output = std::process::Command::new(&shell_path)
+                    .args(["-i", "-l", "-c", &format!("command -v {}", cmd)])
+                    .output();
+                if let Ok(output) = output {
+                    if output.status.success() {
+                        installed.push((**cmd).clone());
+                    }
+                }
+            }
+        }
+    }
+
     Ok(installed)
 }
 
@@ -1568,6 +1664,7 @@ fn install_assistant(command: String) -> Result<String, String> {
         "gemini" => "npm install -g @anthropic-ai/gemini-cli",
         "codex" => "npm install -g @openai/codex",
         "opencode" => "curl -fsSL https://opencode.ai/install | bash",
+        "pi" => "npm install -g @mariozechner/pi-coding-agent",
         _ => return Err(format!("Unknown assistant: {}", command)),
     };
 
@@ -2186,6 +2283,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // Debug
             debug_log,
+            get_home_dir,
             // Terminal
             spawn_terminal,
             write_terminal,
@@ -2243,6 +2341,7 @@ pub fn run() {
             load_project_file,
             // Assistants
             check_installed_assistants,
+            check_commands_installed,
             install_assistant,
             // AI
             generate_commit_message,

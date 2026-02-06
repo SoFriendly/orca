@@ -22,6 +22,7 @@ import {
   Pencil,
   Save,
   Eye,
+  StickyNote,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -56,11 +57,13 @@ import {
 import Terminal from "@/components/Terminal";
 import SmartShell from "@/components/SmartShell";
 import GitPanel from "@/components/GitPanel";
+import NotesPanel from "@/components/NotesPanel";
 import SettingsSheet from "@/components/SettingsSheet";
 import { useProjectStore, ensureFolders } from "@/stores/projectStore";
 import { useGitStore } from "@/stores/gitStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { cn } from "@/lib/utils";
+import { getAllAssistants, getAllAssistantCommands } from "@/lib/assistants";
 import type { Project, GitStatus, FileDiff, Branch, Commit, CustomThemeColors, ProjectFolder, ProjectFileData } from "@/types";
 
 // Map file extensions to Monaco language IDs
@@ -277,7 +280,7 @@ export default function ProjectPage() {
   const navigate = useNavigate();
   const { projects, openTab, addFolderToProject, updateProject, addProject } = useProjectStore();
   const { setStatus, setDiffs, setBranches, setHistory, setLoading } = useGitStore();
-  const { assistantArgs, defaultAssistant, autoFetchRemote, theme, customTheme } = useSettingsStore();
+  const { assistantArgs, defaultAssistant, autoFetchRemote, theme, customTheme, customAssistants, hiddenAssistantIds } = useSettingsStore();
 
   // Terminal background colors per theme
   const terminalBgColors: Record<string, string> = {
@@ -306,6 +309,7 @@ export default function ProjectPage() {
   const [isGitRepo, setIsGitRepo] = useState(true);
   const [showAssistantPanel, setShowAssistantPanel] = useState(true);
   const [showShellPanel, setShowShellPanel] = useState(true);
+  const [showNotesPanel, setShowNotesPanel] = useState(false);
   const [showMarkdownPanel, setShowMarkdownPanel] = useState(false);
   const [markdownFile, setMarkdownFile] = useState<{ path: string; content: string } | null>(null);
   const [markdownEditMode, setMarkdownEditMode] = useState(false);
@@ -325,7 +329,7 @@ export default function ProjectPage() {
   const tabRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Count visible panels - must always have at least one
-  const visiblePanelCount = [showGitPanel, showAssistantPanel, showShellPanel, showMarkdownPanel].filter(Boolean).length;
+  const visiblePanelCount = [showGitPanel, showAssistantPanel, showShellPanel, showNotesPanel, showMarkdownPanel].filter(Boolean).length;
 
   // Toggle handlers
   const toggleGitPanel = () => {
@@ -353,6 +357,17 @@ export default function ProjectPage() {
       setShellPanelWidth(savedShellWidth.current);
     }
     setShowShellPanel(!showShellPanel);
+  };
+
+  const toggleNotesPanel = () => {
+    if (showNotesPanel && visiblePanelCount <= 1) return;
+    if (showNotesPanel) {
+      savedNotesWidth.current = notesPanelWidth;
+      setNotesPanelWidth(0);
+    } else {
+      setNotesPanelWidth(savedNotesWidth.current);
+    }
+    setShowNotesPanel(!showNotesPanel);
   };
 
   // Markdown panel handlers
@@ -436,12 +451,13 @@ export default function ProjectPage() {
   };
 
   // Resize handle drag handler
-  const handleResizeStart = (e: React.MouseEvent, panel: 'git' | 'shell' | 'markdown') => {
+  const handleResizeStart = (e: React.MouseEvent, panel: 'git' | 'shell' | 'notes' | 'markdown') => {
     e.preventDefault();
     const startX = e.clientX;
     const startGitWidth = gitPanelWidth;
     const startAssistantWidth = assistantPanelWidth;
     const startShellWidth = shellPanelWidth;
+    const startNotesWidth = notesPanelWidth;
     const startMarkdownWidth = markdownPanelWidth;
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -458,6 +474,9 @@ export default function ProjectPage() {
         const newAssistantWidth = Math.max(200, startAssistantWidth + (startShellWidth - newShellWidth));
         setShellPanelWidth(newShellWidth);
         setAssistantPanelWidth(newAssistantWidth);
+      } else if (panel === 'notes') {
+        const newWidth = Math.max(250, Math.min(600, startNotesWidth - delta));
+        setNotesPanelWidth(newWidth);
       } else if (panel === 'markdown') {
         const newWidth = Math.max(300, Math.min(800, startMarkdownWidth - delta));
         setMarkdownPanelWidth(newWidth);
@@ -504,6 +523,25 @@ export default function ProjectPage() {
 
     if (utilityTerminalId && utilityTerminalId !== "closed") {
       invoke("write_terminal", { id: utilityTerminalId, data: filePath + " " });
+    }
+  };
+
+  // Handle note drops from NotesPanel onto terminal panels
+  const handleNoteDropAtPosition = (text: string, x: number, y: number) => {
+    const assistantRect = assistantPanelRef.current?.getBoundingClientRect();
+    const shellRect = shellPanelRef.current?.getBoundingClientRect();
+
+    if (assistantRect && x >= assistantRect.left && x <= assistantRect.right &&
+        y >= assistantRect.top && y <= assistantRect.bottom) {
+      const activeTab = terminalTabs.find(t => t.id === activeTabId);
+      if (activeTab?.terminalId) {
+        invoke("write_terminal", { id: activeTab.terminalId, data: text });
+      }
+    } else if (shellRect && x >= shellRect.left && x <= shellRect.right &&
+               y >= shellRect.top && y <= shellRect.bottom) {
+      if (utilityTerminalId && utilityTerminalId !== "closed") {
+        invoke("write_terminal", { id: utilityTerminalId, data: text });
+      }
     }
   };
 
@@ -557,10 +595,12 @@ export default function ProjectPage() {
   const [assistantPanelWidth, setAssistantPanelWidth] = useState(520); // Main terminal area
   const [shellPanelWidth, setShellPanelWidth] = useState(400);
   const [markdownPanelWidth, setMarkdownPanelWidth] = useState(400);
+  const [notesPanelWidth, setNotesPanelWidth] = useState(320);
   const savedGitWidth = useRef(280);
   const savedAssistantWidth = useRef(520);
   const savedShellWidth = useRef(400);
   const savedMarkdownWidth = useRef(400);
+  const savedNotesWidth = useRef(320);
   const lastContainerWidth = useRef<number | null>(null);
 
   // Proportionally resize all panels when window is resized
@@ -586,12 +626,14 @@ export default function ProjectPage() {
         setGitPanelWidth(prev => Math.max(150, Math.round(prev * ratio)));
         setAssistantPanelWidth(prev => Math.max(200, Math.round(prev * ratio)));
         setShellPanelWidth(prev => Math.max(150, Math.round(prev * ratio)));
+        setNotesPanelWidth(prev => Math.max(250, Math.round(prev * ratio)));
         setMarkdownPanelWidth(prev => Math.max(150, Math.round(prev * ratio)));
 
         // Update saved widths too
         savedGitWidth.current = Math.max(150, Math.round(savedGitWidth.current * ratio));
         savedAssistantWidth.current = Math.max(200, Math.round(savedAssistantWidth.current * ratio));
         savedShellWidth.current = Math.max(150, Math.round(savedShellWidth.current * ratio));
+        savedNotesWidth.current = Math.max(250, Math.round(savedNotesWidth.current * ratio));
         savedMarkdownWidth.current = Math.max(150, Math.round(savedMarkdownWidth.current * ratio));
 
         lastContainerWidth.current = newWidth;
@@ -609,7 +651,7 @@ export default function ProjectPage() {
       window.dispatchEvent(new Event('resize'));
     }, 50);
     return () => clearTimeout(timer);
-  }, [showGitPanel, showAssistantPanel, showShellPanel]);
+  }, [showGitPanel, showAssistantPanel, showShellPanel, showNotesPanel]);
 
   useEffect(() => {
     // Skip if we already have this project loaded
@@ -628,11 +670,12 @@ export default function ProjectPage() {
   // Check installed assistants on mount
   useEffect(() => {
     const checkAssistants = async () => {
-      const installed = await invoke<string[]>("check_installed_assistants");
+      const commands = getAllAssistantCommands(customAssistants);
+      const installed = await invoke<string[]>("check_commands_installed", { commands });
       setInstalledAssistants(installed);
     };
     checkAssistants();
-  }, []);
+  }, [customAssistants]);
 
   // Auto-start terminals when project loads
   useEffect(() => {
@@ -788,50 +831,22 @@ export default function ProjectPage() {
   }, [editingTabId]);
 
   const getAssistantOptions = (): AssistantOption[] => {
-    return [
-      {
-        id: "claude",
-        name: "Claude Code",
-        command: "claude",
-        icon: <Bot className="h-4 w-4" />,
-        installed: installedAssistants.includes("claude"),
-      },
-      {
-        id: "aider",
-        name: "Aider",
-        command: "aider",
-        icon: <Bot className="h-4 w-4" />,
-        installed: installedAssistants.includes("aider"),
-      },
-      {
-        id: "gemini",
-        name: "Gemini CLI",
-        command: "gemini",
-        icon: <Bot className="h-4 w-4" />,
-        installed: installedAssistants.includes("gemini"),
-      },
-      {
-        id: "codex",
-        name: "OpenAI Codex",
-        command: "codex",
-        icon: <Bot className="h-4 w-4" />,
-        installed: installedAssistants.includes("codex"),
-      },
-      {
-        id: "opencode",
-        name: "OpenCode",
-        command: "opencode",
-        icon: <Bot className="h-4 w-4" />,
-        installed: installedAssistants.includes("opencode"),
-      },
-      {
-        id: "shell",
-        name: "Shell",
-        command: "",
-        icon: <TerminalIcon className="h-4 w-4" />,
-        installed: true,
-      },
-    ];
+    const visibleAssistants = getAllAssistants(customAssistants, hiddenAssistantIds);
+    const options: AssistantOption[] = visibleAssistants.map((a) => ({
+      id: a.id,
+      name: a.name,
+      command: a.command,
+      icon: <Bot className="h-4 w-4" />,
+      installed: installedAssistants.includes(a.command),
+    }));
+    options.push({
+      id: "shell",
+      name: "Shell",
+      command: "",
+      icon: <TerminalIcon className="h-4 w-4" />,
+      installed: true,
+    });
+    return options;
   };
 
   // Callback when Terminal component spawns its PTY
@@ -847,7 +862,8 @@ export default function ProjectPage() {
   const doCreateTerminalTab = async (cwd: string, assistantId?: string) => {
     try {
       // Check installed assistants fresh (don't rely on stale state)
-      const currentInstalled = await invoke<string[]>("check_installed_assistants");
+      const commands = getAllAssistantCommands(customAssistants);
+      const currentInstalled = await invoke<string[]>("check_commands_installed", { commands });
 
       let command = "";
       let name = "Shell";
@@ -856,34 +872,27 @@ export default function ProjectPage() {
       const targetAssistant = assistantId || defaultAssistant;
 
       if (targetAssistant && targetAssistant !== "shell") {
-        const isInstalled = currentInstalled.includes(targetAssistant);
+        const options = getAssistantOptions();
+        const targetOption = options.find(a => a.id === targetAssistant);
+        const isInstalled = targetOption ? currentInstalled.includes(targetOption.command) : false;
 
-        if (isInstalled) {
-          // Use the target assistant
-          const options = getAssistantOptions();
-          const assistant = options.find(a => a.id === targetAssistant);
-          if (assistant) {
-            command = assistant.command;
-            name = assistant.name;
-            const argsKey = targetAssistant === "claude" ? "claude-code" : targetAssistant;
-            const args = assistantArgs[argsKey] || "";
-            invoke("debug_log", { message: `createNewTab - argsKey: ${argsKey}, args: "${args}"` });
-            if (args) command = `${command} ${args}`;
-            invoke("debug_log", { message: `createNewTab - final command: "${command}"` });
-          }
+        if (isInstalled && targetOption) {
+          command = targetOption.command;
+          name = targetOption.name;
+          const argsKey = targetAssistant === "claude" ? "claude-code" : targetAssistant;
+          const args = assistantArgs[argsKey] || "";
+          invoke("debug_log", { message: `createNewTab - argsKey: ${argsKey}, args: "${args}"` });
+          if (args) command = `${command} ${args}`;
+          invoke("debug_log", { message: `createNewTab - final command: "${command}"` });
         } else {
           // Fall back to first installed assistant if default isn't installed
-          const fallbackId = currentInstalled.find(id => id !== "shell");
-          if (fallbackId) {
-            const options = getAssistantOptions();
-            const assistant = options.find(a => a.id === fallbackId);
-            if (assistant) {
-              command = assistant.command;
-              name = assistant.name;
-              const argsKey = fallbackId === "claude" ? "claude-code" : fallbackId;
-              const args = assistantArgs[argsKey] || "";
-              if (args) command = `${command} ${args}`;
-            }
+          const fallback = options.find(a => a.id !== "shell" && currentInstalled.includes(a.command));
+          if (fallback) {
+            command = fallback.command;
+            name = fallback.name;
+            const argsKey = fallback.id === "claude" ? "claude-code" : fallback.id;
+            const args = assistantArgs[argsKey] || "";
+            if (args) command = `${command} ${args}`;
           }
         }
       }
@@ -1429,6 +1438,28 @@ export default function ProjectPage() {
               {showShellPanel && visiblePanelCount <= 1
                 ? "Can't hide last panel"
                 : showShellPanel ? "Hide Shell" : "Show Shell"}
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={toggleNotesPanel}
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+                  showNotesPanel
+                    ? "text-foreground"
+                    : "text-muted-foreground/50 hover:text-muted-foreground",
+                  showNotesPanel && visiblePanelCount <= 1 && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <StickyNote className="h-5 w-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {showNotesPanel && visiblePanelCount <= 1
+                ? "Can't hide last panel"
+                : showNotesPanel ? "Hide Notes" : "Show Notes"}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -2006,6 +2037,25 @@ export default function ProjectPage() {
                 />
               )}
           </div>
+        </div>
+
+        {/* Resize handle for notes panel */}
+        {showNotesPanel && (
+          <div
+            className="w-1 bg-border hover:bg-primary/50 cursor-col-resize shrink-0"
+            onMouseDown={(e) => handleResizeStart(e, 'notes')}
+          />
+        )}
+
+        {/* Notes Panel */}
+        <div
+          className={cn(
+            "h-full flex flex-col overflow-hidden shrink-0",
+            !showNotesPanel && "hidden"
+          )}
+          style={{ width: notesPanelWidth, minWidth: 250 }}
+        >
+          <NotesPanel projectPath={currentProject.path} onNoteDropAtPosition={handleNoteDropAtPosition} />
         </div>
 
         {/* Resize handle for markdown panel */}

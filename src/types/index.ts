@@ -109,6 +109,25 @@ export interface CodingAssistant {
   icon?: string;
 }
 
+export interface AssistantDefinition {
+  id: string;
+  name: string;
+  command: string;
+  description: string;
+  installCommand: string;
+  docsUrl: string;
+  isBuiltIn: boolean;
+}
+
+export interface CustomAssistantConfig {
+  id: string;
+  name: string;
+  command: string;
+  description: string;
+  installCommand: string;
+  docsUrl: string;
+}
+
 // Tab types
 export interface ProjectTab {
   id: string;
@@ -157,6 +176,8 @@ export interface Settings {
   groqApiKey?: string;
   preferredEditor?: string;
   showHiddenFiles: boolean;
+  customAssistants: CustomAssistantConfig[];
+  hiddenAssistantIds: string[];
   // Remote Portal settings
   portalEnabled?: boolean;
   portalRelayUrl?: string;
@@ -178,4 +199,12 @@ export interface PortalSession {
   pairingPassphrase: string;
   linkedDevices: LinkedDevice[];
   isConnected: boolean;
+}
+
+export interface Note {
+  id: string;
+  title: string;
+  created: string;
+  position: number;
+  content: string;
 }

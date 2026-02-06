@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import Terminal from "@/components/Terminal";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -14,12 +15,35 @@ export default function TerminalWindow() {
   const directCommand = searchParams.get("command") || "";
   const editor = searchParams.get("editor") || "";
   const file = searchParams.get("file") || "";
+  const runInShell = searchParams.get("shell") === "true";
 
+  // When shell=true, run the command through a login shell (for install commands with pipes, etc.)
   // When editor+file provided, pass file as separate arg to handle paths with spaces
-  const command = directCommand || editor;
-  const args = (!directCommand && editor && file) ? [file] : undefined;
+  let command: string;
+  let args: string[] | undefined;
+  if (runInShell && directCommand) {
+    // Spawn a default shell; we'll write the command once it's ready
+    command = "";
+    args = undefined;
+  } else if (!directCommand && editor && file) {
+    command = editor;
+    args = [file];
+  } else {
+    command = directCommand || editor;
+    args = undefined;
+  }
 
   const [isReady, setIsReady] = useState(false);
+
+  // When running in shell mode, write the install command to the terminal once it's ready
+  const handleTerminalReady = (terminalId: string) => {
+    if (runInShell && directCommand) {
+      // Small delay to let the shell initialize
+      setTimeout(() => {
+        invoke("write_terminal", { id: terminalId, data: directCommand + "\n" }).catch(console.error);
+      }, 500);
+    }
+  };
 
   // Terminal background colors per theme
   const terminalBgColors: Record<string, string> = {
@@ -68,6 +92,7 @@ export default function TerminalWindow() {
             args={args}
             cwd={cwd}
             visible={true}
+            onTerminalReady={handleTerminalReady}
           />
         )}
         {isReady && !cwd && (

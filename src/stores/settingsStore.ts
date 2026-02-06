@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Settings, AIProvider, Snippet, ThemeOption, CustomThemeColors } from '@/types';
+import type { Settings, AIProvider, Snippet, ThemeOption, CustomThemeColors, CustomAssistantConfig } from '@/types';
 import { generateCustomThemeCSS, getThemeDefaultsAsHex } from '@/lib/colorUtils';
 
 interface SettingsState extends Settings {
@@ -21,6 +21,10 @@ interface SettingsState extends Settings {
   setGroqApiKey: (key: string | undefined) => void;
   setPreferredEditor: (editor: string | undefined) => void;
   setShowHiddenFiles: (enabled: boolean) => void;
+  // Custom assistant actions
+  addCustomAssistant: (config: CustomAssistantConfig) => void;
+  removeCustomAssistant: (id: string) => void;
+  toggleAssistantHidden: (id: string) => void;
   // Custom theme actions
   setCustomTheme: (theme: CustomThemeColors | undefined) => void;
   setCustomThemeColor: (colorKey: keyof CustomThemeColors['colors'], value: string) => void;
@@ -70,6 +74,8 @@ export const useSettingsStore = create<SettingsState>()(
       groqApiKey: undefined,
       preferredEditor: undefined,
       showHiddenFiles: false,
+      customAssistants: [],
+      hiddenAssistantIds: [],
 
       setTheme: (theme) => {
         const customTheme = get().customTheme;
@@ -112,6 +118,30 @@ export const useSettingsStore = create<SettingsState>()(
       setPreferredEditor: (editor) => set({ preferredEditor: editor }),
 
       setShowHiddenFiles: (enabled) => set({ showHiddenFiles: enabled }),
+
+      addCustomAssistant: (config) => set((state) => ({
+        customAssistants: [...state.customAssistants, config],
+      })),
+
+      removeCustomAssistant: (id) => set((state) => {
+        const newHidden = state.hiddenAssistantIds.filter((hid) => hid !== id);
+        const newArgs = { ...state.assistantArgs };
+        delete newArgs[id];
+        return {
+          customAssistants: state.customAssistants.filter((a) => a.id !== id),
+          hiddenAssistantIds: newHidden,
+          assistantArgs: newArgs,
+        };
+      }),
+
+      toggleAssistantHidden: (id) => set((state) => {
+        const isHidden = state.hiddenAssistantIds.includes(id);
+        return {
+          hiddenAssistantIds: isHidden
+            ? state.hiddenAssistantIds.filter((hid) => hid !== id)
+            : [...state.hiddenAssistantIds, id],
+        };
+      }),
 
       setCustomTheme: (customTheme) => {
         set({ customTheme });

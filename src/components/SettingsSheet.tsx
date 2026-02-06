@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   Settings,
   Palette,
@@ -14,6 +15,10 @@ import {
   ExternalLink,
   RefreshCw,
   Smartphone,
+  Eye,
+  EyeOff,
+  Trash2,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -29,7 +34,8 @@ import { useUpdateStore } from "@/stores/updateStore";
 import { cn } from "@/lib/utils";
 import { CustomThemeEditor } from "@/components/CustomThemeEditor";
 import { RemotePortalSettings } from "@/components/RemotePortalSettings";
-import type { ThemeOption } from "@/types";
+import { getAllAssistants, getAllAssistantCommands } from "@/lib/assistants";
+import type { ThemeOption, AssistantDefinition } from "@/types";
 
 interface SettingsSheetProps {
   open: boolean;
@@ -61,51 +67,6 @@ const THEMES: ThemeInfo[] = [
   { id: "custom", name: "Custom", gradient: "from-purple-500/60 via-pink-500/60 to-orange-500/60" },
 ];
 
-interface AssistantInfo {
-  id: string;
-  name: string;
-  description: string;
-  installCommand: string;
-  docsUrl: string;
-}
-
-const ASSISTANTS: AssistantInfo[] = [
-  {
-    id: "claude",
-    name: "Claude Code",
-    description: "Anthropic's AI coding assistant with agentic capabilities",
-    installCommand: "npm install -g @anthropic-ai/claude-code",
-    docsUrl: "https://docs.anthropic.com/claude-code",
-  },
-  {
-    id: "aider",
-    name: "Aider",
-    description: "AI pair programming in your terminal",
-    installCommand: "pip install aider-chat",
-    docsUrl: "https://aider.chat",
-  },
-  {
-    id: "gemini",
-    name: "Gemini CLI",
-    description: "Google's Gemini AI assistant for coding",
-    installCommand: "npm install -g @google/gemini-cli",
-    docsUrl: "https://ai.google.dev/gemini-api",
-  },
-  {
-    id: "codex",
-    name: "OpenAI Codex",
-    description: "OpenAI's code generation model",
-    installCommand: "npm install -g @openai/codex",
-    docsUrl: "https://platform.openai.com/docs",
-  },
-  {
-    id: "opencode",
-    name: "OpenCode",
-    description: "OpenCode AI coding assistant",
-    installCommand: "curl -fsSL https://opencode.ai/install | bash",
-    docsUrl: "https://opencode.ai/docs",
-  },
-];
 
 export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
   const {
@@ -129,18 +90,33 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
     setPreferredEditor,
     showHiddenFiles,
     setShowHiddenFiles,
+    customAssistants,
+    hiddenAssistantIds,
+    addCustomAssistant,
+    removeCustomAssistant,
+    toggleAssistantHidden,
   } = useSettingsStore();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [localDefaultClonePath, setLocalDefaultClonePath] = useState(defaultClonePath || "");
   const [installedAssistants, setInstalledAssistants] = useState<string[]>([]);
-  const [assistantArgsState, setAssistantArgsState] = useState<Record<string, string>>({
-    "claude-code": assistantArgs["claude-code"] || "",
-    "aider": assistantArgs["aider"] || "",
-    "gemini": assistantArgs["gemini"] || "",
-    "codex": assistantArgs["codex"] || "",
-    "opencode": assistantArgs["opencode"] || "",
-  });
+  const [installingCommands, setInstallingCommands] = useState<Set<string>>(new Set());
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newAssistant, setNewAssistant] = useState({ name: "", command: "", description: "", installCommand: "", docsUrl: "" });
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const allAssistants = getAllAssistants(customAssistants);
+
+  const buildArgsState = () => {
+    const state: Record<string, string> = {};
+    for (const a of allAssistants) {
+      const argsKey = a.id === "claude" ? "claude-code" : a.id;
+      state[argsKey] = assistantArgs[argsKey] || "";
+    }
+    return state;
+  };
+
+  const [assistantArgsState, setAssistantArgsState] = useState<Record<string, string>>(buildArgsState);
 
   const { isChecking: isCheckingUpdate, checkForUpdates, updateAvailable } = useUpdateStore();
 
@@ -150,30 +126,55 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
   }, [defaultClonePath]);
 
   useEffect(() => {
-    setAssistantArgsState({
-      "claude-code": assistantArgs["claude-code"] || "",
-      "aider": assistantArgs["aider"] || "",
-      "gemini": assistantArgs["gemini"] || "",
-      "codex": assistantArgs["codex"] || "",
-      "opencode": assistantArgs["opencode"] || "",
-    });
-  }, [assistantArgs]);
+    setAssistantArgsState(buildArgsState());
+  }, [assistantArgs, customAssistants]);
+
+  const checkInstalledAssistants = useCallback(async () => {
+    try {
+      const commands = getAllAssistantCommands(customAssistants);
+      const installed = await invoke<string[]>("check_commands_installed", { commands });
+      setInstalledAssistants(installed);
+
+      // Stop polling for any commands that are now installed
+      setInstallingCommands((prev) => {
+        const next = new Set(prev);
+        for (const cmd of prev) {
+          if (installed.includes(cmd)) {
+            next.delete(cmd);
+          }
+        }
+        return next;
+      });
+    } catch (error) {
+      console.error("Failed to check installed assistants:", error);
+    }
+  }, [customAssistants]);
 
   // Check installed assistants when dialog opens
   useEffect(() => {
     if (open) {
       checkInstalledAssistants();
     }
-  }, [open]);
-
-  const checkInstalledAssistants = async () => {
-    try {
-      const installed = await invoke<string[]>("check_installed_assistants");
-      setInstalledAssistants(installed);
-    } catch (error) {
-      console.error("Failed to check installed assistants:", error);
+    if (!open) {
+      // Clear installing state when dialog closes
+      setInstallingCommands(new Set());
     }
-  };
+  }, [open, checkInstalledAssistants]);
+
+  // Poll while any assistants are being installed
+  useEffect(() => {
+    if (installingCommands.size > 0 && open) {
+      pollIntervalRef.current = setInterval(() => {
+        checkInstalledAssistants();
+      }, 3000);
+    }
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [installingCommands.size, open, checkInstalledAssistants]);
 
   const handleSelectDefaultClonePath = async () => {
     try {
@@ -214,17 +215,76 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
   };
 
   const handleSetDefaultAssistant = (assistantId: string) => {
-    if (!installedAssistants.includes(assistantId)) {
-      toast.error(`${ASSISTANTS.find(a => a.id === assistantId)?.name} is not installed`);
+    const assistant = allAssistants.find(a => a.id === assistantId);
+    if (!installedAssistants.includes(assistant?.command || "")) {
+      toast.error(`${assistant?.name} is not installed`);
       return;
     }
     setDefaultAssistant(assistantId);
-    toast.success(`Default assistant set to ${ASSISTANTS.find(a => a.id === assistantId)?.name}`);
+    toast.success(`Default assistant set to ${assistant?.name}`);
   };
 
-  const copyInstallCommand = (command: string) => {
-    navigator.clipboard.writeText(command);
-    toast.success("Install command copied to clipboard");
+  const handleInstallAssistant = async (assistant: AssistantDefinition) => {
+    try {
+      const cwd = await invoke<string>("get_home_dir").catch(() => "/tmp");
+
+      // Track this command as installing (starts polling)
+      setInstallingCommands((prev) => new Set(prev).add(assistant.command));
+
+      // Run install command through a login shell to handle pipes, env vars, etc.
+      const shellCmd = assistant.installCommand;
+      const params = new URLSearchParams({
+        command: shellCmd,
+        cwd,
+        title: `Installing ${assistant.name}`,
+        shell: "true",
+      });
+      new WebviewWindow(`install-${Date.now()}`, {
+        url: `/terminal?${params.toString()}`,
+        title: `Installing ${assistant.name}`,
+        width: 800,
+        height: 500,
+        center: true,
+        titleBarStyle: "overlay" as const,
+        hiddenTitle: true,
+        visible: true,
+      });
+    } catch (error) {
+      console.error("Failed to open install terminal:", error);
+      setInstallingCommands((prev) => {
+        const next = new Set(prev);
+        next.delete(assistant.command);
+        return next;
+      });
+      navigator.clipboard.writeText(assistant.installCommand);
+      toast.success("Install command copied to clipboard");
+    }
+  };
+
+  const handleAddCustomAssistant = () => {
+    if (!newAssistant.name.trim() || !newAssistant.command.trim()) {
+      toast.error("Name and command are required");
+      return;
+    }
+    const id = crypto.randomUUID();
+    addCustomAssistant({
+      id,
+      name: newAssistant.name.trim(),
+      command: newAssistant.command.trim(),
+      description: newAssistant.description.trim(),
+      installCommand: newAssistant.installCommand.trim(),
+      docsUrl: newAssistant.docsUrl.trim(),
+    });
+    setNewAssistant({ name: "", command: "", description: "", installCommand: "", docsUrl: "" });
+    setShowAddForm(false);
+    toast.success("Custom assistant added");
+    // Re-check installed
+    checkInstalledAssistants();
+  };
+
+  const handleRemoveCustomAssistant = (id: string, name: string) => {
+    removeCustomAssistant(id);
+    toast.success(`${name} removed`);
   };
 
   const handleCheckForUpdates = async () => {
@@ -374,9 +434,10 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                     </p>
 
                     <div className="space-y-4">
-                      {ASSISTANTS.map((assistant) => {
-                        const isInstalled = installedAssistants.includes(assistant.id);
+                      {allAssistants.map((assistant) => {
+                        const isInstalled = installedAssistants.includes(assistant.command);
                         const isDefault = defaultAssistant === assistant.id;
+                        const isHidden = hiddenAssistantIds.includes(assistant.id);
                         const argsKey = assistant.id === "claude" ? "claude-code" : assistant.id;
 
                         return (
@@ -384,7 +445,8 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                             key={assistant.id}
                             className={cn(
                               "rounded-lg border p-4 transition-colors",
-                              isDefault ? "border-primary bg-primary/5" : "border-border"
+                              isDefault ? "border-primary bg-primary/5" : "border-border",
+                              isHidden && "opacity-50"
                             )}
                           >
                             <div className="flex items-start justify-between">
@@ -398,6 +460,11 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                                 <div>
                                   <div className="flex items-center gap-2">
                                     <p className="text-sm font-medium">{assistant.name}</p>
+                                    {!assistant.isBuiltIn && (
+                                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                        CUSTOM
+                                      </span>
+                                    )}
                                     {isInstalled && (
                                       <span className="flex items-center gap-1 text-xs text-green-500">
                                         <Check className="h-3 w-3" />
@@ -416,6 +483,15 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => toggleAssistantHidden(assistant.id)}
+                                  title={isHidden ? "Show in menu" : "Hide from menu"}
+                                >
+                                  {isHidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                </Button>
                                 {isInstalled ? (
                                   <Button
                                     variant={isDefault ? "default" : "outline"}
@@ -426,24 +502,45 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                                   >
                                     {isDefault ? "Default" : "Set Default"}
                                   </Button>
-                                ) : (
+                                ) : installingCommands.has(assistant.command) ? (
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => copyInstallCommand(assistant.installCommand)}
+                                    disabled
+                                  >
+                                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                                    Installing...
+                                  </Button>
+                                ) : assistant.installCommand ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleInstallAssistant(assistant)}
                                   >
                                     <Download className="h-3 w-3 mr-1" />
-                                    Copy Install
+                                    Install
+                                  </Button>
+                                ) : null}
+                                {assistant.docsUrl && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => window.open(assistant.docsUrl, "_blank")}
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
                                   </Button>
                                 )}
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => window.open(assistant.docsUrl, "_blank")}
-                                >
-                                  <ExternalLink className="h-3.5 w-3.5" />
-                                </Button>
+                                {!assistant.isBuiltIn && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-destructive hover:text-destructive"
+                                    onClick={() => handleRemoveCustomAssistant(assistant.id, assistant.name)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
 
@@ -465,7 +562,7 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                               </div>
                             )}
 
-                            {!isInstalled && (
+                            {!isInstalled && assistant.installCommand && (
                               <div className="mt-4 pt-4 border-t border-border">
                                 <p className="text-xs text-muted-foreground mb-2">Install command:</p>
                                 <code className="block rounded bg-muted px-3 py-2 text-xs font-mono">
@@ -477,6 +574,89 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                         );
                       })}
                     </div>
+                  </section>
+
+                  {/* Add Custom Assistant */}
+                  <section>
+                    {!showAddForm ? (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setShowAddForm(true)}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Custom Assistant
+                      </Button>
+                    ) : (
+                      <div className="rounded-lg border border-border p-4 space-y-4">
+                        <h3 className="text-sm font-medium">Add Custom Assistant</h3>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-xs text-muted-foreground">Name *</label>
+                            <Input
+                              value={newAssistant.name}
+                              onChange={(e) => setNewAssistant(prev => ({ ...prev, name: e.target.value }))}
+                              placeholder="My Assistant"
+                              className="h-8 text-sm bg-muted/50"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Command *</label>
+                            <Input
+                              value={newAssistant.command}
+                              onChange={(e) => setNewAssistant(prev => ({ ...prev, command: e.target.value }))}
+                              placeholder="my-assistant"
+                              className="h-8 text-sm bg-muted/50 font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Description</label>
+                            <Input
+                              value={newAssistant.description}
+                              onChange={(e) => setNewAssistant(prev => ({ ...prev, description: e.target.value }))}
+                              placeholder="A brief description"
+                              className="h-8 text-sm bg-muted/50"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Install Command</label>
+                            <Input
+                              value={newAssistant.installCommand}
+                              onChange={(e) => setNewAssistant(prev => ({ ...prev, installCommand: e.target.value }))}
+                              placeholder="npm install -g my-assistant"
+                              className="h-8 text-sm bg-muted/50 font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Docs URL</label>
+                            <Input
+                              value={newAssistant.docsUrl}
+                              onChange={(e) => setNewAssistant(prev => ({ ...prev, docsUrl: e.target.value }))}
+                              placeholder="https://example.com/docs"
+                              className="h-8 text-sm bg-muted/50"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setShowAddForm(false);
+                              setNewAssistant({ name: "", command: "", description: "", installCommand: "", docsUrl: "" });
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleAddCustomAssistant}
+                          >
+                            Add Assistant
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </section>
                 </div>
               )}

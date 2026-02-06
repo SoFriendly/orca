@@ -242,6 +242,22 @@
   display: none;
 }
 
+/* Note card folded corner */
+.note-fold::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(
+    225deg,
+    hsl(var(--accent)) 50%,
+    hsl(var(--border)) 50%
+  );
+  border-bottom-left-radius: 4px;
+}
+
 /* Section headers */
 .section-header {
   @apply text-[11px] font-medium uppercase tracking-wider text-muted-foreground;

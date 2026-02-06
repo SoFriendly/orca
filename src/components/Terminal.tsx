@@ -22,6 +22,7 @@ interface TerminalProps {
   onCwdChange?: (newCwd: string) => void;  // Called when shell reports directory change via OSC 7
   visible?: boolean;  // Trigger resize when visibility changes
   autoFocusOnWindowFocus?: boolean;  // Auto-focus when app window gains focus
+  isAssistant?: boolean;  // Hint for terminal type detection in backend
 }
 
 // Terminal themes matching app themes
@@ -97,7 +98,7 @@ const TERMINAL_THEMES: Record<string, ITheme> = {
   },
 };
 
-export default function Terminal({ id, command = "", args, cwd, onTerminalReady, onCwdChange, visible = true, autoFocusOnWindowFocus = false }: TerminalProps) {
+export default function Terminal({ id, command = "", args, cwd, onTerminalReady, onCwdChange, visible = true, autoFocusOnWindowFocus = false, isAssistant }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -401,6 +402,7 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
           cols: initialDimensions.cols,
           rows: initialDimensions.rows,
           args: args || null,
+          isAssistant: isAssistant || null,
         });
         if (isMounted) {
           setTerminalId(newId);
