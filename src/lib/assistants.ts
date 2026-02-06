@@ -1,12 +1,16 @@
 import type { AssistantDefinition, CustomAssistantConfig } from "@/types";
 
+const isWindows = navigator.platform.toUpperCase().indexOf("WIN") >= 0;
+
 export const BUILT_IN_ASSISTANTS: AssistantDefinition[] = [
   {
     id: "claude",
     name: "Claude Code",
     command: "claude",
     description: "Anthropic's AI coding assistant with agentic capabilities",
-    installCommand: "npm install -g @anthropic-ai/claude-code",
+    installCommand: isWindows
+      ? "irm https://claude.ai/install.ps1 | iex"
+      : "curl -fsSL https://claude.ai/install.sh | bash",
     docsUrl: "https://docs.anthropic.com/claude-code",
     isBuiltIn: true,
   },

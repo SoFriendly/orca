@@ -5,7 +5,7 @@ import type { Project, ProjectTab, ProjectFolder } from '@/types';
 // Helper to ensure project has folders array (backward compat migration)
 export const ensureFolders = (project: Project): Project => {
   if (!project.folders || project.folders.length === 0) {
-    const folderName = project.path.split('/').pop() || project.name;
+    const folderName = project.path.split(/[/\\]/).pop() || project.name;
     return {
       ...project,
       folders: [{

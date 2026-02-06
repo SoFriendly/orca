@@ -1659,7 +1659,13 @@ fn check_commands_installed(commands: Vec<String>) -> Result<Vec<String>, String
 #[tauri::command]
 fn install_assistant(command: String) -> Result<String, String> {
     let install_cmd = match command.as_str() {
-        "claude" => "npm install -g @anthropic-ai/claude-code",
+        "claude" => {
+            if cfg!(target_os = "windows") {
+                "irm https://claude.ai/install.ps1 | iex"
+            } else {
+                "curl -fsSL https://claude.ai/install.sh | bash"
+            }
+        }
         "aider" => "pip install aider-chat",
         "gemini" => "npm install -g @anthropic-ai/gemini-cli",
         "codex" => "npm install -g @openai/codex",

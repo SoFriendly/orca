@@ -110,7 +110,7 @@ export default function HomePage() {
       });
 
       if (selected && typeof selected === "string") {
-        const name = selected.split("/").pop() || "Unknown";
+        const name = selected.split(/[/\\]/).pop() || "Unknown";
         const project: Project = ensureFolders({
           id: crypto.randomUUID(),
           name,
@@ -230,7 +230,7 @@ export default function HomePage() {
         url: cloneUrl,
         path: clonePath,
       });
-      const name = clonePath.split("/").pop() || "Cloned Repo";
+      const name = clonePath.split(/[/\\]/).pop() || "Cloned Repo";
       const project: Project = ensureFolders({
         id: crypto.randomUUID(),
         name,
