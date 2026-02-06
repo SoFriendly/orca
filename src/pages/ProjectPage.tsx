@@ -727,12 +727,14 @@ export default function ProjectPage() {
 
     let newPath: string;
     if (dirName === "..") {
-      // Go up one directory
-      const parts = shellCwd.split("/").filter(Boolean);
+      // Go up one directory - handle both / and \ separators
+      const sep = shellCwd.includes("\\") ? "\\" : "/";
+      const parts = shellCwd.split(/[/\\]/).filter(Boolean);
       parts.pop();
-      newPath = "/" + parts.join("/");
+      newPath = sep === "\\" ? parts.join("\\") : "/" + parts.join("/");
     } else {
-      newPath = `${shellCwd}/${dirName}`;
+      const sep = shellCwd.includes("\\") ? "\\" : "/";
+      newPath = `${shellCwd}${sep}${dirName}`;
     }
 
     // Send cd command to the shell
@@ -1847,7 +1849,7 @@ export default function ProjectPage() {
                     >
                       <Folder className="h-3 w-3 shrink-0" />
                       <span className="truncate max-w-[120px]">
-                        {shellCwd.split("/").pop() || "/"}
+                        {shellCwd.split(/[/\\]/).pop() || "/"}
                       </span>
                       <ChevronDown className="h-3 w-3 shrink-0" />
                     </Button>
@@ -2098,7 +2100,7 @@ export default function ProjectPage() {
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <FileText className="h-4 w-4 shrink-0 text-primary" />
               <span className="text-xs truncate">
-                {markdownFile?.path.split('/').pop() || 'No file'}
+                {markdownFile?.path.split(/[/\\]/).pop() || 'No file'}
               </span>
             </div>
             <div className="flex items-center gap-1">
