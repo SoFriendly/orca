@@ -127,7 +127,7 @@ pub struct FileTreeNode {
 
 // Terminal state management
 struct TerminalState {
-    pty_pair: PtyPair,
+    master: Box<dyn portable_pty::MasterPty + Send>,
     writer: Box<dyn Write + Send>,
     title: String,  // Command/title for display
     cwd: String,    // Working directory
@@ -176,7 +176,10 @@ fn debug_log(message: String) {
 
 #[tauri::command]
 fn get_home_dir() -> Result<String, String> {
-    std::env::var("HOME").map_err(|_| "Could not find HOME directory".to_string())
+    #[cfg(target_os = "windows")]
+    { std::env::var("USERPROFILE").map_err(|_| "Could not find USERPROFILE directory".to_string()) }
+    #[cfg(not(target_os = "windows"))]
+    { std::env::var("HOME").map_err(|_| "Could not find HOME directory".to_string()) }
 }
 
 /// Fetch secrets from macOS Keychain for environment variables.
@@ -290,19 +293,23 @@ fn spawn_terminal(
 
     let mut cmd = if shell.is_empty() {
         // Use default shell
+        // On Windows, always use powershell.exe (SHELL env var is a Unix convention
+        // and may be set to invalid paths like /usr/bin/bash by Git Bash)
+        #[cfg(target_os = "windows")]
+        let shell_path = "powershell.exe".to_string();
+        #[cfg(not(target_os = "windows"))]
         let shell_path = std::env::var("SHELL").unwrap_or_else(|_| {
             #[cfg(target_os = "macos")]
             { "/bin/zsh".to_string() }
             #[cfg(target_os = "linux")]
             { "/bin/bash".to_string() }
-            #[cfg(target_os = "windows")]
-            { "powershell.exe".to_string() }
         });
+        println!("DEBUG spawn_terminal - using shell: {:?}", shell_path);
         CommandBuilder::new(shell_path)
     } else if let Some(ref arg_list) = args {
         // Args provided separately - use them directly (handles paths with spaces)
         let command = &shell;
-        let resolved_command = if command.contains('/') {
+        let resolved_command = if command.contains('/') || command.contains('\\') {
             Some(command.to_string())
         } else {
             find_command_path(command).map(|p| p.to_string_lossy().to_string())
@@ -318,23 +325,37 @@ fn spawn_terminal(
             cmd
         } else {
             // Command not found in PATH - run through shell
+            #[cfg(target_os = "windows")]
+            let shell_path = "powershell.exe".to_string();
+            #[cfg(not(target_os = "windows"))]
             let shell_path = std::env::var("SHELL").unwrap_or_else(|_| {
                 #[cfg(target_os = "macos")]
                 { "/bin/zsh".to_string() }
                 #[cfg(target_os = "linux")]
                 { "/bin/bash".to_string() }
-                #[cfg(target_os = "windows")]
-                { "powershell.exe".to_string() }
             });
 
-            // Properly escape args for shell
-            let escaped_args: Vec<String> = arg_list.iter()
-                .map(|a| format!("'{}'", a.replace("'", "'\\''")))
-                .collect();
-            let full_cmd = format!("{} {}", shell, escaped_args.join(" "));
-
             let mut cmd = CommandBuilder::new(&shell_path);
-            cmd.args(["-i", "-l", "-c", &format!("exec {}", full_cmd)]);
+
+            #[cfg(target_os = "windows")]
+            {
+                // PowerShell: escape args with double-quotes and use -Command
+                let escaped_args: Vec<String> = arg_list.iter()
+                    .map(|a| format!("\"{}\"", a.replace("\"", "`\"")))
+                    .collect();
+                let full_cmd = format!("{} {}", shell, escaped_args.join(" "));
+                cmd.args(["-NoLogo", "-Command", &full_cmd]);
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                // Unix: escape args with single-quotes and use login shell
+                let escaped_args: Vec<String> = arg_list.iter()
+                    .map(|a| format!("'{}'", a.replace("'", "'\\''")))
+                    .collect();
+                let full_cmd = format!("{} {}", shell, escaped_args.join(" "));
+                cmd.args(["-i", "-l", "-c", &format!("exec {}", full_cmd)]);
+            }
+
             cmd
         }
     } else {
@@ -346,7 +367,7 @@ fn spawn_terminal(
 
         // Resolve full path for the command if it's not already an absolute path
         let command = parts[0];
-        let resolved_command = if command.contains('/') {
+        let resolved_command = if command.contains('/') || command.contains('\\') {
             Some(command.to_string())
         } else {
             // Try to find the full path for this command
@@ -363,21 +384,30 @@ fn spawn_terminal(
             }
             cmd
         } else {
-            // Command not found in PATH - run through user's login shell
-            // This ensures shell profile is sourced and command can be found
+            // Command not found in PATH - run through user's shell
+            #[cfg(target_os = "windows")]
+            let shell_path = "powershell.exe".to_string();
+            #[cfg(not(target_os = "windows"))]
             let shell_path = std::env::var("SHELL").unwrap_or_else(|_| {
                 #[cfg(target_os = "macos")]
                 { "/bin/zsh".to_string() }
                 #[cfg(target_os = "linux")]
                 { "/bin/bash".to_string() }
-                #[cfg(target_os = "windows")]
-                { "powershell.exe".to_string() }
             });
 
-            println!("DEBUG spawn_terminal - running through shell: {} -ilc 'exec {}'", shell_path, shell);
-
             let mut cmd = CommandBuilder::new(&shell_path);
-            cmd.args(["-i", "-l", "-c", &format!("exec {}", shell)]);
+
+            #[cfg(target_os = "windows")]
+            {
+                println!("DEBUG spawn_terminal - running through PowerShell: {}", shell);
+                cmd.args(["-NoLogo", "-Command", &shell]);
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                println!("DEBUG spawn_terminal - running through shell: {} -ilc 'exec {}'", shell_path, shell);
+                cmd.args(["-i", "-l", "-c", &format!("exec {}", shell)]);
+            }
+
             cmd
         }
     };
@@ -390,19 +420,23 @@ fn spawn_terminal(
         cmd.env(key, value);
     }
 
-    // Set UTF-8 locale for proper Unicode rendering (overrides if already set)
-    cmd.env("LANG", "en_US.UTF-8");
-    cmd.env("LC_ALL", "en_US.UTF-8");
+    // Set terminal type for proper rendering
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
 
+    // Set UTF-8 locale (Unix only - Windows handles encoding differently)
+    #[cfg(not(target_os = "windows"))]
+    {
+        cmd.env("LANG", "en_US.UTF-8");
+        cmd.env("LC_ALL", "en_US.UTF-8");
+    }
+
     // Build a comprehensive PATH that includes common tool locations
-    // This ensures brew, nvm, pyenv, etc. are available when .zshrc sources them
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/Users".to_string());
     let current_path = std::env::var("PATH").unwrap_or_default();
 
     #[cfg(target_os = "macos")]
     {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/Users".to_string());
         let extra_paths = vec![
             format!("{}/bin", home),
             format!("{}/.local/bin", home),
@@ -451,6 +485,7 @@ fn spawn_terminal(
 
     #[cfg(target_os = "linux")]
     {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/home".to_string());
         let extra_paths = vec![
             format!("{}/bin", home),
             format!("{}/.local/bin", home),
@@ -463,13 +498,36 @@ fn spawn_terminal(
         cmd.env("PATH", new_path);
     }
 
-    let mut child = pty_pair
-        .slave
-        .spawn_command(cmd)
-        .map_err(|e| e.to_string())?;
+    #[cfg(target_os = "windows")]
+    {
+        let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\Users".to_string());
+        let extra_paths = vec![
+            format!("{}\\.cargo\\bin", home),
+            format!("{}\\AppData\\Local\\Programs", home),
+            format!("{}\\AppData\\Roaming\\npm", home),
+            format!("{}\\.local\\bin", home),
+        ];
+        let new_path = format!("{};{}", extra_paths.join(";"), current_path);
+        cmd.env("PATH", new_path);
+    }
 
-    let writer = pty_pair.master.take_writer().map_err(|e| e.to_string())?;
-    let mut reader = pty_pair.master.try_clone_reader().map_err(|e| e.to_string())?;
+    // Destructure the PtyPair to separate master and slave
+    let PtyPair { master: master_pty, slave: slave_pty } = pty_pair;
+
+    let mut child = slave_pty
+        .spawn_command(cmd)
+        .map_err(|e| {
+            let err_msg = format!("Failed to spawn terminal process: {}", e);
+            println!("ERROR spawn_terminal - {}", err_msg);
+            err_msg
+        })?;
+
+    // CRITICAL: Drop the slave side after spawning. On Windows ConPTY, keeping
+    // the slave handle open prevents output from flowing to the master/reader.
+    drop(slave_pty);
+
+    let writer = master_pty.take_writer().map_err(|e| e.to_string())?;
+    let mut reader = master_pty.try_clone_reader().map_err(|e| e.to_string())?;
 
     let terminal_id = id.clone();
     let handle = app_handle.clone();
@@ -480,12 +538,16 @@ fn spawn_terminal(
     let output_buffer_clone = output_buffer.clone();
 
     // Spawn thread to read terminal output
+    println!("DEBUG spawn_terminal - starting reader thread for terminal {}", terminal_id);
     thread::spawn(move || {
         let mut buffer = [0u8; 16384]; // Larger buffer for better throughput
         let event_name = format!("terminal-output-{}", terminal_id);
         loop {
             match reader.read(&mut buffer) {
-                Ok(0) => break,
+                Ok(0) => {
+                    println!("DEBUG reader thread - terminal {} got EOF", terminal_id);
+                    break;
+                }
                 Ok(n) => {
                     // Only buffer output if portal mode is enabled (for mobile attach replay)
                     if *state_for_read.portal_enabled.lock() {
@@ -508,7 +570,10 @@ fn spawn_terminal(
                         "data": encoded
                     }));
                 }
-                Err(_) => break,
+                Err(e) => {
+                    println!("DEBUG reader thread - terminal {} read error: {}", terminal_id, e);
+                    break;
+                }
             }
         }
     });
@@ -545,7 +610,7 @@ fn spawn_terminal(
     };
 
     let terminal_state = TerminalState {
-        pty_pair,
+        master: master_pty,
         writer,
         title,
         cwd: cwd.clone(),
@@ -598,7 +663,6 @@ fn resize_terminal(
     let terminals = state.terminals.lock();
     if let Some(terminal) = terminals.get(&id) {
         terminal
-            .pty_pair
             .master
             .resize(PtySize {
                 rows,
@@ -1430,14 +1494,28 @@ fn list_directories(path: String) -> Result<Vec<String>, String> {
 // Read shell history
 #[tauri::command]
 fn get_shell_history(limit: Option<usize>) -> Result<Vec<String>, String> {
-    let home = std::env::var("HOME").map_err(|_| "Could not find HOME directory")?;
     let limit = limit.unwrap_or(500);
 
-    // Try zsh history first, then bash
-    let history_paths = vec![
-        format!("{}/.zsh_history", home),
-        format!("{}/.bash_history", home),
-    ];
+    let mut history_paths: Vec<String> = Vec::new();
+
+    #[cfg(target_os = "windows")]
+    {
+        // PowerShell history file location
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            history_paths.push(format!(
+                "{}\\Microsoft\\Windows\\PowerShell\\PSReadLine\\ConsoleHost_history.txt",
+                appdata
+            ));
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            // Try zsh history first, then bash
+            history_paths.push(format!("{}/.zsh_history", home));
+            history_paths.push(format!("{}/.bash_history", home));
+        }
+    }
 
     for history_path in history_paths {
         let path = std::path::Path::new(&history_path);
@@ -1588,65 +1666,123 @@ fn check_commands_installed(commands: Vec<String>) -> Result<Vec<String>, String
         .collect();
 
     if !not_found.is_empty() {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/Users".to_string());
         let current_path = std::env::var("PATH").unwrap_or_default();
+        let mut search_dirs: Vec<String> = Vec::new();
 
-        // Build the same augmented PATH that spawn_terminal uses
-        let mut search_dirs: Vec<String> = vec![
-            format!("{}/bin", home),
-            format!("{}/.local/bin", home),
-            format!("{}/.cargo/bin", home),
-            format!("{}/.pyenv/bin", home),
-            format!("{}/.pyenv/shims", home),
-            format!("{}/.nvm/versions/node/default/bin", home),
-            "/opt/homebrew/bin".to_string(),
-            "/opt/homebrew/sbin".to_string(),
-            "/usr/local/bin".to_string(),
-            "/usr/local/sbin".to_string(),
-        ];
+        #[cfg(not(target_os = "windows"))]
+        {
+            let home = std::env::var("HOME").unwrap_or_else(|_| "/Users".to_string());
 
-        // Also scan all nvm node version bin dirs
-        let nvm_versions = format!("{}/.nvm/versions/node", home);
-        if let Ok(entries) = std::fs::read_dir(&nvm_versions) {
-            for entry in entries.flatten() {
-                let bin_dir = entry.path().join("bin");
-                if bin_dir.exists() {
-                    search_dirs.push(bin_dir.to_string_lossy().to_string());
+            // Build the same augmented PATH that spawn_terminal uses
+            search_dirs.extend(vec![
+                format!("{}/bin", home),
+                format!("{}/.local/bin", home),
+                format!("{}/.cargo/bin", home),
+                format!("{}/.pyenv/bin", home),
+                format!("{}/.pyenv/shims", home),
+                format!("{}/.nvm/versions/node/default/bin", home),
+                "/opt/homebrew/bin".to_string(),
+                "/opt/homebrew/sbin".to_string(),
+                "/usr/local/bin".to_string(),
+                "/usr/local/sbin".to_string(),
+            ]);
+
+            // Also scan all nvm node version bin dirs
+            let nvm_versions = format!("{}/.nvm/versions/node", home);
+            if let Ok(entries) = std::fs::read_dir(&nvm_versions) {
+                for entry in entries.flatten() {
+                    let bin_dir = entry.path().join("bin");
+                    if bin_dir.exists() {
+                        search_dirs.push(bin_dir.to_string_lossy().to_string());
+                    }
                 }
             }
         }
 
-        // Add existing PATH entries
-        for dir in current_path.split(':') {
+        #[cfg(target_os = "windows")]
+        {
+            let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\Users".to_string());
+            search_dirs.extend(vec![
+                format!("{}\\.cargo\\bin", home),
+                format!("{}\\AppData\\Local\\Programs", home),
+                format!("{}\\AppData\\Local\\Microsoft\\WindowsApps", home),
+                format!("{}\\AppData\\Roaming\\npm", home),
+                format!("{}\\.local\\bin", home),
+            ]);
+        }
+
+        // Add existing PATH entries (use platform-appropriate separator)
+        #[cfg(target_os = "windows")]
+        let path_separator = ';';
+        #[cfg(not(target_os = "windows"))]
+        let path_separator = ':';
+
+        for dir in current_path.split(path_separator) {
             if !dir.is_empty() && !search_dirs.contains(&dir.to_string()) {
                 search_dirs.push(dir.to_string());
             }
         }
 
         for cmd in &not_found {
+            let mut found = false;
             for dir in &search_dirs {
-                let candidate = std::path::Path::new(dir).join(cmd.as_str());
-                if candidate.exists() {
-                    installed.push((*cmd).clone());
-                    break;
+                // On Windows, also check common executable extensions
+                #[cfg(target_os = "windows")]
+                {
+                    let extensions = ["", ".exe", ".cmd", ".bat", ".ps1"];
+                    for ext in &extensions {
+                        let candidate = std::path::Path::new(dir).join(format!("{}{}", cmd, ext));
+                        if candidate.exists() {
+                            installed.push((*cmd).clone());
+                            found = true;
+                            break;
+                        }
+                    }
                 }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    let candidate = std::path::Path::new(dir).join(cmd.as_str());
+                    if candidate.exists() {
+                        installed.push((*cmd).clone());
+                        found = true;
+                    }
+                }
+                if found { break; }
             }
         }
 
-        // Last resort: try an interactive login shell for anything still missing
+        // Last resort: try shell for anything still missing
         let still_not_found: Vec<&&String> = not_found.iter()
             .filter(|cmd| !installed.contains(cmd))
             .collect();
 
         if !still_not_found.is_empty() {
-            let shell_path = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-            for cmd in still_not_found {
-                let output = std::process::Command::new(&shell_path)
-                    .args(["-i", "-l", "-c", &format!("command -v {}", cmd)])
-                    .output();
-                if let Ok(output) = output {
-                    if output.status.success() {
-                        installed.push((**cmd).clone());
+            #[cfg(target_os = "windows")]
+            {
+                // On Windows, use 'where' command to find executables
+                for cmd in &still_not_found {
+                    let output = std::process::Command::new("cmd.exe")
+                        .args(["/C", &format!("where {}", cmd)])
+                        .output();
+                    if let Ok(output) = output {
+                        if output.status.success() {
+                            installed.push((**cmd).clone());
+                        }
+                    }
+                }
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                // On Unix, try an interactive login shell
+                let shell_path = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+                for cmd in &still_not_found {
+                    let output = std::process::Command::new(&shell_path)
+                        .args(["-i", "-l", "-c", &format!("command -v {}", cmd)])
+                        .output();
+                    if let Ok(output) = output {
+                        if output.status.success() {
+                            installed.push((**cmd).clone());
+                        }
                     }
                 }
             }

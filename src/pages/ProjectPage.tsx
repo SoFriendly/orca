@@ -300,7 +300,9 @@ export default function ProjectPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [terminalTabs, setTerminalTabs] = useState<TerminalTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
-  const [utilityTerminalId, setUtilityTerminalId] = useState<string | null>(null);
+  // On Windows, default shell to closed state to avoid ConPTY timing issues on initial load
+  const isWindows = navigator.platform.toUpperCase().indexOf("WIN") >= 0;
+  const [utilityTerminalId, setUtilityTerminalId] = useState<string | null>(isWindows ? "closed" : null);
   const [activeSidebarItem, setActiveSidebarItem] = useState<"terminal" | "settings">("terminal");
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editingTabName, setEditingTabName] = useState("");
