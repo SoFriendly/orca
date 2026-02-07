@@ -104,66 +104,8 @@ jobs:
           name: linux-rpm-${{ matrix.arch }}
           path: src-tauri/target/release/bundle/rpm/*.rpm
 
-  build-windows:
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
-
-      - name: Build Tauri app
-        run: pnpm tauri build
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-
-      - name: Sign MSI
-        if: env.TAURI_SIGNING_PRIVATE_KEY != ''
-        shell: bash
-        run: |
-          MSI_FILE=$(find src-tauri/target/release/bundle/msi -name "*.msi" | head -1)
-          if [ -n "$MSI_FILE" ]; then
-            npx @tauri-apps/cli signer sign \
-              --private-key "$TAURI_SIGNING_PRIVATE_KEY" \
-              --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
-              "$MSI_FILE"
-          fi
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-
-      - name: Upload MSI
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-msi
-          path: |
-            src-tauri/target/release/bundle/msi/*.msi
-            src-tauri/target/release/bundle/msi/*.msi.sig
-
-      - name: Upload NSIS
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-nsis
-          path: src-tauri/target/release/bundle/nsis/*.exe
-
   release:
-    needs: [build-linux, build-windows]
+    needs: [build-linux]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
 
@@ -193,9 +135,6 @@ jobs:
             artifacts/linux-appimage-*/*.AppImage
             artifacts/linux-appimage-*/*.AppImage.sig
             artifacts/linux-rpm-*/*.rpm
-            artifacts/windows-msi/*.msi
-            artifacts/windows-msi/*.msi.sig
-            artifacts/windows-nsis/*.exe
           draft: true
           generate_release_notes: true
         env:
@@ -222,8 +161,6 @@ jobs:
           for f in artifacts/linux-deb-aarch64/*.deb; do upload "$f" "v${VERSION}/$(basename $f)"; done
           for f in artifacts/linux-appimage-x86_64/*.AppImage*; do upload "$f" "v${VERSION}/$(basename $f)"; done
           for f in artifacts/linux-appimage-aarch64/*.AppImage*; do upload "$f" "v${VERSION}/$(basename $f)"; done
-          for f in artifacts/windows-msi/*.msi*; do upload "$f" "v${VERSION}/$(basename $f)"; done
-          for f in artifacts/windows-nsis/*.exe; do upload "$f" "v${VERSION}/$(basename $f)"; done
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_KEY }}
