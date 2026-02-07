@@ -2,6 +2,37 @@
 
 All notable changes to Chell will be documented in this file.
 
+## [0.1.71]
+
+### New Features
+- Add file and text search in the file tree
+  - Search for files by name within the project
+  - Search file contents (grep) with results showing file path, line number, and matching text
+
+### Portal & Mobile Fixes
+- Fix mobile projects list not sorting by most recently opened
+  - Desktop was not syncing `lastOpened` timestamps to the database when clicking existing projects
+- Fix desktop not showing paired iPhone in Portal settings
+  - `LinkedDevice` struct had field name and type mismatches with the relay's JSON format
+- Fix mobile terminal output not loading
+  - Terminal output forwarding now registers immediately on spawn instead of waiting for a round-trip attach message
+  - Desktop auto-registers mobile-spawned terminals for output forwarding and sends buffered output
+- Fix mobile connection storms (~100 WebSocket connections)
+  - Guard against concurrent connect calls during QR pairing
+  - Set pairing status atomically with WebSocket URL
+- Fix `selectProject` corrupting `lastOpened` with an empty string
+- Fix message handler accumulation on reconnect by tracking and cleaning up previous handlers
+- Add `attach_terminal_response` message type to relay server
+
+### Windows Support
+- Fix terminal spawning on Windows (use PowerShell instead of invalid Unix shell paths)
+- Fix project paths and install commands on Windows
+- Add Windows build scripts and signing steps
+
+### Other Improvements
+- Run assistants through user's login shell
+- Refresh markdown preview automatically on file changes
+
 ## [0.1.70]
 
 ### Notes Panel
