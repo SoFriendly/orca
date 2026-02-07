@@ -19,7 +19,9 @@ if (Test-Path $sdkPath) {
 if (Test-Path .env.local) {
     Get-Content .env.local | ForEach-Object {
         if ($_ -match '^([^#][^=]+)=(.*)$') {
-            [Environment]::SetEnvironmentVariable($matches[1], $matches[2])
+            $name = $matches[1].Trim()
+            $value = $matches[2].Trim('"')
+            Set-Item -Path "env:$name" -Value $value
         }
     }
 }
