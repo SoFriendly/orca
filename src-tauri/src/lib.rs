@@ -327,11 +327,6 @@ fn spawn_terminal(
         let command = &shell;
         let resolved_command = if command.contains('/') || command.contains('\\') {
             Some(command.to_string())
-        } else if is_assistant.unwrap_or(false) {
-            // Always run assistants through the user's login shell so that
-            // version managers (nvm, pyenv, etc.) are properly initialized
-            // and updates to the assistant binary are picked up correctly
-            None
         } else {
             find_command_path(command).map(|p| p.to_string_lossy().to_string())
         };
@@ -390,11 +385,6 @@ fn spawn_terminal(
         let command = parts[0];
         let resolved_command = if command.contains('/') || command.contains('\\') {
             Some(command.to_string())
-        } else if is_assistant.unwrap_or(false) {
-            // Always run assistants through the user's login shell so that
-            // version managers (nvm, pyenv, etc.) are properly initialized
-            // and updates to the assistant binary are picked up correctly
-            None
         } else {
             // Try to find the full path for this command
             find_command_path(command).map(|p| p.to_string_lossy().to_string())
