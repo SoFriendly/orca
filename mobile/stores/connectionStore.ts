@@ -28,7 +28,7 @@ export interface DesktopProject {
   id: string;
   name: string;
   path: string;
-  lastOpened?: number;
+  lastOpened?: string;
   folders?: ProjectFolder[];
 }
 
@@ -175,9 +175,7 @@ function setupMessageHandler(
             availableProjects: projects,
             remoteTerminals: terminals,
             hasReceivedInitialStatus: true,
-            activeProject: activeProject
-              ? { ...activeProject, lastOpened: "" }
-              : state.activeProject,
+            activeProject: activeProject ?? state.activeProject,
             gitStatus: message.gitStatus || state.gitStatus,
             linkedPortals: state.linkedPortals.map((p) =>
               p.id === state.activePortalId
@@ -204,9 +202,7 @@ function setupMessageHandler(
             (p) => p.id === changedProjectId
           );
           return {
-            activeProject: project
-              ? { ...project, lastOpened: "" }
-              : state.activeProject,
+            activeProject: project ?? state.activeProject,
           };
         });
         break;
