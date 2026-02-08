@@ -633,10 +633,41 @@ impl GitService {
 
             // Check for no upstream branch
             if stderr_lower.contains("no upstream branch") || stderr_lower.contains("has no upstream") {
-                return Err("No upstream branch set. Use 'git push -u origin <branch>' to set upstream.".to_string());
+                return Err("NO_UPSTREAM".to_string());
             }
 
             return Err(format!("git push failed: {}", stderr.trim()));
+        }
+
+        Ok(())
+    }
+
+    /// Publish a branch by pushing with -u to set upstream tracking
+    pub fn publish_branch(repo_path: &str, remote: &str) -> Result<(), String> {
+        let branch_output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("rev-parse")
+            .arg("--abbrev-ref")
+            .arg("HEAD")
+            .output()
+            .map_err(|e| format!("Failed to get current branch: {}", e))?;
+
+        let branch_name = String::from_utf8_lossy(&branch_output.stdout).trim().to_string();
+
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("push")
+            .arg("-u")
+            .arg(remote)
+            .arg(&branch_name)
+            .output()
+            .map_err(|e| format!("Failed to publish branch: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("Failed to publish branch: {}", stderr.trim()));
         }
 
         Ok(())

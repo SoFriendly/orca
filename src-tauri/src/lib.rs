@@ -1121,6 +1121,11 @@ fn push_remote(repo_path: String, remote: String) -> Result<(), String> {
     GitService::push(&repo_path, &remote)
 }
 
+#[tauri::command]
+fn publish_branch(repo_path: String, remote: String) -> Result<(), String> {
+    GitService::publish_branch(&repo_path, &remote)
+}
+
 // Git file watcher commands
 #[tauri::command]
 fn watch_repo(
@@ -2634,6 +2639,7 @@ pub fn run() {
             fetch_remote,
             pull_remote,
             push_remote,
+            publish_branch,
             watch_repo,
             unwatch_repo,
             // Project

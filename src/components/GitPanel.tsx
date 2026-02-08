@@ -173,6 +173,7 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [showBranchDialog, setShowBranchDialog] = useState(false);
   const [newBranchName, setNewBranchName] = useState("");
   const [isCreatingBranch, setIsCreatingBranch] = useState(false);
@@ -1010,7 +1011,28 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
       onRefresh();
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      toast.error(errorMsg || "Failed to push");
+      if (errorMsg === "NO_UPSTREAM") {
+        setShowPublishDialog(true);
+      } else {
+        toast.error(errorMsg || "Failed to push");
+        console.error(error);
+      }
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
+  const handlePublishBranch = async () => {
+    setShowPublishDialog(false);
+    setIsPushing(true);
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 10))));
+    try {
+      await invoke("publish_branch", { repoPath: projectPath, remote: "origin" });
+      toast.success("Branch published to remote");
+      onRefresh();
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      toast.error(errorMsg || "Failed to publish branch");
       console.error(error);
     } finally {
       setIsPushing(false);
@@ -2685,6 +2707,23 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isResetting}>Cancel</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Publish branch?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The branch <span className="font-mono text-primary">{status?.branch}</span> has no upstream. Do you want to publish it to origin?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePublishBranch}>
+              Publish
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
