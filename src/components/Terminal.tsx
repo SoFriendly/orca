@@ -108,6 +108,7 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
   const [initialDimensions, setInitialDimensions] = useState<{ cols: number; rows: number } | null>(null);
   const theme = useSettingsStore((state) => state.theme);
   const hasSpawnedRef = useRef(false);
+  const savedScrollTopRef = useRef(0);
 
   // Keep ref in sync with terminalId state for use in key handler
   useEffect(() => {
@@ -376,7 +377,8 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
       terminalRef.current = null;
       fitAddonRef.current = null;
     };
-  }, [isContainerReady, theme]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isContainerReady]);
 
   // Phase 3: Spawn PTY with correct dimensions (only if not provided externally)
   useEffect(() => {
@@ -439,11 +441,22 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
     let lastRows = 0;
     let fitDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-    // Safe fit function that checks if terminal is ready
+    // Safe fit function that checks if terminal is ready and preserves scroll position
     const safeFit = () => {
       try {
         if (containerRef.current && containerRef.current.offsetWidth > 0 && containerRef.current.offsetHeight > 0) {
+          // Save scroll position before fit (fit can reset it)
+          const viewport = containerRef.current.querySelector('.xterm-viewport') as HTMLElement;
+          const prevScrollTop = viewport?.scrollTop ?? savedScrollTopRef.current;
+
           fitAddon.fit();
+
+          // Restore scroll position if fit reset it
+          if (viewport && prevScrollTop > 0) {
+            const maxScroll = viewport.scrollHeight - viewport.clientHeight;
+            viewport.scrollTop = Math.min(prevScrollTop, maxScroll);
+          }
+
           const { cols, rows } = terminal;
           // Only send resize if dimensions actually changed
           if (cols !== lastCols || rows !== lastRows) {
@@ -617,6 +630,16 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
       intersectionObserver.observe(containerRef.current);
     }
 
+    // Track viewport scroll position continuously so we can restore it
+    // after display:none (which resets scrollTop to 0) or fit() operations
+    const viewport = containerRef.current?.querySelector('.xterm-viewport') as HTMLElement;
+    const handleViewportScroll = () => {
+      if (viewport && viewport.scrollTop > 0) {
+        savedScrollTopRef.current = viewport.scrollTop;
+      }
+    };
+    viewport?.addEventListener('scroll', handleViewportScroll, { passive: true });
+
     const container = containerRef.current;
 
     // Prevent drag events from causing canvas blackout
@@ -643,6 +666,7 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
         resizeObserver.disconnect();
         intersectionObserver.disconnect();
         container?.removeEventListener('paste', handlePaste);
+        viewport?.removeEventListener('scroll', handleViewportScroll);
         container?.removeEventListener('dragover', preventDragOver, true);
         container?.removeEventListener('dragenter', preventDragOver, true);
         document.removeEventListener('dragend', handleDragEnd);
@@ -666,6 +690,12 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
           if (terminal) {
             const { cols, rows } = terminal;
             invoke("resize_terminal", { id: terminalId, cols, rows }).catch(console.error);
+          }
+          // Restore scroll position (may have been reset by display:none or fit)
+          const viewport = containerRef.current?.querySelector('.xterm-viewport') as HTMLElement;
+          if (viewport && savedScrollTopRef.current > 0) {
+            const maxScroll = viewport.scrollHeight - viewport.clientHeight;
+            viewport.scrollTop = Math.min(savedScrollTopRef.current, maxScroll);
           }
         } catch (e) {
           // Ignore fit errors

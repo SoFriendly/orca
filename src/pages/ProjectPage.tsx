@@ -1681,12 +1681,14 @@ export default function ProjectPage() {
           )}
 
           {/* Tab content - render in stable order (sorted by id) to prevent remounting on reorder */}
+          {/* Uses absolute positioning + invisible instead of display:none to preserve xterm scroll position */}
+          <div className={cn("relative flex-1 overflow-hidden", terminalTabs.length === 0 && "hidden")}>
           {[...terminalTabs].sort((a, b) => a.id.localeCompare(b.id)).map((tab) => (
             <div
               key={tab.id}
               className={cn(
-                "flex flex-1 flex-col overflow-hidden",
-                activeTabId !== tab.id && "hidden"
+                "absolute inset-0 flex flex-col overflow-hidden",
+                activeTabId !== tab.id && "invisible pointer-events-none"
               )}
             >
               <div
@@ -1749,6 +1751,7 @@ export default function ProjectPage() {
               </div>
             </div>
           ))}
+          </div>
 
           {/* Empty state when no tabs */}
           {terminalTabs.length === 0 && (
