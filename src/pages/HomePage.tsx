@@ -245,7 +245,7 @@ export default function HomePage() {
       setClonePath("");
       navigate(`/project/${project.id}`);
     } catch (error) {
-      toast.error("Failed to clone repository");
+      toast.error(`Failed to clone repository: ${error}`);
       console.error(error);
     } finally {
       setIsCloning(false);

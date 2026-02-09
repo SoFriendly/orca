@@ -549,9 +549,20 @@ impl GitService {
         Ok(())
     }
 
+    /// Clone a repository using system git (handles credentials properly)
     pub fn clone_repo(url: &str, path: &str) -> Result<String, String> {
-        std::fs::create_dir_all(path).map_err(|e| e.to_string())?;
-        Repository::clone(url, path).map_err(|e| e.to_string())?;
+        let output = std::process::Command::new("git")
+            .arg("clone")
+            .arg(url)
+            .arg(path)
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(stderr.trim().to_string());
+        }
+
         Ok(path.to_string())
     }
 
