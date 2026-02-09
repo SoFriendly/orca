@@ -2,6 +2,15 @@
 
 All notable changes to Chell will be documented in this file.
 
+## [0.1.74]
+
+### Git
+- Use system git for repository cloning instead of libgit2 for proper credential handling
+- Prevent git commands from hanging on credential prompts by disabling terminal prompts and using SSH batch mode across clone, fetch, pull, push, and publish operations
+- Fix `git apply` blocking by properly closing stdin before waiting for output
+- Load git data immediately without waiting for remote fetch; fetch runs in the background
+- Show actual error messages on clone failure instead of a generic toast
+
 ## [0.1.73]
 
 ### Bug Fixes
