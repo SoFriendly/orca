@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -34,9 +34,11 @@ export default function TerminalWindow() {
   }
 
   const [isReady, setIsReady] = useState(false);
+  const terminalIdRef = useRef<string | null>(null);
 
   // When running in shell mode, write the install command to the terminal once it's ready
   const handleTerminalReady = (terminalId: string) => {
+    terminalIdRef.current = terminalId;
     if (runInShell && directCommand) {
       // Small delay to let the shell initialize
       setTimeout(() => {
@@ -44,6 +46,16 @@ export default function TerminalWindow() {
       }, 500);
     }
   };
+
+  // Kill terminal session when window is closed
+  useEffect(() => {
+    const unlisten = getCurrentWindow().onCloseRequested(() => {
+      if (terminalIdRef.current) {
+        invoke("kill_terminal", { id: terminalIdRef.current }).catch(() => {});
+      }
+    });
+    return () => { unlisten.then(fn => fn()); };
+  }, []);
 
   // Terminal background colors per theme
   const terminalBgColors: Record<string, string> = {

@@ -332,6 +332,23 @@ export default function ProjectPage() {
   const tabListRef = useRef<HTMLDivElement | null>(null);
   const tabRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
+  // Kill all terminal sessions when the window is closed
+  useEffect(() => {
+    const unlisten = getCurrentWindow().onCloseRequested(() => {
+      const ids: string[] = [];
+      terminalTabs.forEach(tab => {
+        if (tab.terminalId) ids.push(tab.terminalId);
+      });
+      if (utilityTerminalId && utilityTerminalId !== "closed") {
+        ids.push(utilityTerminalId);
+      }
+      if (ids.length > 0) {
+        invoke("kill_terminals", { ids }).catch(() => {});
+      }
+    });
+    return () => { unlisten.then(fn => fn()); };
+  }, [terminalTabs, utilityTerminalId]);
+
   // Count visible panels - must always have at least one
   const visiblePanelCount = [showGitPanel, showAssistantPanel, showShellPanel, showNotesPanel, showMarkdownPanel].filter(Boolean).length;
 

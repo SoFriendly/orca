@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { toast } from "sonner";
 import { Download, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,25 @@ export default function UpdateChecker() {
       });
     }, 3000);
     return () => clearTimeout(timer);
+  }, [checkForUpdates]);
+
+  useEffect(() => {
+    const unlisten = listen("check-for-updates", async () => {
+      try {
+        await checkForUpdates();
+        const { updateAvailable: update } = useUpdateStore.getState();
+        if (!update) {
+          toast.info("You're up to date!", {
+            description: "No new updates are available.",
+          });
+        }
+      } catch {
+        toast.error("Failed to check for updates.");
+      }
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
   }, [checkForUpdates]);
 
   const handleDownloadAndInstall = async () => {

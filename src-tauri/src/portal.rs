@@ -84,6 +84,10 @@ pub enum PortalMessage {
         #[serde(rename = "terminalId")]
         terminal_id: String,
     },
+    KillTerminal {
+        #[serde(rename = "terminalId")]
+        terminal_id: String,
+    },
     SelectProject {
         #[serde(rename = "projectId")]
         project_id: String,
@@ -464,6 +468,19 @@ async fn handle_message(
 
             log::info!("[Portal] Mobile detaching from terminal: {}", terminal_id);
             mobile_terminals.lock().remove(terminal_id);
+        }
+
+        "kill_terminal" => {
+            let terminal_id = message
+                .get("terminalId")
+                .and_then(|t| t.as_str())
+                .unwrap_or("");
+
+            log::info!("[Portal] Mobile killing terminal: {}", terminal_id);
+            mobile_terminals.lock().remove(terminal_id);
+            if let Some(terminal) = state.terminals.lock().remove(terminal_id) {
+                crate::kill_terminal_process(terminal);
+            }
         }
 
         "select_project" => {

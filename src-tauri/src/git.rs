@@ -725,4 +725,30 @@ impl GitService {
 
         Ok(())
     }
+
+    pub fn get_remote_url(repo_path: &str) -> Result<String, String> {
+        let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
+        let remote = repo
+            .find_remote("origin")
+            .map_err(|_| "No 'origin' remote found".to_string())?;
+        let url = remote
+            .url()
+            .ok_or_else(|| "Remote URL is not valid UTF-8".to_string())?
+            .to_string();
+
+        // Convert SSH URLs to HTTPS
+        let url = if url.starts_with("git@") {
+            // git@github.com:user/repo.git -> https://github.com/user/repo.git
+            let url = url.trim_start_matches("git@");
+            let url = url.replacen(':', "/", 1);
+            format!("https://{}", url)
+        } else {
+            url
+        };
+
+        // Strip trailing .git
+        let url = url.strip_suffix(".git").unwrap_or(&url).to_string();
+
+        Ok(url)
+    }
 }

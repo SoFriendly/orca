@@ -142,13 +142,14 @@ pub struct ContentSearchResult {
 }
 
 // Terminal state management
-struct TerminalState {
-    master: Box<dyn portable_pty::MasterPty + Send>,
-    writer: Box<dyn Write + Send>,
-    title: String,  // Command/title for display
-    cwd: String,    // Working directory
-    terminal_type: String,  // "shell" or "assistant"
-    output_buffer: Arc<Mutex<Vec<u8>>>,  // Buffer for recent output (for mobile attach)
+pub struct TerminalState {
+    pub master: Box<dyn portable_pty::MasterPty + Send>,
+    pub writer: Box<dyn Write + Send>,
+    pub title: String,  // Command/title for display
+    pub cwd: String,    // Working directory
+    pub terminal_type: String,  // "shell" or "assistant"
+    pub output_buffer: Arc<Mutex<Vec<u8>>>,  // Buffer for recent output (for mobile attach)
+    pub child_pid: Option<u32>,  // PID of the child shell process for explicit cleanup
 }
 
 const MAX_OUTPUT_BUFFER_SIZE: usize = 100 * 1024; // 100KB buffer
@@ -538,6 +539,9 @@ fn spawn_terminal(
             err_msg
         })?;
 
+    // Capture the child PID before moving child into the wait thread
+    let child_pid = child.process_id();
+
     // CRITICAL: Drop the slave side after spawning. On Windows ConPTY, keeping
     // the slave handle open prevents output from flowing to the master/reader.
     drop(slave_pty);
@@ -640,6 +644,7 @@ fn spawn_terminal(
         cwd: cwd.clone(),
         terminal_type,
         output_buffer,
+        child_pid,
     };
 
     state.terminals.lock().insert(id.clone(), terminal_state);
@@ -699,9 +704,38 @@ fn resize_terminal(
     Ok(())
 }
 
+/// Kill a terminal's child process by PID and drop its state
+pub fn kill_terminal_process(terminal: TerminalState) {
+    if let Some(pid) = terminal.child_pid {
+        #[cfg(unix)]
+        unsafe {
+            libc::kill(pid as i32, libc::SIGHUP);
+        }
+        #[cfg(windows)]
+        {
+            // On Windows, dropping the master PTY handle will signal the child
+            let _ = pid;
+        }
+    }
+    // Dropping terminal_state closes the master PTY fd, which also signals the child
+}
+
 #[tauri::command]
 fn kill_terminal(id: String, state: tauri::State<Arc<AppState>>) -> Result<(), String> {
-    state.terminals.lock().remove(&id);
+    if let Some(terminal) = state.terminals.lock().remove(&id) {
+        kill_terminal_process(terminal);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn kill_terminals(ids: Vec<String>, state: tauri::State<Arc<AppState>>) -> Result<(), String> {
+    let mut terminals = state.terminals.lock();
+    for id in ids {
+        if let Some(terminal) = terminals.remove(&id) {
+            kill_terminal_process(terminal);
+        }
+    }
     Ok(())
 }
 
@@ -726,8 +760,11 @@ fn list_terminals(state: tauri::State<Arc<AppState>>) -> Vec<TerminalInfo> {
 #[tauri::command]
 fn clear_terminals(state: tauri::State<Arc<AppState>>) {
     let mut terminals = state.terminals.lock();
-    terminals.clear();
-    println!("[clear_terminals] Cleared all terminals");
+    let all: Vec<TerminalState> = terminals.drain().map(|(_, t)| t).collect();
+    println!("[clear_terminals] Killing {} terminals", all.len());
+    for terminal in all {
+        kill_terminal_process(terminal);
+    }
 }
 
 #[tauri::command]
@@ -791,6 +828,11 @@ fn discard_file(repo_path: String, file_path: String) -> Result<(), String> {
 #[tauri::command]
 fn add_to_gitignore(repo_path: String, pattern: String) -> Result<(), String> {
     GitService::add_to_gitignore(&repo_path, &pattern)
+}
+
+#[tauri::command]
+fn get_remote_url(repo_path: String) -> Result<String, String> {
+    GitService::get_remote_url(&repo_path)
 }
 
 #[tauri::command]
@@ -2615,6 +2657,7 @@ pub fn run() {
             write_terminal_bytes,
             resize_terminal,
             kill_terminal,
+            kill_terminals,
             list_terminals,
             clear_terminals,
             get_terminal_buffer,
@@ -2629,6 +2672,7 @@ pub fn run() {
             get_history,
             discard_file,
             add_to_gitignore,
+            get_remote_url,
             discard_hunk,
             edit_file_line,
             checkout_commit,
@@ -2781,12 +2825,15 @@ pub fn run() {
             // Create custom macOS menu with proper app name
             #[cfg(target_os = "macos")]
             {
+                let check_for_updates_item = MenuItemBuilder::with_id("check_for_updates", "Check for Updates...").build(app)?;
                 let app_menu = Submenu::with_items(
                     app,
                     "Chell",
                     true,
                     &[
                         &PredefinedMenuItem::about(app, Some("About Chell"), None)?,
+                        &PredefinedMenuItem::separator(app)?,
+                        &check_for_updates_item,
                         &PredefinedMenuItem::separator(app)?,
                         &PredefinedMenuItem::services(app, None)?,
                         &PredefinedMenuItem::separator(app)?,
@@ -2830,6 +2877,11 @@ pub fn run() {
             }
 
             Ok(())
+        })
+        .on_menu_event(|app, event| {
+            if event.id().as_ref() == "check_for_updates" {
+                let _ = app.emit("check-for-updates", ());
+            }
         })
         .on_window_event(move |window, event| {
             // Only minimize to tray for the main window when portal mode is enabled

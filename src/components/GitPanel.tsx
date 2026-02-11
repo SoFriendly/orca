@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   GitCommit,
   RefreshCw,
@@ -1092,6 +1093,16 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
     }
   };
 
+  const handleOpenRemoteUrl = async () => {
+    try {
+      const url = await invoke<string>("get_remote_url", { repoPath: projectPath });
+      await openUrl(url);
+    } catch (error) {
+      toast.error("Failed to open remote URL");
+      console.error(error);
+    }
+  };
+
   const handleDiscardSelected = async () => {
     if (selectedFiles.size === 0) return;
     setIsDiscardingSelected(true);
@@ -1770,45 +1781,67 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
             <div className="flex items-center gap-1.5 mb-4 flex-wrap">
               {folders && folders.length > 1 ? (
                 /* Multi-folder: active folder name with chevron dropdown */
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 gap-1 px-1.5 text-sm font-medium hover:bg-muted/50 max-w-[120px]"
-                    >
-                      <span className="truncate">{activeFolder?.name || projectName}</span>
-                      <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto">
-                    <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                      Folders
+                <ContextMenu>
+                  <ContextMenuTrigger asChild>
+                    <div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 gap-1 px-1.5 text-sm font-medium hover:bg-muted/50 max-w-[120px]"
+                          >
+                            <span className="truncate">{activeFolder?.name || projectName}</span>
+                            <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto">
+                          <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                            Folders
+                          </div>
+                          {folders.map((folder) => (
+                            <DropdownMenuItem
+                              key={folder.id}
+                              onClick={() => setActiveFolderId(folder.id)}
+                              className="flex items-center justify-between"
+                            >
+                              <span className="truncate">{folder.name}</span>
+                              {folder.id === activeFolderId && <Check className="h-3 w-3 text-primary" />}
+                            </DropdownMenuItem>
+                          ))}
+                          {onAddFolder && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={onAddFolder}>
+                                <Plus className="mr-2 h-3 w-3" />
+                                Add Folder to Workspace
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                    {folders.map((folder) => (
-                      <DropdownMenuItem
-                        key={folder.id}
-                        onClick={() => setActiveFolderId(folder.id)}
-                        className="flex items-center justify-between"
-                      >
-                        <span className="truncate">{folder.name}</span>
-                        {folder.id === activeFolderId && <Check className="h-3 w-3 text-primary" />}
-                      </DropdownMenuItem>
-                    ))}
-                    {onAddFolder && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={onAddFolder}>
-                          <Plus className="mr-2 h-3 w-3" />
-                          Add Folder to Workspace
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem onClick={handleOpenRemoteUrl}>
+                      <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                      Open Remote URL
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               ) : (
                 /* Single folder: just show project name */
-                <span className="text-sm font-medium truncate">{projectName}</span>
+                <ContextMenu>
+                  <ContextMenuTrigger asChild>
+                    <span className="text-sm font-medium truncate">{projectName}</span>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem onClick={handleOpenRemoteUrl}>
+                      <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                      Open Remote URL
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               )}
               <span className="text-muted-foreground">/</span>
               <DropdownMenu>
