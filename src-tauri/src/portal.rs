@@ -232,7 +232,7 @@ impl Portal {
                         }
 
                         // Spawn task to handle outgoing messages
-                        let mut write_handle = tokio::spawn(async move {
+                        let write_handle = tokio::spawn(async move {
                             while let Some(msg) = rx.recv().await {
                                 if write.send(Message::Text(msg.into())).await.is_err() {
                                     break;

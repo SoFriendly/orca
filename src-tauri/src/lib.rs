@@ -3225,12 +3225,13 @@ pub fn run() {
                             .inner_size(1200.0, 800.0)
                             .min_inner_size(600.0, 600.0)
                             .center()
-                            .visible(false)
-                            .title_bar_style(tauri::TitleBarStyle::Overlay)
-                            .hidden_title(true);
+                            .visible(false);
                             #[cfg(target_os = "macos")]
                             {
-                                builder = builder.background_color((0x12, 0x12, 0x12, 0xff).into());
+                                builder = builder
+                                    .title_bar_style(tauri::TitleBarStyle::Overlay)
+                                    .hidden_title(true)
+                                    .background_color((0x12, 0x12, 0x12, 0xff).into());
                             }
                             match builder.build() {
                                 Ok(window) => { let _ = window.show(); }
