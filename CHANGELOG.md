@@ -2,6 +2,27 @@
 
 All notable changes to Chell will be documented in this file.
 
+## [0.1.78]
+
+### Terminal
+- Fix file path link detection for paths that wrap across multiple terminal lines
+  - Join wrapped lines before scanning for file paths, matching how the built-in URL link provider works
+  - Fix off-by-one in buffer line indexing (1-based to 0-based conversion)
+- Focus terminal automatically after dropping a file or note onto it so you can type immediately
+
+### Smart Shell
+- Improve NLT with tool calling support, better suggestions, and improved UI
+
+### Git
+- Fix rename functionality to preserve the original file path and allow non-empty new names
+- Fix horizontal scrollbar appearing in Git panel
+
+### Bug Fixes
+- Fix shell history search not returning results
+- Fix Linux .deb package missing dependency declarations
+  - Explicitly declare libwebkit2gtk, libgtk, libayatana-appindicator, and xdg-utils as package dependencies
+  - Resolves "unmet dependencies" error when installing on Linux
+
 ## [0.1.77]
 
 ### Workspace
