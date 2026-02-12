@@ -142,42 +142,76 @@ export class FilePathLinkProvider implements ILinkProvider {
     callback: (links: ILink[] | undefined) => void
   ): void {
     const buffer = this.terminal.buffer.active;
-    const line = buffer.getLine(bufferLineNumber);
+    // bufferLineNumber is 1-based, convert to 0-based for buffer access
+    const lineIndex = bufferLineNumber - 1;
+    const line = buffer.getLine(lineIndex);
 
     if (!line) {
       callback(undefined);
       return;
     }
 
-    const lineContent = line.translateToString(true);
+    // Collect the full logical line by joining wrapped lines
+    const [lineContents, startLineIndex] = this.getWrappedLineContent(lineIndex);
+    const fullContent = lineContents.join('');
 
     // Skip empty lines
-    if (!lineContent.trim()) {
+    if (!fullContent.trim()) {
       callback(undefined);
       return;
     }
 
-    // Check cache first
-    const cached = this.cache.get(bufferLineNumber);
-    if (cached && cached.lineContent === lineContent) {
-      callback(this.createLinks(cached.links, bufferLineNumber));
+    // Check cache first (keyed by start of logical line)
+    const cached = this.cache.get(startLineIndex);
+    if (cached && cached.lineContent === fullContent) {
+      callback(this.createLinks(cached.links, startLineIndex, lineContents));
       return;
     }
 
-    // Parse the line for file paths
-    const links = this.parseLine(lineContent);
+    // Parse the full line for file paths
+    const links = this.parseLine(fullContent);
 
     // Cache the result
-    this.cache.set(bufferLineNumber, { lineContent, links });
+    this.cache.set(startLineIndex, { lineContent: fullContent, links });
 
-    callback(this.createLinks(links, bufferLineNumber));
+    callback(this.createLinks(links, startLineIndex, lineContents));
+  }
+
+  /**
+   * Get the full content of a logical line by joining wrapped lines.
+   * Returns [array of line strings, starting buffer line index (0-based)].
+   */
+  private getWrappedLineContent(lineIndex: number): [string[], number] {
+    const buffer = this.terminal.buffer.active;
+
+    // Walk up to find the start of the logical line
+    let startIdx = lineIndex;
+    while (startIdx > 0) {
+      const l = buffer.getLine(startIdx);
+      if (!l || !l.isWrapped) break;
+      startIdx--;
+    }
+
+    // Collect all lines in this logical line
+    const lines: string[] = [];
+    let idx = startIdx;
+    while (idx < buffer.length) {
+      const l = buffer.getLine(idx);
+      if (!l) break;
+      lines.push(l.translateToString(true));
+      idx++;
+      const nextLine = buffer.getLine(idx);
+      if (!nextLine || !nextLine.isWrapped) break;
+    }
+
+    return [lines, startIdx];
   }
 
   private parseLine(lineContent: string): CachedLink[] {
     const links: CachedLink[] = [];
 
     // Skip very long lines (likely binary/minified content)
-    if (lineContent.length > 1000) {
+    if (lineContent.length > 2048) {
       return links;
     }
 
@@ -224,31 +258,60 @@ export class FilePathLinkProvider implements ILinkProvider {
     return links;
   }
 
-  private createLinks(cachedLinks: CachedLink[], bufferLineNumber: number): ILink[] {
-    return cachedLinks.map(cached => ({
-      range: {
-        start: { x: cached.startIndex + 1, y: bufferLineNumber },
-        end: { x: cached.endIndex + 1, y: bufferLineNumber },
-      },
-      text: cached.text,
-      activate: (event: MouseEvent, _text: string) => {
-        // Require Cmd (Mac) or Ctrl (Windows/Linux) + Click to open
-        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-        const modifierPressed = isMac ? event.metaKey : event.ctrlKey;
-        if (modifierPressed) {
-          this.handleLinkActivation(cached.path, cached.line, cached.column);
+  private createLinks(cachedLinks: CachedLink[], startLineIndex: number, lineContents: string[]): ILink[] {
+    // Build cumulative lengths for mapping string index to line/col
+    const cumulativeLengths: number[] = [0];
+    for (let i = 0; i < lineContents.length; i++) {
+      cumulativeLengths.push(cumulativeLengths[i] + lineContents[i].length);
+    }
+
+    return cachedLinks.map(cached => {
+      // Find which line the start index falls on
+      let startLine = 0;
+      for (let i = lineContents.length - 1; i >= 0; i--) {
+        if (cached.startIndex >= cumulativeLengths[i]) {
+          startLine = i;
+          break;
         }
-      },
-      hover: (event: MouseEvent, _text: string) => {
-        // Show tooltip with Cmd/Ctrl+Click hint
-        const target = event.target as HTMLElement;
-        if (target) {
+      }
+      const startCol = cached.startIndex - cumulativeLengths[startLine];
+
+      // Find which line the end index falls on
+      let endLine = 0;
+      for (let i = lineContents.length - 1; i >= 0; i--) {
+        if (cached.endIndex > cumulativeLengths[i]) {
+          endLine = i;
+          break;
+        }
+      }
+      const endCol = cached.endIndex - cumulativeLengths[endLine];
+
+      return {
+        range: {
+          // xterm ranges are 1-based, so +1 for both x and y
+          start: { x: startCol + 1, y: startLineIndex + startLine + 1 },
+          end: { x: endCol + 1, y: startLineIndex + endLine + 1 },
+        },
+        text: cached.text,
+        activate: (event: MouseEvent, _text: string) => {
+          // Require Cmd (Mac) or Ctrl (Windows/Linux) + Click to open
           const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-          const modifier = isMac ? '⌘' : 'Ctrl';
-          target.title = `${modifier}+Click to open`;
-        }
-      },
-    }));
+          const modifierPressed = isMac ? event.metaKey : event.ctrlKey;
+          if (modifierPressed) {
+            this.handleLinkActivation(cached.path, cached.line, cached.column);
+          }
+        },
+        hover: (event: MouseEvent, _text: string) => {
+          // Show tooltip with Cmd/Ctrl+Click hint
+          const target = event.target as HTMLElement;
+          if (target) {
+            const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+            const modifier = isMac ? '⌘' : 'Ctrl';
+            target.title = `${modifier}+Click to open`;
+          }
+        },
+      };
+    });
   }
 
   private handleLinkActivation(
