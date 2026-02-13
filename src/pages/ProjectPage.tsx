@@ -391,6 +391,8 @@ export default function ProjectPage() {
     setShowNotesPanel(!showNotesPanel);
   };
 
+  const handleSaveMarkdownRef = useRef<() => void>(() => {});
+
   // Markdown panel handlers
   const handleOpenMarkdownInPanel = async (filePath: string, lineNumber?: number) => {
     try {
@@ -421,24 +423,26 @@ export default function ProjectPage() {
 
   const handleSaveMarkdown = async () => {
     if (!markdownFile) return;
+    // Read latest content from the editor to avoid stale closure
+    const content = editorRef.current?.getValue() ?? markdownFile.content;
     try {
       await invoke("write_text_file", {
         path: markdownFile.path,
-        content: markdownFile.content
+        content
       });
       toast.success("File saved");
-      handleCloseMarkdownPanel();
     } catch (err) {
       toast.error(`Failed to save: ${err}`);
     }
   };
+  handleSaveMarkdownRef.current = handleSaveMarkdown;
 
   const handleEditorMount = (editor: editor.IStandaloneCodeEditor, monaco: typeof import("monaco-editor")) => {
     editorRef.current = editor;
 
-    // Add Cmd/Ctrl+S keyboard shortcut for save
+    // Add Cmd/Ctrl+S keyboard shortcut for save (use ref to avoid stale closure)
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      handleSaveMarkdown();
+      handleSaveMarkdownRef.current();
     });
 
     // Jump to line number if specified
@@ -2230,9 +2234,10 @@ export default function ProjectPage() {
         <div
           className={cn(
             "h-full flex flex-col overflow-hidden",
-            !showMarkdownPanel && "hidden"
+            !showMarkdownPanel && "hidden",
+            !showAssistantPanel && !showShellPanel && "flex-1 min-w-0"
           )}
-          style={{ width: markdownPanelWidth, minWidth: 300 }}
+          style={showAssistantPanel || showShellPanel ? { width: markdownPanelWidth, minWidth: 300 } : undefined}
         >
           {/* Header - z-50 to stay above Monaco find widget */}
           <div className="flex h-10 items-center justify-between px-2 border-b border-border relative z-50 bg-background">

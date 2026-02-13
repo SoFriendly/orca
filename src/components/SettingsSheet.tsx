@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
@@ -98,6 +99,7 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
   } = useSettingsStore();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  const [appVersion, setAppVersion] = useState<string>("");
   const [localDefaultClonePath, setLocalDefaultClonePath] = useState(defaultClonePath || "");
   const [installedAssistants, setInstalledAssistants] = useState<string[]>([]);
   const [installingCommands, setInstallingCommands] = useState<Set<string>>(new Set());
@@ -119,6 +121,11 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
   const [assistantArgsState, setAssistantArgsState] = useState<Record<string, string>>(buildArgsState);
 
   const { isChecking: isCheckingUpdate, checkForUpdates, updateAvailable } = useUpdateStore();
+
+  // Fetch app version from Tauri
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion("unknown"));
+  }, []);
 
   // Update local state when store changes
   useEffect(() => {
@@ -855,7 +862,7 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                     <div className="space-y-4">
                       <div className="flex items-center justify-between py-2">
                         <p className="text-sm text-muted-foreground">Version</p>
-                        <p className="text-sm font-mono">0.1.1</p>
+                        <p className="text-sm font-mono">{appVersion || "..."}</p>
                       </div>
                       <div className="flex items-center justify-between py-2">
                         <p className="text-sm text-muted-foreground">Build</p>
