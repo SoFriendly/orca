@@ -34,6 +34,11 @@ docker run --rm \
 echo ""
 echo "Build complete!"
 
+# Fix .deb architecture metadata
+echo ""
+echo "Fixing .deb architecture metadata..."
+./scripts/deb-fix.sh
+
 # Get version for naming
 VERSION=$(grep '"version"' src-tauri/tauri.conf.json | head -1 | sed 's/.*"version": "\(.*\)".*/\1/')
 

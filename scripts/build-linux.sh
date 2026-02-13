@@ -28,6 +28,11 @@ echo ""
 echo "Build complete!"
 echo "Artifacts are in: src-tauri/target/release/bundle/"
 
+# Fix .deb architecture metadata
+echo ""
+echo "Fixing .deb architecture metadata..."
+./scripts/deb-fix.sh
+
 # List the built artifacts
 echo ""
 echo "Built files:"
