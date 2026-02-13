@@ -35,6 +35,7 @@ import {
   MoreHorizontal,
   Save,
   Search,
+  FilePlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -200,6 +201,8 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [renamingFile, setRenamingFile] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [creatingFileInDir, setCreatingFileInDir] = useState<string | null>(null);
+  const [newFileValue, setNewFileValue] = useState("");
   const [draggingFile, setDraggingFile] = useState<{ name: string; x: number; y: number; isDir: boolean } | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   // File tree search state
@@ -735,6 +738,40 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
     } catch (error) {
       toast.error("Failed to rename file");
       console.error(error);
+    }
+  };
+
+  const handleStartCreateFile = (dirPath: string) => {
+    setCreatingFileInDir(dirPath);
+    setNewFileValue("");
+    if (dirPath) {
+      setExpandedDirs(prev => new Set([...prev, dirPath]));
+    }
+    if (viewMode !== "files") {
+      setViewMode("files");
+    }
+  };
+
+  const handleFinishCreateFile = async (dirPath: string, fileName: string, basePath?: string) => {
+    if (!fileName.trim()) {
+      setCreatingFileInDir(null);
+      return;
+    }
+
+    const effectivePath = basePath || projectPath;
+    const fullPath = dirPath ? `${effectivePath}/${dirPath}/${fileName}` : `${effectivePath}/${fileName}`;
+
+    try {
+      await invoke("write_text_file", { path: fullPath, content: "" });
+      toast.success(`Created ${fileName}`);
+      setCreatingFileInDir(null);
+      setNewFileValue("");
+      loadFileTree();
+      onRefresh();
+    } catch (error) {
+      toast.error("Failed to create file");
+      console.error(error);
+      setCreatingFileInDir(null);
     }
   };
 
@@ -1450,6 +1487,10 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
                 Open in {preferredEditor}
               </ContextMenuItem>
             )}
+            <ContextMenuItem onClick={() => handleStartCreateFile("")}>
+              <FilePlus className="mr-2 h-4 w-4" />
+              New File
+            </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
               className="text-destructive focus:text-destructive"
@@ -1623,6 +1664,11 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
                   </div>
                 </ContextMenuTrigger>
                 <ContextMenuContent>
+                  <ContextMenuItem onClick={() => handleStartCreateFile(node.path)}>
+                    <FilePlus className="mr-2 h-4 w-4" />
+                    New File
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
                   <ContextMenuItem onClick={() => handleRevealInFileManager(node.path, projectPath)}>
                     <FolderOpen className="mr-2 h-4 w-4" />
                     {getRevealLabel()}
@@ -1638,14 +1684,37 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
                   </ContextMenuItem>
                 </ContextMenuContent>
               </ContextMenu>
-              {expandedDirs.has(node.path) && node.children && (
-                <FileTreeView
-                  nodes={node.children}
-                  expandedDirs={expandedDirs}
-                  onToggleDir={onToggleDir}
-                  projectPath={projectPath}
-                  depth={depth + 1}
-                />
+              {expandedDirs.has(node.path) && (
+                <div className={cn(depth >= 0 && "ml-3 border-l border-border/50 pl-2")}>
+                  {creatingFileInDir === node.path && (
+                    <div className="flex items-center gap-1.5 py-1 px-1 pl-5">
+                      <File className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <input
+                        type="text"
+                        value={newFileValue}
+                        onChange={(e) => setNewFileValue(e.target.value)}
+                        onBlur={() => handleFinishCreateFile(node.path, newFileValue, projectPath)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleFinishCreateFile(node.path, newFileValue, projectPath);
+                          if (e.key === "Escape") setCreatingFileInDir(null);
+                        }}
+                        autoFocus
+                        placeholder="filename"
+                        className="text-xs bg-muted border border-border rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary w-full"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  )}
+                  {node.children && (
+                    <FileTreeView
+                      nodes={node.children}
+                      expandedDirs={expandedDirs}
+                      onToggleDir={onToggleDir}
+                      projectPath={projectPath}
+                      depth={depth + 1}
+                    />
+                  )}
+                </div>
               )}
             </>
           ) : (
@@ -1704,6 +1773,13 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
                 <ContextMenuItem onClick={() => handleCopyPath(node.path, projectPath)}>
                   <Copy className="mr-2 h-4 w-4" />
                   Copy Path
+                </ContextMenuItem>
+                <ContextMenuItem onClick={() => {
+                  const parentDir = node.path.includes('/') ? node.path.substring(0, node.path.lastIndexOf('/')) : '';
+                  handleStartCreateFile(parentDir);
+                }}>
+                  <FilePlus className="mr-2 h-4 w-4" />
+                  New File
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => handleStartRename(node.path, node.name)}>
                   <Pencil className="mr-2 h-4 w-4" />
@@ -2723,6 +2799,25 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
               ) : fileTree.length > 0 ? (
                 /* Single folder view (backward compat) */
                 <>
+                  {creatingFileInDir === "" && (
+                    <div className="flex items-center gap-1.5 py-1 px-1 pl-5">
+                      <File className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <input
+                        type="text"
+                        value={newFileValue}
+                        onChange={(e) => setNewFileValue(e.target.value)}
+                        onBlur={() => handleFinishCreateFile("", newFileValue)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleFinishCreateFile("", newFileValue);
+                          if (e.key === "Escape") setCreatingFileInDir(null);
+                        }}
+                        autoFocus
+                        placeholder="filename"
+                        className="text-xs bg-muted border border-border rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary w-full"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  )}
                   <FileTreeView
                     nodes={fileTree}
                     expandedDirs={expandedDirs}
@@ -2744,6 +2839,25 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
+                  {creatingFileInDir === "" && (
+                    <div className="flex items-center gap-1.5 py-1 px-1 pl-5 w-full">
+                      <File className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <input
+                        type="text"
+                        value={newFileValue}
+                        onChange={(e) => setNewFileValue(e.target.value)}
+                        onBlur={() => handleFinishCreateFile("", newFileValue)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleFinishCreateFile("", newFileValue);
+                          if (e.key === "Escape") setCreatingFileInDir(null);
+                        }}
+                        autoFocus
+                        placeholder="filename"
+                        className="text-xs bg-muted border border-border rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary w-full"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  )}
                   <FolderTree className="mb-2 h-8 w-8 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">No files found</p>
                 </div>
