@@ -2,6 +2,29 @@
 
 All notable changes to Chell will be documented in this file.
 
+## [0.1.79]
+
+### Git
+- Add "New File" context menu option to create files at project root
+  - Right-click anywhere in the scrollable panel area (including empty space) to create a new file
+  - Right-click root folder headers in multi-folder mode to create a file in that folder
+  - Right-click the file tree background in single-folder mode
+- Add file creation inline UI with editable filename input at the target directory
+- Fix git operations using wrong path in multi-folder workspaces
+  - Replace `projectPath` with `gitRepoPath` so git commands target the active folder's repository root
+  - Auto-refresh git data when switching between folders
+
+### Bug Fixes
+- Fix Ctrl+S saving the original file content instead of current editor changes
+- Fix file editor panel not expanding to full width when no terminal or assistant is open
+- Display actual app version in About section instead of hardcoded "0.1.1"
+
+### Dependencies
+- Bump git2 from 0.20.3 to 0.20.4
+- Bump time from 0.3.46 to 0.3.47
+- Bump bytes from 1.11.0 to 1.11.1
+- Bump @isaacs/brace-expansion from 5.0.0 to 5.0.1
+
 ## [0.1.78]
 
 ### Terminal

@@ -1933,6 +1933,8 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
       </div>
 
       {/* Scrollable content */}
+      <ContextMenu>
+      <ContextMenuTrigger asChild>
       <ScrollArea className="flex-1">
         <div className="px-4 pb-4 pt-4">
           {/* Project name (with folder selector chevron if multiple folders) and branch - hidden in files view */}
@@ -2745,6 +2747,10 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
                             <Copy className="mr-2 h-4 w-4" />
                             Copy Path
                           </ContextMenuItem>
+                          <ContextMenuItem onClick={() => { setActiveFolderId(folder.id); setExpandedFolders(prev => new Set([...prev, folder.id])); handleStartCreateFile(""); }}>
+                            <FilePlus className="mr-2 h-4 w-4" />
+                            New File
+                          </ContextMenuItem>
                           {onRemoveFolder && folders && folders.length > 1 && (
                             <>
                               <ContextMenuSeparator />
@@ -2762,6 +2768,25 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
                       {/* Folder contents */}
                       {expandedFolders.has(folder.id) && (
                         <div className="ml-3 border-l border-border/50 pl-2">
+                          {creatingFileInDir === "" && activeFolderId === folder.id && (
+                            <div className="flex items-center gap-1.5 py-1 px-1 pl-5">
+                              <File className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <input
+                                type="text"
+                                value={newFileValue}
+                                onChange={(e) => setNewFileValue(e.target.value)}
+                                onBlur={() => handleFinishCreateFile("", newFileValue, folder.path)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleFinishCreateFile("", newFileValue, folder.path);
+                                  if (e.key === "Escape") setCreatingFileInDir(null);
+                                }}
+                                autoFocus
+                                placeholder="filename"
+                                className="text-xs bg-muted border border-border rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary w-full"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                          )}
                           {fileTrees[folder.id] ? (
                             fileTrees[folder.id].length > 0 ? (
                               <FileTreeView
@@ -2798,45 +2823,55 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
                 </div>
               ) : fileTree.length > 0 ? (
                 /* Single folder view (backward compat) */
-                <>
-                  {creatingFileInDir === "" && (
-                    <div className="flex items-center gap-1.5 py-1 px-1 pl-5">
-                      <File className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <input
-                        type="text"
-                        value={newFileValue}
-                        onChange={(e) => setNewFileValue(e.target.value)}
-                        onBlur={() => handleFinishCreateFile("", newFileValue)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleFinishCreateFile("", newFileValue);
-                          if (e.key === "Escape") setCreatingFileInDir(null);
-                        }}
-                        autoFocus
-                        placeholder="filename"
-                        className="text-xs bg-muted border border-border rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary w-full"
-                        onClick={(e) => e.stopPropagation()}
+                <ContextMenu>
+                  <ContextMenuTrigger asChild>
+                    <div>
+                      {creatingFileInDir === "" && (
+                        <div className="flex items-center gap-1.5 py-1 px-1 pl-5">
+                          <File className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <input
+                            type="text"
+                            value={newFileValue}
+                            onChange={(e) => setNewFileValue(e.target.value)}
+                            onBlur={() => handleFinishCreateFile("", newFileValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleFinishCreateFile("", newFileValue);
+                              if (e.key === "Escape") setCreatingFileInDir(null);
+                            }}
+                            autoFocus
+                            placeholder="filename"
+                            className="text-xs bg-muted border border-border rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary w-full"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      )}
+                      <FileTreeView
+                        nodes={fileTree}
+                        expandedDirs={expandedDirs}
+                        onToggleDir={toggleDir}
+                        projectPath={projectPath}
                       />
+                      {/* Add folder button - only shown in single folder mode */}
+                      {onAddFolder && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground mt-2"
+                          onClick={onAddFolder}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Add Folder to Workspace
+                        </Button>
+                      )}
                     </div>
-                  )}
-                  <FileTreeView
-                    nodes={fileTree}
-                    expandedDirs={expandedDirs}
-                    onToggleDir={toggleDir}
-                    projectPath={projectPath}
-                  />
-                  {/* Add folder button - only shown in single folder mode */}
-                  {onAddFolder && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground mt-2"
-                      onClick={onAddFolder}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      Add Folder to Workspace
-                    </Button>
-                  )}
-                </>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem onClick={() => handleStartCreateFile("")}>
+                      <FilePlus className="mr-2 h-4 w-4" />
+                      New File
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   {creatingFileInDir === "" && (
@@ -2866,6 +2901,14 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
           )}
         </div>
       </ScrollArea>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={() => handleStartCreateFile("")}>
+          <FilePlus className="mr-2 h-4 w-4" />
+          New File
+        </ContextMenuItem>
+      </ContextMenuContent>
+      </ContextMenu>
 
       {/* Commit section - fixed at bottom (only show when git repo) */}
       {isGitRepo ? (
