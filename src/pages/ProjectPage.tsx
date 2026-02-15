@@ -6,6 +6,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Settings,
   Terminal as TerminalIcon,
@@ -26,6 +27,7 @@ import {
   Save,
   Eye,
   LetterText,
+  ExternalLink,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -49,6 +51,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import {
   Select,
   SelectContent,
@@ -400,6 +408,18 @@ export default function ProjectPage() {
       console.error(error);
     } finally {
       setIsSwitchingBranch(false);
+    }
+  };
+
+  // Handle opening remote URL in browser
+  const handleOpenRemoteUrl = async () => {
+    if (!gitRepoPath) return;
+    try {
+      const url = await invoke<string>("get_remote_url", { repoPath: gitRepoPath });
+      await openUrl(url);
+    } catch (error) {
+      toast.error("Failed to open remote URL");
+      console.error(error);
     }
   };
 
@@ -1601,68 +1621,92 @@ export default function ProjectPage() {
           </DropdownMenu>
         ) : (
           /* Single folder: just show project name */
-          <span className="text-sm font-medium px-2">{currentProject?.name}</span>
+          <ContextMenu>
+            <ContextMenuTrigger asChild>
+              <span className="text-sm font-medium px-2 cursor-default">{currentProject?.name}</span>
+            </ContextMenuTrigger>
+            {isGitRepo && (
+              <ContextMenuContent>
+                <ContextMenuItem onClick={handleOpenRemoteUrl}>
+                  <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                  Open Remote URL
+                </ContextMenuItem>
+              </ContextMenuContent>
+            )}
+          </ContextMenu>
         )}
         {isGitRepo && (
           <>
             <span className="text-muted-foreground text-sm">/</span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 gap-1 px-2 text-xs font-normal text-muted-foreground hover:text-foreground"
-                  disabled={isSwitchingBranch}
-                >
-                  <GitBranch className="h-3 w-3" />
-                  <span className="max-w-[100px] truncate">{currentBranch?.name || "main"}</span>
-                  {isSwitchingBranch ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <ChevronDown className="h-3 w-3" />
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="w-56 max-h-80 overflow-y-auto">
-                <DropdownMenuItem onClick={() => setShowBranchDialog(true)}>
-                  <Plus className="mr-2 h-3 w-3" />
-                  New branch
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {localBranches.length > 0 && (
-                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                    Local
-                  </div>
-                )}
-                {localBranches.map((branch) => (
-                  <DropdownMenuItem
-                    key={branch.name}
-                    onClick={() => handleSwitchBranch(branch.name)}
-                    className="flex items-center justify-between"
-                  >
-                    <span className="truncate">{branch.name}</span>
-                    {branch.isHead && <Check className="h-3 w-3 text-primary" />}
-                  </DropdownMenuItem>
-                ))}
-                {remoteBranches.length > 0 && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                      Remote
-                    </div>
-                    {remoteBranches.map((branch) => (
-                      <DropdownMenuItem
-                        key={branch.name}
-                        onClick={() => handleSwitchBranch(branch.name.replace(/^origin\//, ""))}
-                        className="flex items-center justify-between text-muted-foreground"
+            <ContextMenu>
+              <ContextMenuTrigger asChild>
+                <div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 gap-1 px-2 text-xs font-normal text-muted-foreground hover:text-foreground"
+                        disabled={isSwitchingBranch}
                       >
-                        <span className="truncate">{branch.name}</span>
+                        <GitBranch className="h-3 w-3" />
+                        <span className="max-w-[100px] truncate">{currentBranch?.name || "main"}</span>
+                        {isSwitchingBranch ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="center" className="w-56 max-h-80 overflow-y-auto">
+                      <DropdownMenuItem onClick={() => setShowBranchDialog(true)}>
+                        <Plus className="mr-2 h-3 w-3" />
+                        New branch
                       </DropdownMenuItem>
-                    ))}
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                      <DropdownMenuSeparator />
+                      {localBranches.length > 0 && (
+                        <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                          Local
+                        </div>
+                      )}
+                      {localBranches.map((branch) => (
+                        <DropdownMenuItem
+                          key={branch.name}
+                          onClick={() => handleSwitchBranch(branch.name)}
+                          className="flex items-center justify-between"
+                        >
+                          <span className="truncate">{branch.name}</span>
+                          {branch.isHead && <Check className="h-3 w-3 text-primary" />}
+                        </DropdownMenuItem>
+                      ))}
+                      {remoteBranches.length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                            Remote
+                          </div>
+                          {remoteBranches.map((branch) => (
+                            <DropdownMenuItem
+                              key={branch.name}
+                              onClick={() => handleSwitchBranch(branch.name.replace(/^origin\//, ""))}
+                              className="flex items-center justify-between text-muted-foreground"
+                            >
+                              <span className="truncate">{branch.name}</span>
+                            </DropdownMenuItem>
+                          ))}
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem onClick={handleOpenRemoteUrl}>
+                  <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                  Open Remote URL
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
           </>
         )}
       </div>
