@@ -52,10 +52,12 @@
     --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 220 13% 86%;
+    --input: 220 13% 86%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.375rem;
+    --panel-shadow: 0 0 0 1px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04);
+    --nav-bg: 0 0% 97%;
   }
 
   .dark {
@@ -78,6 +80,8 @@
     --border: 0 0% 18%;
     --input: 0 0% 18%;
     --ring: 24 100% 50%;
+    --panel-shadow: 8px 14px 36px rgba(0,0,0,0.35);
+    --nav-bg: 0 0% 9%;
   }
 
   .tokyo {
@@ -100,6 +104,8 @@
     --border: 228 18% 22%;
     --input: 228 18% 22%;
     --ring: 252 87% 67%;
+    --panel-shadow: 8px 14px 36px rgba(0,0,0,0.35);
+    --nav-bg: 228 18% 14%;
   }
 }
 

@@ -381,7 +381,7 @@ export default function HomePage() {
   const navButtonBase =
     "flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-muted-foreground transition-all";
   const panelShellClass =
-    "rounded-2xl border border-border/70 bg-card/70 shadow-[8px_14px_36px_rgba(0,0,0,0.35)] backdrop-blur-xl";
+    "rounded-2xl bg-card shadow-[var(--panel-shadow)]";
 
   return (
     <div
@@ -496,7 +496,7 @@ export default function HomePage() {
             <div className="space-y-3 mt-8 shrink-0">
               <button
                 onClick={() => setShowCloneDialog(true)}
-                className="group flex w-full items-center gap-4 rounded-xl border border-border/70 bg-card/55 p-4 text-left transition-all hover:border-primary/40 hover:bg-muted/35"
+                className="group flex w-full items-center gap-4 rounded-xl bg-card shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] p-4 text-left transition-all hover:shadow-[0_0_0_1px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.06)] hover:bg-muted/35"
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
                   <Download className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
@@ -512,7 +512,7 @@ export default function HomePage() {
 
               <button
                 onClick={handleOpenProject}
-                className="group flex w-full items-center gap-4 rounded-xl border border-border/70 bg-card/55 p-4 text-left transition-all hover:border-primary/40 hover:bg-muted/35"
+                className="group flex w-full items-center gap-4 rounded-xl bg-card shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] p-4 text-left transition-all hover:shadow-[0_0_0_1px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.06)] hover:bg-muted/35"
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
                   <FolderOpen className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
@@ -528,7 +528,7 @@ export default function HomePage() {
 
               <button
                 onClick={() => setShowCreateDialog(true)}
-                className="group flex w-full items-center gap-4 rounded-xl border border-border/70 bg-card/55 p-4 text-left transition-all hover:border-primary/40 hover:bg-muted/35"
+                className="group flex w-full items-center gap-4 rounded-xl bg-card shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] p-4 text-left transition-all hover:shadow-[0_0_0_1px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.06)] hover:bg-muted/35"
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
                   <Plus className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
@@ -545,7 +545,7 @@ export default function HomePage() {
 
             {/* Recent projects */}
             {projects.length > 0 && (
-              <div className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/60 bg-background/40 p-2">
+              <div className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-card shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] p-2">
                 <div className="flex items-center justify-between px-1 mb-3 shrink-0">
                   {showProjectSearch ? (
                     <div className="flex items-center gap-2 flex-1">

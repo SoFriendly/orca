@@ -1831,7 +1831,9 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
       )}
 
       {/* Header with actions only */}
-      <div className="flex h-10 items-center justify-end gap-1 px-4">
+      <div className="flex h-10 items-center justify-between px-4">
+        {/* Git operations - left aligned */}
+        <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -1901,20 +1903,38 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
             </TooltipTrigger>
             <TooltipContent>Refresh</TooltipContent>
           </Tooltip>
+        </div>
+
+        {/* Panel tabs - right aligned */}
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Show changes"
+                className={cn("h-7 w-7", viewMode === "changes" && "bg-primary/15 text-primary")}
+                onClick={() => setViewMode("changes")}
+              >
+                <GitBranch className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Changes</TooltipContent>
+          </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label={viewMode === "history" ? "Show changes" : "Show history"}
-                className={cn("h-7 w-7", viewMode === "history" && "bg-muted text-foreground")}
-                onClick={() => setViewMode(viewMode === "history" ? "changes" : "history")}
+                aria-label="Show history"
+                className={cn("h-7 w-7", viewMode === "history" && "bg-primary/15 text-primary")}
+                onClick={() => setViewMode("history")}
               >
                 <History className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{viewMode === "history" ? "Show Changes" : "Show History"}</TooltipContent>
+            <TooltipContent>History</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -1922,15 +1942,16 @@ export default function GitPanel({ projectPath, projectName, isGitRepo, onRefres
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label={viewMode === "files" ? "Show changes" : "Browse files"}
-                className={cn("h-7 w-7", viewMode === "files" && "bg-muted text-foreground")}
-                onClick={() => setViewMode(viewMode === "files" ? "changes" : "files")}
+                aria-label="Browse files"
+                className={cn("h-7 w-7", viewMode === "files" && "bg-primary/15 text-primary")}
+                onClick={() => setViewMode("files")}
               >
                 <FolderTree className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{viewMode === "files" ? "Show Changes" : "Browse Files"}</TooltipContent>
+            <TooltipContent>Files</TooltipContent>
           </Tooltip>
+        </div>
       </div>
 
       {/* Scrollable content */}

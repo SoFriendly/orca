@@ -1531,7 +1531,7 @@ export default function ProjectPage() {
   const navButtonBase =
     "flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-muted-foreground transition-all";
   const panelShellClass =
-    "rounded-2xl border border-border/70 bg-card/70 shadow-[8px_14px_36px_rgba(0,0,0,0.35)] backdrop-blur-xl";
+    "rounded-2xl bg-card shadow-[var(--panel-shadow)]";
 
   return (
     <div
@@ -1766,7 +1766,7 @@ export default function ProjectPage() {
                   navButtonBase,
                   "text-foreground",
                   showGitPanel
-                    ? "border-border/60 bg-muted/40 hover:border-border hover:bg-muted/60"
+                    ? "border-border bg-muted hover:bg-muted/80"
                     : "hover:border-border/60 hover:bg-muted/40",
                   showGitPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
@@ -1790,7 +1790,7 @@ export default function ProjectPage() {
                   navButtonBase,
                   "text-foreground",
                   showAssistantPanel
-                    ? "border-border/60 bg-muted/40 hover:border-border hover:bg-muted/60"
+                    ? "border-border bg-muted hover:bg-muted/80"
                     : "hover:border-border/60 hover:bg-muted/40",
                   showAssistantPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
@@ -1814,7 +1814,7 @@ export default function ProjectPage() {
                   navButtonBase,
                   "text-foreground",
                   showShellPanel
-                    ? "border-border/60 bg-muted/40 hover:border-border hover:bg-muted/60"
+                    ? "border-border bg-muted hover:bg-muted/80"
                     : "hover:border-border/60 hover:bg-muted/40",
                   showShellPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
@@ -1838,7 +1838,7 @@ export default function ProjectPage() {
                   navButtonBase,
                   "text-foreground",
                   showNotesPanel
-                    ? "border-border/60 bg-muted/40 hover:border-border hover:bg-muted/60"
+                    ? "border-border bg-muted hover:bg-muted/80"
                     : "hover:border-border/60 hover:bg-muted/40",
                   showNotesPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
