@@ -73,7 +73,7 @@ jobs:
       - name: Sign AppImage
         if: env.TAURI_SIGNING_PRIVATE_KEY != ''
         run: |
-          APPIMAGE_FILE=$(find src-tauri/target/release/bundle/appimage -name "*.AppImage" | head -1)
+          APPIMAGE_FILE=$(find src-tauri/target/${{ matrix.rust_target }}/release/bundle/appimage -name "*.AppImage" | head -1)
           if [ -n "$APPIMAGE_FILE" ]; then
             npx @tauri-apps/cli signer sign \
               --private-key "$TAURI_SIGNING_PRIVATE_KEY" \
@@ -88,21 +88,21 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-deb-${{ matrix.arch }}
-          path: src-tauri/target/release/bundle/deb/*.deb
+          path: src-tauri/target/${{ matrix.rust_target }}/release/bundle/deb/*.deb
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
         with:
           name: linux-appimage-${{ matrix.arch }}
           path: |
-            src-tauri/target/release/bundle/appimage/*.AppImage
-            src-tauri/target/release/bundle/appimage/*.AppImage.sig
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/appimage/*.AppImage
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/appimage/*.AppImage.sig
 
       - name: Upload RPM
         uses: actions/upload-artifact@v4
         with:
           name: linux-rpm-${{ matrix.arch }}
-          path: src-tauri/target/release/bundle/rpm/*.rpm
+          path: src-tauri/target/${{ matrix.rust_target }}/release/bundle/rpm/*.rpm
 
   release:
     needs: [build-linux]

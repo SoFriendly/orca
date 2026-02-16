@@ -6,10 +6,13 @@ if [ -f .env.local ]; then
   export $(cat .env.local | grep -v '^#' | xargs)
 fi
 
-# Check required environment variables
+# Check required environment variables (support both CLOUDFLARE_R2_* and AWS_* naming)
+[ -z "$CLOUDFLARE_R2_ACCESS_KEY" ] && CLOUDFLARE_R2_ACCESS_KEY="$AWS_ACCESS_KEY_ID"
+[ -z "$CLOUDFLARE_R2_SECRET_KEY" ] && CLOUDFLARE_R2_SECRET_KEY="$AWS_SECRET_ACCESS_KEY"
+
 if [ -z "$CLOUDFLARE_ACCOUNT_ID" ] || [ -z "$CLOUDFLARE_R2_ACCESS_KEY" ] || [ -z "$CLOUDFLARE_R2_SECRET_KEY" ]; then
   echo "Error: Missing Cloudflare R2 credentials"
-  echo "Please set CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY, CLOUDFLARE_R2_SECRET_KEY in .env.local"
+  echo "Please set CLOUDFLARE_ACCOUNT_ID and either CLOUDFLARE_R2_ACCESS_KEY/SECRET_KEY or AWS_ACCESS_KEY_ID/SECRET_ACCESS_KEY"
   exit 1
 fi
 
@@ -103,14 +106,33 @@ fi
 echo ""
 echo "=== Uploading Linux artifacts ==="
 
-# Linux AppImage
-APPIMAGE_FILE=$(find src-tauri/target/release/bundle/appimage -name "*.AppImage" 2>/dev/null | head -1)
-[ -n "$APPIMAGE_FILE" ] && upload_file "$APPIMAGE_FILE" "v${VERSION}/Chell_${VERSION}_amd64.AppImage"
-[ -f "${APPIMAGE_FILE}.sig" ] && upload_file "${APPIMAGE_FILE}.sig" "v${VERSION}/Chell_${VERSION}_amd64.AppImage.sig"
+# Linux AppImage - x86_64 (check GH Actions artifacts dir first, then local build)
+APPIMAGE_X64=$(find artifacts/linux-appimage-x86_64 -name "*.AppImage" 2>/dev/null | head -1)
+[ -z "$APPIMAGE_X64" ] && APPIMAGE_X64=$(find src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage -name "*.AppImage" 2>/dev/null | head -1)
+[ -z "$APPIMAGE_X64" ] && APPIMAGE_X64=$(find src-tauri/target/release/bundle/appimage -name "*amd64*.AppImage" -o -name "*x86_64*.AppImage" 2>/dev/null | head -1)
+[ -n "$APPIMAGE_X64" ] && upload_file "$APPIMAGE_X64" "v${VERSION}/Chell_${VERSION}_amd64.AppImage"
+[ -n "$APPIMAGE_X64" ] && [ -f "${APPIMAGE_X64}.sig" ] && upload_file "${APPIMAGE_X64}.sig" "v${VERSION}/Chell_${VERSION}_amd64.AppImage.sig"
+# Also check for separate .sig file in artifacts dir
+[ -n "$APPIMAGE_X64" ] && for sig in artifacts/linux-appimage-x86_64/*.AppImage.sig; do [ -f "$sig" ] && upload_file "$sig" "v${VERSION}/Chell_${VERSION}_amd64.AppImage.sig"; done
 
-# Linux .deb
-DEB_FILE=$(find src-tauri/target/release/bundle/deb -name "*.deb" 2>/dev/null | head -1)
-[ -n "$DEB_FILE" ] && upload_file "$DEB_FILE" "v${VERSION}/Chell_${VERSION}_amd64.deb"
+# Linux AppImage - aarch64
+APPIMAGE_ARM=$(find artifacts/linux-appimage-aarch64 -name "*.AppImage" 2>/dev/null | head -1)
+[ -z "$APPIMAGE_ARM" ] && APPIMAGE_ARM=$(find src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/appimage -name "*.AppImage" 2>/dev/null | head -1)
+[ -n "$APPIMAGE_ARM" ] && upload_file "$APPIMAGE_ARM" "v${VERSION}/Chell_${VERSION}_arm64.AppImage"
+[ -n "$APPIMAGE_ARM" ] && [ -f "${APPIMAGE_ARM}.sig" ] && upload_file "${APPIMAGE_ARM}.sig" "v${VERSION}/Chell_${VERSION}_arm64.AppImage.sig"
+# Also check for separate .sig file in artifacts dir
+[ -n "$APPIMAGE_ARM" ] && for sig in artifacts/linux-appimage-aarch64/*.AppImage.sig; do [ -f "$sig" ] && upload_file "$sig" "v${VERSION}/Chell_${VERSION}_arm64.AppImage.sig"; done
+
+# Linux .deb - x86_64
+DEB_X64=$(find artifacts/linux-deb-x86_64 -name "*.deb" 2>/dev/null | head -1)
+[ -z "$DEB_X64" ] && DEB_X64=$(find src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb -name "*.deb" 2>/dev/null | head -1)
+[ -z "$DEB_X64" ] && DEB_X64=$(find src-tauri/target/release/bundle/deb -name "*amd64*.deb" 2>/dev/null | head -1)
+[ -n "$DEB_X64" ] && upload_file "$DEB_X64" "v${VERSION}/Chell_${VERSION}_amd64.deb"
+
+# Linux .deb - aarch64
+DEB_ARM=$(find artifacts/linux-deb-aarch64 -name "*.deb" 2>/dev/null | head -1)
+[ -z "$DEB_ARM" ] && DEB_ARM=$(find src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/deb -name "*.deb" 2>/dev/null | head -1)
+[ -n "$DEB_ARM" ] && upload_file "$DEB_ARM" "v${VERSION}/Chell_${VERSION}_arm64.deb"
 
 echo ""
 echo "=== Uploading Windows artifacts ==="
@@ -136,8 +158,21 @@ WIN_SIG=""
 
 [ -f "src-tauri/target/release/bundle/Chell_${VERSION}_darwin-aarch64.app.tar.gz.sig" ] && \
   MAC_SIG=$(cat "src-tauri/target/release/bundle/Chell_${VERSION}_darwin-aarch64.app.tar.gz.sig")
-[ -n "$APPIMAGE_FILE" ] && [ -f "${APPIMAGE_FILE}.sig" ] && \
-  LINUX_SIG=$(cat "${APPIMAGE_FILE}.sig")
+
+# Linux x64 signature
+if [ -n "$APPIMAGE_X64" ] && [ -f "${APPIMAGE_X64}.sig" ]; then
+  LINUX_SIG=$(cat "${APPIMAGE_X64}.sig")
+elif [ -f "$(find artifacts/linux-appimage-x86_64 -name "*.AppImage.sig" 2>/dev/null | head -1)" ]; then
+  LINUX_SIG=$(cat "$(find artifacts/linux-appimage-x86_64 -name "*.AppImage.sig" | head -1)")
+fi
+
+# Linux ARM signature
+if [ -n "$APPIMAGE_ARM" ] && [ -f "${APPIMAGE_ARM}.sig" ]; then
+  LINUX_ARM_SIG=$(cat "${APPIMAGE_ARM}.sig")
+elif [ -f "$(find artifacts/linux-appimage-aarch64 -name "*.AppImage.sig" 2>/dev/null | head -1)" ]; then
+  LINUX_ARM_SIG=$(cat "$(find artifacts/linux-appimage-aarch64 -name "*.AppImage.sig" | head -1)")
+fi
+
 [ -n "$MSI_FILE" ] && [ -f "${MSI_FILE}.sig" ] && \
   WIN_SIG=$(cat "${MSI_FILE}.sig")
 
