@@ -174,19 +174,8 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
     let retryCount = 0;
     const maxRetries = 60; // 3 seconds at 50ms intervals
     let stabilityTimer: ReturnType<typeof setTimeout> | null = null;
-    let resizeObserver: ResizeObserver | null = null;
-    let isReady = false;
-
-    const markReady = () => {
-      if (isReady) return;
-      isReady = true;
-      if (stabilityTimer) clearTimeout(stabilityTimer);
-      if (resizeObserver) resizeObserver.disconnect();
-      setIsContainerReady(true);
-    };
 
     const checkStability = () => {
-      if (isReady) return;
       retryCount++;
 
       // Keep checking even if ref isn't ready yet (it may become available)
@@ -196,27 +185,9 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
         } else {
           // Container ref never became available, proceed anyway
           // Phase 2 will use fallback dimensions
-          console.warn("[Terminal] Container ref not available after timeout, using fallback dimensions");
-          markReady();
+          setIsContainerReady(true);
         }
         return;
-      }
-
-      // Set up ResizeObserver if not already set (handles case where ref was initially null)
-      if (!resizeObserver) {
-        resizeObserver = new ResizeObserver((entries) => {
-          if (isReady) return;
-          for (const entry of entries) {
-            const { width, height } = entry.contentRect;
-            if (width > 0 && height > 0) {
-              // Dimensions are now available - reset stability counter
-              stableCount = 0;
-              lastWidth = width;
-              lastHeight = height;
-            }
-          }
-        });
-        resizeObserver.observe(containerRef.current);
       }
 
       const width = containerRef.current.offsetWidth;
@@ -227,7 +198,7 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
           stableCount++;
           // Require dimensions to be stable for 4 consecutive checks (200ms)
           if (stableCount >= 4) {
-            markReady();
+            setIsContainerReady(true);
             return;
           }
         } else {
@@ -243,24 +214,15 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
       } else {
         // Timeout reached - proceed with whatever dimensions we have
         // This handles cases where the container stays at 0x0 due to layout issues
-        console.warn("[Terminal] Container dimensions not stable after timeout, proceeding anyway");
-        markReady();
+        setIsContainerReady(true);
       }
     };
 
-    // Use double requestAnimationFrame to ensure browser has completed layout
-    // This is critical for production builds where CSS may not be applied immediately
-    let rafId: number | null = null;
-    rafId = requestAnimationFrame(() => {
-      rafId = requestAnimationFrame(() => {
-        stabilityTimer = setTimeout(checkStability, 0);
-      });
-    });
+    // Start checking immediately
+    stabilityTimer = setTimeout(checkStability, 0);
 
     return () => {
-      if (rafId) cancelAnimationFrame(rafId);
       if (stabilityTimer) clearTimeout(stabilityTimer);
-      if (resizeObserver) resizeObserver.disconnect();
     };
   }, [visible, isContainerReady]);
 
@@ -418,40 +380,22 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
     });
 
     // Do initial fit to calculate dimensions
-    // Keep trying until we get valid dimensions (at least 10x5)
-    let fitAttempts = 0;
-    const maxFitAttempts = 30; // 1.5 seconds at 50ms intervals
-
-    const tryFit = () => {
-      fitAttempts++;
-      try {
-        fitAddon.fit();
-        const { cols, rows } = terminal;
-        // Validate dimensions are reasonable (not 0 or too small)
-        if (cols >= 10 && rows >= 5) {
-          setInitialDimensions({ cols, rows });
-          return;
-        }
-        // Dimensions too small, retry
-        if (fitAttempts < maxFitAttempts) {
-          setTimeout(tryFit, 50);
-        } else {
-          console.warn(`[Terminal] Could not get valid dimensions after ${fitAttempts} attempts, using fallback`);
-          setInitialDimensions({ cols: 80, rows: 24 });
-        }
-      } catch {
-        // fit() threw an error, retry
-        if (fitAttempts < maxFitAttempts) {
-          setTimeout(tryFit, 50);
-        } else {
-          setInitialDimensions({ cols: 80, rows: 24 });
-        }
-      }
-    };
-
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        tryFit();
+        try {
+          fitAddon.fit();
+          const { cols, rows } = terminal;
+          // Use dimensions if reasonable, otherwise fallback
+          // Phase 4 will resize later if container dimensions change
+          if (cols >= 5 && rows >= 2) {
+            setInitialDimensions({ cols, rows });
+          } else {
+            setInitialDimensions({ cols: 80, rows: 24 });
+          }
+        } catch {
+          // Fallback dimensions
+          setInitialDimensions({ cols: 80, rows: 24 });
+        }
       });
     });
 
@@ -564,15 +508,6 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
       if (fitDebounceTimer) clearTimeout(fitDebounceTimer);
       fitDebounceTimer = setTimeout(() => safeFit(), 50);
     };
-
-    // Immediately try to fit in case dimensions are now available
-    // This handles the case where Phase 2/3 used fallback dimensions
-    // but the container now has proper dimensions
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        safeFit();
-      });
-    });
 
     // Handle terminal input - send directly without batching
     const dataDisposable = terminal.onData((data) => {
