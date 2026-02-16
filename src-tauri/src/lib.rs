@@ -2104,6 +2104,7 @@ struct NltResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct NltProgressEvent {
+    request_id: String,
     status: String,
     message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2896,6 +2897,7 @@ async fn ai_shell_command(
     context: ProjectContext,
     cwd: String,
     api_key: String,
+    request_id: String,
     app_handle: tauri::AppHandle,
 ) -> Result<NltResponse, String> {
     if api_key.is_empty() {
@@ -2937,6 +2939,7 @@ async fn ai_shell_command(
 
     // Emit initial progress
     let _ = app_handle.emit("nlt-progress", NltProgressEvent {
+        request_id: request_id.clone(),
         status: "thinking".into(),
         message: "Analyzing your request...".into(),
         tool_name: None,
@@ -2946,6 +2949,7 @@ async fn ai_shell_command(
     for iteration in 0..max_iterations {
         if started.elapsed() > timeout {
             let _ = app_handle.emit("nlt-progress", NltProgressEvent {
+                request_id: request_id.clone(),
                 status: "error".into(),
                 message: "Request timed out after 30 seconds".into(),
                 tool_name: None,
@@ -2979,6 +2983,7 @@ async fn ai_shell_command(
             if use_tools && (error_text.contains("tool_use_failed") || error_text.contains("tool call validation")) {
                 println!("[NLT] Tool call validation failed, retrying without tools");
                 let _ = app_handle.emit("nlt-progress", NltProgressEvent {
+                    request_id: request_id.clone(),
                     status: "thinking".into(),
                     message: "Retrying without tools...".into(),
                     tool_name: None,
@@ -3009,6 +3014,7 @@ async fn ai_shell_command(
                     println!("[NLT] Tool call: {}({})", tool_name, &tc.function.arguments);
 
                     let _ = app_handle.emit("nlt-progress", NltProgressEvent {
+                        request_id: request_id.clone(),
                         status: "tool_call".into(),
                         message: format!("Calling {}...", tool_name),
                         tool_name: Some(tool_name.clone()),
@@ -3034,6 +3040,7 @@ async fn ai_shell_command(
         let nlt_response = parse_final_response(content);
 
         let _ = app_handle.emit("nlt-progress", NltProgressEvent {
+            request_id: request_id.clone(),
             status: "done".into(),
             message: "Command ready".into(),
             tool_name: None,
@@ -3045,6 +3052,7 @@ async fn ai_shell_command(
     }
 
     let _ = app_handle.emit("nlt-progress", NltProgressEvent {
+        request_id: request_id.clone(),
         status: "error".into(),
         message: "Too many tool-calling iterations".into(),
         tool_name: None,

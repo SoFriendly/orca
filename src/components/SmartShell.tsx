@@ -60,6 +60,7 @@ export default function SmartShell({
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const currentRequestIdRef = useRef<string | null>(null);
 
   const placeholderSuggestions = [
     "run this project...",
@@ -81,12 +82,16 @@ export default function SmartShell({
   }, []);
   const { groqApiKey } = useSettingsStore();
 
-  // Listen for NLT progress events
+  // Listen for NLT progress events (filtered by request ID to avoid cross-window interference)
   useEffect(() => {
     const unlisten = listen<NltProgressEvent>("nlt-progress", (event) => {
-      const { status, message } = event.payload;
+      const { request_id, status, message } = event.payload;
+      // Only process events for our current request
+      if (request_id !== currentRequestIdRef.current) return;
+
       if (status === "done" || status === "error") {
         setProgressMsg(null);
+        currentRequestIdRef.current = null;
       } else {
         setProgressMsg(message);
       }
@@ -140,12 +145,17 @@ export default function SmartShell({
     setError(null);
     setProgressMsg("Analyzing your request...");
 
+    // Generate a unique request ID to scope progress events to this request
+    const requestId = crypto.randomUUID();
+    currentRequestIdRef.current = requestId;
+
     try {
       const response = await invoke<NltResponse>("ai_shell_command", {
         request: aiInput.trim(),
         context: projectContext,
         cwd,
         apiKey: groqApiKey,
+        requestId,
       });
 
       setPreview(response);
@@ -162,6 +172,7 @@ export default function SmartShell({
     } finally {
       setIsLoading(false);
       setProgressMsg(null);
+      currentRequestIdRef.current = null;
     }
   };
 

@@ -216,6 +216,7 @@ export interface NltResponse {
 }
 
 export interface NltProgressEvent {
+  request_id: string;
   status: "thinking" | "tool_call" | "done" | "error";
   message: string;
   tool_name?: string;

@@ -2352,7 +2352,7 @@ export default function ProjectPage() {
               )}
             </div>
             <div className="flex items-center gap-1">
-              {utilityTerminalId && utilityTerminalId !== "closed" && (
+              {utilityTerminalId !== "closed" && (
                 <>
                   <Tooltip delayDuration={0}>
                     <TooltipTrigger asChild>

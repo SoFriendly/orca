@@ -2,6 +2,16 @@
 
 All notable changes to Chell will be documented in this file.
 
+## [0.1.86]
+
+### Bug Fixes
+- Fix NLT and Search icons missing from shell panel header
+  - Icons now appear immediately when shell panel opens instead of waiting for terminal to report its ID
+  - Fixes race condition where icons would sometimes never appear
+- Fix NLT progress events leaking across windows
+  - Progress events are now scoped per-request using a unique request ID
+  - Running an NLT command in one window no longer affects other windows
+
 ## [0.1.85]
 
 ### Bug Fixes
