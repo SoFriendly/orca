@@ -214,7 +214,13 @@ if [ -n "$JQ_FILTER" ]; then
   # Remove leading " | "
   JQ_FILTER="${JQ_FILTER# | }"
 
+  # Always update version, notes, and pub_date along with platforms
+  PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  JQ_FILTER=".version = \$ver | .notes = \$notes | .pub_date = \$pub_date | $JQ_FILTER"
+
   jq --arg ver "$VERSION" \
+     --arg notes "$CHANGELOG_NOTES" \
+     --arg pub_date "$PUB_DATE" \
      --arg mac_sig "$MAC_SIG" \
      --arg linux_sig "$LINUX_SIG" \
      --arg linux_arm_sig "$LINUX_ARM_SIG" \
