@@ -2,6 +2,12 @@
 
 All notable changes to Chell will be documented in this file.
 
+## [0.1.82]
+
+### UI
+- Fix header alignment for project title, git icon, branch name, and chevrons
+- Remove duplicate project/branch header from GitPanel (now always shown in main header)
+
 ## [0.1.81]
 
 ### Bug Fixes
