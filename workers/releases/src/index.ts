@@ -30,8 +30,8 @@ export default {
       });
     }
 
-    // Handle chell-latest.* - redirect to the latest release files
-    const latestFileMatch = key.match(/^chell-latest\.(dmg|AppImage|deb|msi|exe)$/);
+    // Handle chell-latest.* and chell-latest-{arch}.* - redirect to the latest release files
+    const latestFileMatch = key.match(/^chell-latest(?:-(arm64|amd64))?\.(dmg|AppImage|deb|msi|exe)$/);
     if (latestFileMatch) {
       try {
         const latestJson = await env.BUCKET.get("latest.json");
@@ -40,18 +40,20 @@ export default {
             version: string;
             platforms: Record<string, { url: string; signature: string }>;
           }>();
-          const ext = latestFileMatch[1];
+          const arch = latestFileMatch[1]; // arm64, amd64, or undefined
+          const ext = latestFileMatch[2];
 
-          // Map extension to platform key
-          const platformMap: Record<string, string> = {
-            dmg: "darwin-aarch64",
-            AppImage: "linux-x86_64",
-            msi: "windows-x86_64",
-            exe: "windows-x86_64",
+          // Map extension + arch to platform key
+          const getPlatformKey = (ext: string, arch?: string): string => {
+            if (ext === "dmg") return "darwin-aarch64";
+            if (ext === "AppImage" || ext === "deb") {
+              return arch === "arm64" ? "linux-aarch64" : "linux-x86_64";
+            }
+            return "windows-x86_64";
           };
 
-          const platformKey = platformMap[ext];
-          const platform = platformKey ? latest.platforms?.[platformKey] : null;
+          const platformKey = getPlatformKey(ext, arch);
+          const platform = latest.platforms?.[platformKey];
 
           if (platform?.url) {
             return Response.redirect(platform.url, 302);
@@ -59,10 +61,11 @@ export default {
 
           // Fallback: construct URL from version
           const version = latest.version;
+          const archSuffix = arch === "arm64" ? "arm64" : "amd64";
           const fileMap: Record<string, string> = {
             dmg: `v${version}/Chell_${version}_aarch64.dmg`,
-            AppImage: `v${version}/Chell_${version}_amd64.AppImage`,
-            deb: `v${version}/Chell_${version}_amd64.deb`,
+            AppImage: `v${version}/Chell_${version}_${archSuffix}.AppImage`,
+            deb: `v${version}/Chell_${version}_${archSuffix}.deb`,
             msi: `v${version}/Chell_${version}_x64-setup.msi`,
             exe: `v${version}/Chell_${version}_x64-setup.exe`,
           };

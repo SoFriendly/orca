@@ -131,6 +131,7 @@ echo "=== Generating latest.json ==="
 # Collect signatures
 MAC_SIG=""
 LINUX_SIG=""
+LINUX_ARM_SIG=""
 WIN_SIG=""
 
 [ -f "src-tauri/target/release/bundle/Chell_${VERSION}_darwin-aarch64.app.tar.gz.sig" ] && \
@@ -163,6 +164,10 @@ cat > "$LATEST_JSON" << EOF
     "linux-x86_64": {
       "signature": "${LINUX_SIG}",
       "url": "https://releases.chell.app/v${VERSION}/Chell_${VERSION}_amd64.AppImage"
+    },
+    "linux-aarch64": {
+      "signature": "${LINUX_ARM_SIG}",
+      "url": "https://releases.chell.app/v${VERSION}/Chell_${VERSION}_arm64.AppImage"
     },
     "windows-x86_64": {
       "signature": "${WIN_SIG}",

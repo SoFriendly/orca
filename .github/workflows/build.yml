@@ -157,10 +157,12 @@ jobs:
             fi
           }
 
-          for f in artifacts/linux-deb-x86_64/*.deb; do upload "$f" "v${VERSION}/$(basename $f)"; done
-          for f in artifacts/linux-deb-aarch64/*.deb; do upload "$f" "v${VERSION}/$(basename $f)"; done
-          for f in artifacts/linux-appimage-x86_64/*.AppImage*; do upload "$f" "v${VERSION}/$(basename $f)"; done
-          for f in artifacts/linux-appimage-aarch64/*.AppImage*; do upload "$f" "v${VERSION}/$(basename $f)"; done
+          for f in artifacts/linux-deb-x86_64/*.deb; do upload "$f" "v${VERSION}/Chell_${VERSION}_amd64.deb"; done
+          for f in artifacts/linux-deb-aarch64/*.deb; do upload "$f" "v${VERSION}/Chell_${VERSION}_arm64.deb"; done
+          for f in artifacts/linux-appimage-x86_64/*.AppImage; do upload "$f" "v${VERSION}/Chell_${VERSION}_amd64.AppImage"; done
+          for f in artifacts/linux-appimage-x86_64/*.AppImage.sig; do upload "$f" "v${VERSION}/Chell_${VERSION}_amd64.AppImage.sig"; done
+          for f in artifacts/linux-appimage-aarch64/*.AppImage; do upload "$f" "v${VERSION}/Chell_${VERSION}_arm64.AppImage"; done
+          for f in artifacts/linux-appimage-aarch64/*.AppImage.sig; do upload "$f" "v${VERSION}/Chell_${VERSION}_arm64.AppImage.sig"; done
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_KEY }}
