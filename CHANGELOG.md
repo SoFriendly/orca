@@ -10,6 +10,8 @@ All notable changes to Chell will be documented in this file.
   - Removed artificial delays that could cause initialization to fail
 - Fix Linux build error with `RunEvent::Opened`
   - Wrapped macOS-only file association handler in `#[cfg(target_os = "macos")]`
+- Fix "Open Remote URL" context menu not working on multi-folder project header
+  - Added missing ContextMenu wrapper around the folder dropdown
 
 ## [0.1.84]
 

@@ -1621,40 +1621,54 @@ export default function ProjectPage() {
       <div className="absolute top-0 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 h-12 mt-0.5">
         {currentProject?.folders && currentProject.folders.length > 1 ? (
           /* Multi-folder: active folder name with dropdown */
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 gap-1 px-2 text-sm font-medium hover:bg-muted/50"
-              >
-                <span className="truncate max-w-[150px]">{activeFolder?.name || currentProject.name}</span>
-                <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="w-56 max-h-80 overflow-y-auto">
-              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                Folders
+          <ContextMenu>
+            <ContextMenuTrigger asChild>
+              <div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 gap-1 px-2 text-sm font-medium hover:bg-muted/50"
+                    >
+                      <span className="truncate max-w-[150px]">{activeFolder?.name || currentProject.name}</span>
+                      <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" className="w-56 max-h-80 overflow-y-auto">
+                    <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                      Folders
+                    </div>
+                    {currentProject.folders.map((folder) => (
+                      <DropdownMenuItem
+                        key={folder.id}
+                        onClick={() => setActiveFolderId(folder.id)}
+                        className="flex items-center justify-between"
+                      >
+                        <span className="truncate">{folder.name}</span>
+                        {folder.id === (activeFolderId || currentProject.folders?.[0]?.id) && (
+                          <Check className="h-3 w-3 text-primary" />
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleAddFolder}>
+                      <Plus className="mr-2 h-3 w-3" />
+                      Add Folder to Workspace
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-              {currentProject.folders.map((folder) => (
-                <DropdownMenuItem
-                  key={folder.id}
-                  onClick={() => setActiveFolderId(folder.id)}
-                  className="flex items-center justify-between"
-                >
-                  <span className="truncate">{folder.name}</span>
-                  {folder.id === (activeFolderId || currentProject.folders?.[0]?.id) && (
-                    <Check className="h-3 w-3 text-primary" />
-                  )}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleAddFolder}>
-                <Plus className="mr-2 h-3 w-3" />
-                Add Folder to Workspace
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </ContextMenuTrigger>
+            {isGitRepo && (
+              <ContextMenuContent>
+                <ContextMenuItem onClick={handleOpenRemoteUrl}>
+                  <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                  Open Remote URL
+                </ContextMenuItem>
+              </ContextMenuContent>
+            )}
+          </ContextMenu>
         ) : (
           /* Single folder: just show project name */
           <ContextMenu>
