@@ -171,13 +171,52 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
     let lastWidth = 0;
     let lastHeight = 0;
     let stableCount = 0;
+    let retryCount = 0;
+    const maxRetries = 60; // 3 seconds at 50ms intervals
     let stabilityTimer: ReturnType<typeof setTimeout> | null = null;
+    let resizeObserver: ResizeObserver | null = null;
+    let isReady = false;
+
+    const markReady = () => {
+      if (isReady) return;
+      isReady = true;
+      if (stabilityTimer) clearTimeout(stabilityTimer);
+      if (resizeObserver) resizeObserver.disconnect();
+      setIsContainerReady(true);
+    };
 
     const checkStability = () => {
+      if (isReady) return;
+      retryCount++;
+
       // Keep checking even if ref isn't ready yet (it may become available)
       if (!containerRef.current) {
-        stabilityTimer = setTimeout(checkStability, 50);
+        if (retryCount < maxRetries) {
+          stabilityTimer = setTimeout(checkStability, 50);
+        } else {
+          // Container ref never became available, proceed anyway
+          // Phase 2 will use fallback dimensions
+          console.warn("[Terminal] Container ref not available after timeout, using fallback dimensions");
+          markReady();
+        }
         return;
+      }
+
+      // Set up ResizeObserver if not already set (handles case where ref was initially null)
+      if (!resizeObserver) {
+        resizeObserver = new ResizeObserver((entries) => {
+          if (isReady) return;
+          for (const entry of entries) {
+            const { width, height } = entry.contentRect;
+            if (width > 0 && height > 0) {
+              // Dimensions are now available - reset stability counter
+              stableCount = 0;
+              lastWidth = width;
+              lastHeight = height;
+            }
+          }
+        });
+        resizeObserver.observe(containerRef.current);
       }
 
       const width = containerRef.current.offsetWidth;
@@ -188,7 +227,7 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
           stableCount++;
           // Require dimensions to be stable for 4 consecutive checks (200ms)
           if (stableCount >= 4) {
-            setIsContainerReady(true);
+            markReady();
             return;
           }
         } else {
@@ -198,8 +237,15 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
         }
       }
 
-      // Keep checking until ready
-      stabilityTimer = setTimeout(checkStability, 50);
+      // Keep checking until ready or max retries reached
+      if (retryCount < maxRetries) {
+        stabilityTimer = setTimeout(checkStability, 50);
+      } else {
+        // Timeout reached - proceed with whatever dimensions we have
+        // This handles cases where the container stays at 0x0 due to layout issues
+        console.warn("[Terminal] Container dimensions not stable after timeout, proceeding anyway");
+        markReady();
+      }
     };
 
     // Start checking immediately
@@ -207,6 +253,7 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
 
     return () => {
       if (stabilityTimer) clearTimeout(stabilityTimer);
+      if (resizeObserver) resizeObserver.disconnect();
     };
   }, [visible, isContainerReady]);
 
