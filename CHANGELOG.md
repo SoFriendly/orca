@@ -2,6 +2,14 @@
 
 All notable changes to Chell will be documented in this file.
 
+## [0.1.87]
+
+### Bug Fixes
+- Fix shell not loading on window launch
+  - Added 2 second timeout fallback for terminal dimension stability check
+  - Terminal now proceeds with initialization even if container dimensions are unstable or zero
+  - ResizeObserver handles proper sizing once layout settles
+
 ## [0.1.86]
 
 ### Bug Fixes
