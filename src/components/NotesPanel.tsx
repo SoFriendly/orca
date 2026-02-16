@@ -407,10 +407,7 @@ export default function NotesPanel({ projectPath, onNoteDropAtPosition }: NotesP
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex h-10 items-center justify-between px-2 border-b border-border">
-        <div className="flex items-center gap-2">
-          <StickyNote className="h-4 w-4 text-primary" />
-          <span className="text-xs font-medium">Notes</span>
-        </div>
+        <span className="text-xs font-medium">Notes</span>
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCreateNote} aria-label="Create new note">

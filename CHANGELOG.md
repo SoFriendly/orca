@@ -2,6 +2,19 @@
 
 All notable changes to Chell will be documented in this file.
 
+## [0.1.84]
+
+### Bug Fixes
+- Fix shells not resetting when opening a different folder from the sidebar
+  - Terminal tabs and utility shell are now properly killed when switching projects
+  - New terminals start fresh with the correct working directory
+- Fix git panel re-checking files after git refresh
+  - Unchecked files now stay unchecked when the diff list refreshes
+  - Only newly added files default to checked
+
+### UI
+- Remove notes icon from Notes panel header
+
 ## [0.1.82]
 
 ### UI

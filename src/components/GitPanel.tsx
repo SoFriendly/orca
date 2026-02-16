@@ -212,6 +212,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
   const searchInputRef = useRef<HTMLInputElement>(null);
   const contentSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastDiffsHash = useRef<string>("");
+  const lastDiffPaths = useRef<Set<string>>(new Set());
   const hasGeneratedInitialMessage = useRef(false);
   const pendingAutoGenerate = useRef(false);
   const lastClickedIndex = useRef<number>(-1);
@@ -237,14 +238,19 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
       setSelectedFiles(new Set());
       setFilesToCommit(new Set());
       lastDiffsHash.current = "";
+      lastDiffPaths.current = new Set();
       hasGeneratedInitialMessage.current = false;
     } else if (diffsHash !== lastDiffsHash.current) {
       // Files changed - generate new message
       const previousHash = lastDiffsHash.current;
+      const previousPaths = lastDiffPaths.current;
       lastDiffsHash.current = diffsHash;
 
       // Clear selection of files that no longer exist
       const currentPaths = new Set(diffs.map(d => d.path));
+      // Update lastDiffPaths for next comparison
+      lastDiffPaths.current = currentPaths;
+
       setSelectedFiles(prev => {
         const next = new Set<string>();
         prev.forEach(path => {
@@ -259,13 +265,15 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
         const next = new Set<string>();
         // Add all current files - new files default to checked
         currentPaths.forEach(path => {
-          // If we had a previous hash and this file existed before, keep its selection state
-          // Otherwise (new file or first load), default to checked
-          if (previousHash && prev.has(path)) {
+          if (!previousHash || previousPaths.size === 0) {
+            // First load - check all files
             next.add(path);
-          } else if (!previousHash || !prev.size) {
-            // First load or empty previous selection - check all
-            next.add(path);
+          } else if (previousPaths.has(path)) {
+            // File existed before - keep its checked/unchecked state
+            if (prev.has(path)) {
+              next.add(path);
+            }
+            // If not in prev, it was unchecked - don't add it
           } else {
             // New file - default to checked
             next.add(path);

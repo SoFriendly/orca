@@ -980,6 +980,34 @@ export default function ProjectPage() {
     checkAssistants();
   }, [customAssistants]);
 
+  // Track previous project ID to detect project switches
+  const prevProjectIdRef = useRef<string | undefined>(undefined);
+
+  // Reset terminals when project ID changes
+  useEffect(() => {
+    // Only run cleanup when actually switching projects (not on initial mount)
+    if (prevProjectIdRef.current && prevProjectIdRef.current !== projectId) {
+      // Kill existing terminals
+      const ids: string[] = [];
+      terminalTabs.forEach(tab => {
+        if (tab.terminalId) ids.push(tab.terminalId);
+      });
+      if (utilityTerminalId && utilityTerminalId !== "closed") {
+        ids.push(utilityTerminalId);
+      }
+      if (ids.length > 0) {
+        invoke("kill_terminals", { ids }).catch(() => {});
+      }
+
+      // Clear terminal state
+      setTerminalTabs([]);
+      setActiveTabId(null);
+      setUtilityTerminalId(isWindows ? "closed" : null);
+      terminalsStarted.current = false;
+    }
+    prevProjectIdRef.current = projectId;
+  }, [projectId]);
+
   // Auto-start terminals when project loads
   useEffect(() => {
     if (currentProject && !terminalsStarted.current) {
