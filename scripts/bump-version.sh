@@ -44,7 +44,8 @@ sed -i '' "s/^version = \"$CURRENT\"/version = \"$NEW_VERSION\"/" src-tauri/Carg
 
 # Update package.json if it exists
 if [ -f package.json ]; then
-  sed -i '' "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW_VERSION\"/" package.json
+  # Replace whatever version is there (handles out-of-sync versions)
+  sed -i '' "s/\"version\": \"[0-9]*\.[0-9]*\.[0-9]*\"/\"version\": \"$NEW_VERSION\"/" package.json
 fi
 
 echo "Version bumped to $NEW_VERSION in:"
