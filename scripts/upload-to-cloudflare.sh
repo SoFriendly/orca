@@ -148,7 +148,7 @@ NSIS_FILE=$(find src-tauri/target/release/bundle/nsis -name "*.exe" 2>/dev/null 
 [ -f "${NSIS_FILE}.sig" ] && upload_file "${NSIS_FILE}.sig" "v${VERSION}/Chell_${VERSION}_x64-setup.exe.sig"
 
 echo ""
-echo "=== Generating latest.json ==="
+echo "=== Updating latest.json ==="
 
 # Collect signatures
 MAC_SIG=""
@@ -176,43 +176,55 @@ fi
 [ -n "$MSI_FILE" ] && [ -f "${MSI_FILE}.sig" ] && \
   WIN_SIG=$(cat "${MSI_FILE}.sig")
 
-PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 LATEST_JSON="src-tauri/target/release/bundle/latest.json"
 
-# Escape changelog notes for JSON (escape quotes and convert newlines to \n)
-CHANGELOG_JSON=$(echo "$CHANGELOG_NOTES" | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}' | sed 's/\\n$//')
+# Fetch existing latest.json from R2
+echo "Fetching existing latest.json..."
+AWS_ACCESS_KEY_ID=$CLOUDFLARE_R2_ACCESS_KEY \
+AWS_SECRET_ACCESS_KEY=$CLOUDFLARE_R2_SECRET_KEY \
+aws s3 cp "s3://${CLOUDFLARE_R2_BUCKET}/latest.json" "$LATEST_JSON" \
+  --endpoint-url "$R2_ENDPOINT" \
+  --no-progress 2>/dev/null || echo '{"platforms":{}}' > "$LATEST_JSON"
 
-cat > "$LATEST_JSON" << EOF
-{
-  "version": "${VERSION}",
-  "notes": "${CHANGELOG_JSON}",
-  "pub_date": "${PUB_DATE}",
-  "platforms": {
-    "darwin-aarch64": {
-      "signature": "${MAC_SIG}",
-      "url": "https://releases.chell.app/v${VERSION}/Chell_${VERSION}_darwin-aarch64.app.tar.gz"
-    },
-    "darwin-x86_64": {
-      "signature": "${MAC_SIG}",
-      "url": "https://releases.chell.app/v${VERSION}/Chell_${VERSION}_darwin-x86_64.app.tar.gz"
-    },
-    "linux-x86_64": {
-      "signature": "${LINUX_SIG}",
-      "url": "https://releases.chell.app/v${VERSION}/Chell_${VERSION}_amd64.AppImage"
-    },
-    "linux-aarch64": {
-      "signature": "${LINUX_ARM_SIG}",
-      "url": "https://releases.chell.app/v${VERSION}/Chell_${VERSION}_arm64.AppImage"
-    },
-    "windows-x86_64": {
-      "signature": "${WIN_SIG}",
-      "url": "https://releases.chell.app/v${VERSION}/Chell_${VERSION}_x64-setup.msi"
-    }
-  }
-}
-EOF
+# Build jq filter to update only platforms that were built
+JQ_FILTER=""
 
-upload_file "$LATEST_JSON" "latest.json"
+if [ -n "$MAC_SIG" ]; then
+  echo "Updating macOS entries..."
+  JQ_FILTER="$JQ_FILTER | .platforms[\"darwin-aarch64\"] = {\"signature\": \$mac_sig, \"url\": \"https://releases.chell.app/v\($ver)/Chell_\($ver)_darwin-aarch64.app.tar.gz\"}"
+  JQ_FILTER="$JQ_FILTER | .platforms[\"darwin-x86_64\"] = {\"signature\": \$mac_sig, \"url\": \"https://releases.chell.app/v\($ver)/Chell_\($ver)_darwin-x86_64.app.tar.gz\"}"
+fi
+
+if [ -n "$LINUX_SIG" ]; then
+  echo "Updating Linux x64 entry..."
+  JQ_FILTER="$JQ_FILTER | .platforms[\"linux-x86_64\"] = {\"signature\": \$linux_sig, \"url\": \"https://releases.chell.app/v\($ver)/Chell_\($ver)_amd64.AppImage\"}"
+fi
+
+if [ -n "$LINUX_ARM_SIG" ]; then
+  echo "Updating Linux ARM entry..."
+  JQ_FILTER="$JQ_FILTER | .platforms[\"linux-aarch64\"] = {\"signature\": \$linux_arm_sig, \"url\": \"https://releases.chell.app/v\($ver)/Chell_\($ver)_arm64.AppImage\"}"
+fi
+
+if [ -n "$WIN_SIG" ]; then
+  echo "Updating Windows entry..."
+  JQ_FILTER="$JQ_FILTER | .platforms[\"windows-x86_64\"] = {\"signature\": \$win_sig, \"url\": \"https://releases.chell.app/v\($ver)/Chell_\($ver)_x64-setup.msi\"}"
+fi
+
+if [ -n "$JQ_FILTER" ]; then
+  # Remove leading " | "
+  JQ_FILTER="${JQ_FILTER# | }"
+
+  jq --arg ver "$VERSION" \
+     --arg mac_sig "$MAC_SIG" \
+     --arg linux_sig "$LINUX_SIG" \
+     --arg linux_arm_sig "$LINUX_ARM_SIG" \
+     --arg win_sig "$WIN_SIG" \
+     "$JQ_FILTER" "$LATEST_JSON" > "${LATEST_JSON}.tmp" && mv "${LATEST_JSON}.tmp" "$LATEST_JSON"
+
+  upload_file "$LATEST_JSON" "latest.json"
+else
+  echo "No platforms to update (no signatures found)"
+fi
 
 echo ""
 echo "=== Upload complete! ==="

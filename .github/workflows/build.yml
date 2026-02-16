@@ -107,7 +107,7 @@ jobs:
   release:
     needs: [build-linux]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.upload_artifacts
 
     steps:
       - name: Checkout
@@ -163,6 +163,25 @@ jobs:
           for f in artifacts/linux-appimage-x86_64/*.AppImage.sig; do upload "$f" "v${VERSION}/Chell_${VERSION}_amd64.AppImage.sig"; done
           for f in artifacts/linux-appimage-aarch64/*.AppImage; do upload "$f" "v${VERSION}/Chell_${VERSION}_arm64.AppImage"; done
           for f in artifacts/linux-appimage-aarch64/*.AppImage.sig; do upload "$f" "v${VERSION}/Chell_${VERSION}_arm64.AppImage.sig"; done
+
+          # Read signatures
+          LINUX_X64_SIG=$(cat artifacts/linux-appimage-x86_64/*.AppImage.sig 2>/dev/null || echo "")
+          LINUX_ARM_SIG=$(cat artifacts/linux-appimage-aarch64/*.AppImage.sig 2>/dev/null || echo "")
+          PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # Fetch existing latest.json to preserve macOS/Windows entries
+          aws s3 cp "s3://${CLOUDFLARE_R2_BUCKET}/latest.json" existing.json \
+            --endpoint-url "https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com" 2>/dev/null || echo '{"platforms":{}}' > existing.json
+
+          # Update only Linux platforms (preserves version/pub_date and other platforms)
+          jq --arg ver "$VERSION" \
+             --arg x64_sig "$LINUX_X64_SIG" \
+             --arg arm_sig "$LINUX_ARM_SIG" \
+             '.platforms["linux-x86_64"] = {"signature": $x64_sig, "url": "https://releases.chell.app/v\($ver)/Chell_\($ver)_amd64.AppImage"} |
+              .platforms["linux-aarch64"] = {"signature": $arm_sig, "url": "https://releases.chell.app/v\($ver)/Chell_\($ver)_arm64.AppImage"}' \
+             existing.json > latest.json
+
+          upload latest.json latest.json
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_KEY }}
