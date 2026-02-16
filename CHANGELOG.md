@@ -2,6 +2,14 @@
 
 All notable changes to Chell will be documented in this file.
 
+## [0.1.89]
+
+### Bug Fixes
+- Improve terminal initialization reliability in production builds
+  - Added 3-second timeout to dimension stability check to prevent infinite loops
+  - Terminal now falls back to 80x24 dimensions if container dimensions can't be determined
+  - Fixes intermittent blank shell/assistant panel on app launch
+
 ## [0.1.88]
 - Fix Monaco editor find bar close button not working
   - Removed z-index on panel header that was blocking the find widget
