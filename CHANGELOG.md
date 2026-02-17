@@ -2,6 +2,15 @@
 
 All notable changes to Chell will be documented in this file.
 
+## [0.1.91]
+
+### Bug Fixes
+- Fix terminal initialization race condition causing random blank panels
+  - Rewrote terminal initialization from complex 4-phase system to single sequential async flow
+  - Eliminates race conditions between separate React effects that could cause terminals to fail to spawn
+  - All initialization steps (dimension wait, xterm creation, PTY spawn, connection) now happen in order
+  - Fixes intermittent blank shell and assistant panels on app launch
+
 ## [0.1.90]
 
 ### Features
