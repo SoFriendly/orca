@@ -46,7 +46,7 @@ import Onboarding from "@/components/Onboarding";
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { projects, addProject, removeProject, updateProject } = useProjectStore();
+  const { projects, addProject, removeProject } = useProjectStore();
   const { defaultClonePath, hasSeenOnboarding, setHasSeenOnboarding, theme, customTheme } = useSettingsStore();
   const [cloneUrl, setCloneUrl] = useState("");
   const [clonePath, setClonePath] = useState("");
