@@ -417,14 +417,14 @@ export default function HomePage() {
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
               <button
-                onClick={handleOpenProjectFile}
-                aria-label="Open workspace"
+                onClick={handleOpenProject}
+                aria-label="Open folder"
                 className={cn(navButtonBase, "hover:border-border/60 hover:bg-muted/40 hover:text-foreground")}
               >
                 <FolderOpen className="h-5 w-5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">Open Workspace</TooltipContent>
+            <TooltipContent side="right">Open Folder</TooltipContent>
           </Tooltip>
 
           <Tooltip delayDuration={0}>
