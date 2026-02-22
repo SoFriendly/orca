@@ -117,6 +117,23 @@ pub struct Commit {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorktreeInfo {
+    pub name: String,
+    pub path: String,
+    pub branch: Option<String>,
+    #[serde(rename = "headSha")]
+    pub head_sha: Option<String>,
+    #[serde(rename = "isMain")]
+    pub is_main: bool,
+    #[serde(rename = "isLocked")]
+    pub is_locked: bool,
+    #[serde(rename = "lockReason")]
+    pub lock_reason: Option<String>,
+    #[serde(rename = "isPrunable")]
+    pub is_prunable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileTreeNode {
     pub name: String,
     pub path: String,
@@ -1239,6 +1256,35 @@ fn publish_branch(repo_path: String, remote: String) -> Result<(), String> {
 }
 
 // Git file watcher commands
+/// Resolve the actual .git directory for a repo path.
+/// Handles both regular repos (.git is a directory) and worktrees (.git is a file containing "gitdir: <path>").
+fn resolve_git_dir(repo_path: &str) -> Result<std::path::PathBuf, String> {
+    use std::path::Path;
+    let git_path = Path::new(repo_path).join(".git");
+    if !git_path.exists() {
+        return Err("Not a git repository".to_string());
+    }
+    if git_path.is_dir() {
+        return Ok(git_path);
+    }
+    // .git is a file (worktree) — parse "gitdir: <path>"
+    let content = std::fs::read_to_string(&git_path).map_err(|e| e.to_string())?;
+    let gitdir = content
+        .trim()
+        .strip_prefix("gitdir: ")
+        .ok_or_else(|| "Invalid .git file format".to_string())?;
+    let resolved = if Path::new(gitdir).is_absolute() {
+        std::path::PathBuf::from(gitdir)
+    } else {
+        Path::new(repo_path).join(gitdir)
+    };
+    if resolved.exists() {
+        Ok(resolved)
+    } else {
+        Err(format!("Git directory not found: {}", resolved.display()))
+    }
+}
+
 #[tauri::command]
 fn watch_repo(
     repo_path: String,
@@ -1257,10 +1303,7 @@ fn watch_repo(
         }
     }
 
-    let git_dir = Path::new(&repo_path).join(".git");
-    if !git_dir.exists() {
-        return Err("Not a git repository".to_string());
-    }
+    let git_dir = resolve_git_dir(&repo_path)?;
 
     // Create channels for communication
     let (event_tx, event_rx) = mpsc::channel::<()>();
@@ -1341,6 +1384,47 @@ fn unwatch_repo(
 ) -> Result<(), String> {
     state.git_watchers.lock().remove(&repo_path);
     Ok(())
+}
+
+// Worktree commands
+#[tauri::command]
+fn list_worktrees(repo_path: String) -> Result<Vec<WorktreeInfo>, String> {
+    GitService::list_worktrees(&repo_path)
+}
+
+#[tauri::command]
+fn create_worktree(
+    repo_path: String,
+    path: String,
+    branch: Option<String>,
+    new_branch: Option<String>,
+) -> Result<WorktreeInfo, String> {
+    GitService::create_worktree(
+        &repo_path,
+        &path,
+        branch.as_deref(),
+        new_branch.as_deref(),
+    )
+}
+
+#[tauri::command]
+fn remove_worktree(repo_path: String, worktree_path: String, force: bool) -> Result<(), String> {
+    GitService::remove_worktree(&repo_path, &worktree_path, force)
+}
+
+#[tauri::command]
+fn prune_worktrees(repo_path: String) -> Result<(), String> {
+    GitService::prune_worktrees(&repo_path)
+}
+
+#[tauri::command]
+fn lock_worktree(repo_path: String, worktree_path: String, reason: Option<String>) -> Result<(), String> {
+    GitService::lock_worktree(&repo_path, &worktree_path, reason.as_deref())
+}
+
+#[tauri::command]
+fn unlock_worktree(repo_path: String, worktree_path: String) -> Result<(), String> {
+    GitService::unlock_worktree(&repo_path, &worktree_path)
 }
 
 // File system watcher commands - watches project files for changes (Issue #8)
@@ -3290,6 +3374,12 @@ pub fn run() {
             publish_branch,
             watch_repo,
             unwatch_repo,
+            list_worktrees,
+            create_worktree,
+            remove_worktree,
+            prune_worktrees,
+            lock_worktree,
+            unlock_worktree,
             // Project
             add_project,
             remove_project,

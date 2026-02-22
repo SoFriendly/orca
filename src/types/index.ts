@@ -68,6 +68,17 @@ export interface Commit {
   summary?: string; // AI-generated summary
 }
 
+export interface WorktreeInfo {
+  name: string;
+  path: string;
+  branch?: string;
+  headSha?: string;
+  isMain: boolean;
+  isLocked: boolean;
+  lockReason?: string;
+  isPrunable: boolean;
+}
+
 // Terminal types
 export interface Terminal {
   id: string;

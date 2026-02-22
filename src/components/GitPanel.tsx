@@ -35,6 +35,10 @@ import {
   Save,
   Search,
   FilePlus,
+  GitFork,
+  Lock,
+  Unlock,
+  FolderPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -77,7 +81,7 @@ import {
 import { useGitStore } from "@/stores/gitStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { cn, formatTimestamp } from "@/lib/utils";
-import type { FileDiff, DiffHunk, ProjectFolder } from "@/types";
+import type { FileDiff, DiffHunk, ProjectFolder, WorktreeInfo } from "@/types";
 
 
 interface GitPanelProps {
@@ -154,8 +158,280 @@ const isPreviewable = (path: string): boolean => {
   return !binaryExtensions.some(ext => lower.endsWith(ext));
 };
 
+function WorktreeView({ worktrees, repoPath, onRefresh }: { worktrees: WorktreeInfo[]; repoPath: string; onRefresh: () => void }) {
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newWorktreePath, setNewWorktreePath] = useState("");
+  const [newWorktreeBranch, setNewWorktreeBranch] = useState("");
+  const [createNewBranch, setCreateNewBranch] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
+  const [worktreeToRemove, setWorktreeToRemove] = useState<string | null>(null);
+
+  const handleCreate = async () => {
+    if (!newWorktreePath.trim()) return;
+    setIsCreating(true);
+    try {
+      await invoke("create_worktree", {
+        repoPath,
+        path: newWorktreePath,
+        branch: createNewBranch ? null : (newWorktreeBranch || null),
+        newBranch: createNewBranch ? (newWorktreeBranch || null) : null,
+      });
+      toast.success("Worktree created");
+      setShowCreateDialog(false);
+      setNewWorktreePath("");
+      setNewWorktreeBranch("");
+      onRefresh();
+    } catch (error) {
+      toast.error(`Failed to create worktree: ${error}`);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleRemove = async (path: string, force: boolean = false) => {
+    try {
+      await invoke("remove_worktree", { repoPath, worktreePath: path, force });
+      toast.success("Worktree removed");
+      setWorktreeToRemove(null);
+      onRefresh();
+    } catch (error) {
+      toast.error(`Failed to remove worktree: ${error}`);
+    }
+  };
+
+  const handleLock = async (path: string) => {
+    try {
+      await invoke("lock_worktree", { repoPath, worktreePath: path, reason: null as string | null });
+      toast.success("Worktree locked");
+      onRefresh();
+    } catch (error) {
+      toast.error(`Failed to lock worktree: ${error}`);
+    }
+  };
+
+  const handleUnlock = async (path: string) => {
+    try {
+      await invoke("unlock_worktree", { repoPath, worktreePath: path });
+      toast.success("Worktree unlocked");
+      onRefresh();
+    } catch (error) {
+      toast.error(`Failed to unlock worktree: ${error}`);
+    }
+  };
+
+  const handlePrune = async () => {
+    try {
+      await invoke("prune_worktrees", { repoPath });
+      toast.success("Stale worktrees pruned");
+      onRefresh();
+    } catch (error) {
+      toast.error(`Failed to prune worktrees: ${error}`);
+    }
+  };
+
+  const handleOpen = async (wt: WorktreeInfo) => {
+    try {
+      const name = wt.path.split(/[/\\]/).pop() || "Worktree";
+      const project = {
+        id: crypto.randomUUID(),
+        name,
+        path: wt.path,
+        folders: [{ id: crypto.randomUUID(), name, path: wt.path }],
+        lastOpened: new Date().toISOString(),
+      };
+      await invoke("add_project", { project });
+      // Open in a new window
+      const webview = new WebviewWindow(`project-${project.id}`, {
+        url: `/#/project/${project.id}`,
+        title: name,
+        width: 1200,
+        height: 800,
+      });
+      webview.once("tauri://error", (e) => {
+        console.error("Failed to open worktree window:", e);
+      });
+    } catch (error) {
+      toast.error(`Failed to open worktree: ${error}`);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">
+          {worktrees.length} worktree{worktrees.length !== 1 ? "s" : ""}
+        </span>
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handlePrune}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Prune stale worktrees</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowCreateDialog(true)}>
+                <FolderPlus className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Create worktree</TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
+
+      {worktrees.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-8">
+          <GitFork className="mb-2 h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">No worktrees</p>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {worktrees.map((wt) => (
+            <ContextMenu key={wt.path}>
+              <ContextMenuTrigger asChild>
+                <div
+                  className="group flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50 cursor-pointer"
+                  onClick={() => !wt.isMain && handleOpen(wt)}
+                >
+                  <GitFork className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-medium truncate">
+                        {wt.branch || wt.name}
+                      </span>
+                      {wt.isMain && (
+                        <span className="text-[10px] px-1 py-0.5 rounded bg-primary/10 text-primary shrink-0">main</span>
+                      )}
+                      {wt.isLocked && (
+                        <Lock className="h-3 w-3 text-yellow-500 shrink-0" />
+                      )}
+                      {wt.isPrunable && (
+                        <span className="text-[10px] px-1 py-0.5 rounded bg-destructive/10 text-destructive shrink-0">stale</span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground truncate">{wt.path}</p>
+                    {wt.headSha && (
+                      <p className="text-[10px] text-muted-foreground/60 font-mono">{wt.headSha.slice(0, 7)}</p>
+                    )}
+                  </div>
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                {!wt.isMain && (
+                  <ContextMenuItem onClick={() => handleOpen(wt)}>
+                    <FolderOpen className="mr-2 h-3.5 w-3.5" />
+                    Open in New Window
+                  </ContextMenuItem>
+                )}
+                {wt.isLocked ? (
+                  <ContextMenuItem onClick={() => handleUnlock(wt.path)}>
+                    <Unlock className="mr-2 h-3.5 w-3.5" />
+                    Unlock
+                  </ContextMenuItem>
+                ) : (
+                  <ContextMenuItem onClick={() => handleLock(wt.path)}>
+                    <Lock className="mr-2 h-3.5 w-3.5" />
+                    Lock
+                  </ContextMenuItem>
+                )}
+                {!wt.isMain && (
+                  <>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      className="text-destructive"
+                      onClick={() => setWorktreeToRemove(wt.path)}
+                    >
+                      <Trash2 className="mr-2 h-3.5 w-3.5" />
+                      Remove
+                    </ContextMenuItem>
+                  </>
+                )}
+              </ContextMenuContent>
+            </ContextMenu>
+          ))}
+        </div>
+      )}
+
+      {/* Create Worktree Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Worktree</DialogTitle>
+            <DialogDescription>
+              Create a new worktree linked to this repository
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Worktree path (e.g., ../my-feature)"
+              value={newWorktreePath}
+              onChange={(e) => setNewWorktreePath(e.target.value)}
+              aria-label="Worktree path"
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                variant={createNewBranch ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCreateNewBranch(true)}
+              >
+                New Branch
+              </Button>
+              <Button
+                variant={!createNewBranch ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCreateNewBranch(false)}
+              >
+                Existing Branch
+              </Button>
+            </div>
+            <Input
+              placeholder={createNewBranch ? "New branch name" : "Existing branch name"}
+              value={newWorktreeBranch}
+              onChange={(e) => setNewWorktreeBranch(e.target.value)}
+              aria-label="Branch name"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newWorktreePath.trim()) {
+                  handleCreate();
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} disabled={!newWorktreePath.trim() || isCreating}>
+              {isCreating ? "Creating..." : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Worktree Confirmation */}
+      <AlertDialog open={!!worktreeToRemove} onOpenChange={(open) => !open && setWorktreeToRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove worktree?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the worktree at <span className="font-mono text-xs">{worktreeToRemove}</span>. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => worktreeToRemove && handleRemove(worktreeToRemove)}>
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo, onOpenMarkdown, shellCwd, folders, onAddFolder, onRemoveFolder, workspaceName, onRenameWorkspace, onSaveWorkspace }: GitPanelProps) {
-  const { diffs, branches, loading, status, history } = useGitStore();
+  const { diffs, branches, loading, status, history, worktrees } = useGitStore();
   const { autoCommitMessage, groqApiKey, preferredEditor, showHiddenFiles } = useSettingsStore();
   // Track the current root path for the file tree (can be changed by cd command)
   const [fileTreeRoot, setFileTreeRoot] = useState(projectPath);
@@ -182,7 +458,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
   const [filesToCommit, setFilesToCommit] = useState<Set<string>>(new Set());
   const [showDiscardSelectedDialog, setShowDiscardSelectedDialog] = useState(false);
   const [isDiscardingSelected, setIsDiscardingSelected] = useState(false);
-  const [viewMode, setViewMode] = useState<"changes" | "history" | "files">("changes");
+  const [viewMode, setViewMode] = useState<"changes" | "history" | "files" | "worktrees">("changes");
   // Expandable commit history state
   const [expandedCommits, setExpandedCommits] = useState<Set<string>>(new Set());
   const [commitDiffs, setCommitDiffs] = useState<Map<string, FileDiff[]>>(new Map());
@@ -1931,6 +2207,21 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
             </TooltipTrigger>
             <TooltipContent>Files</TooltipContent>
           </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Worktrees"
+                className={cn("h-7 w-7", viewMode === "worktrees" && "bg-primary/15 text-primary")}
+                onClick={() => setViewMode("worktrees")}
+              >
+                <GitFork className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Worktrees</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -2772,6 +3063,15 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 </div>
               )}
             </div>
+          )}
+
+          {/* Worktrees View */}
+          {viewMode === "worktrees" && (
+            <WorktreeView
+              worktrees={worktrees}
+              repoPath={gitRepoPath}
+              onRefresh={() => onRefresh(gitRepoPath)}
+            />
           )}
         </div>
       </ScrollArea>

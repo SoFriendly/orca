@@ -857,4 +857,199 @@ impl GitService {
 
         Ok(url)
     }
+
+    /// List all worktrees using `git worktree list --porcelain`
+    pub fn list_worktrees(repo_path: &str) -> Result<Vec<crate::WorktreeInfo>, String> {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("worktree")
+            .arg("list")
+            .arg("--porcelain")
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git worktree list failed: {}", stderr.trim()));
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut worktrees = Vec::new();
+        let mut current: Option<crate::WorktreeInfo> = None;
+        let mut is_first = true;
+
+        for line in stdout.lines() {
+            if line.starts_with("worktree ") {
+                if let Some(wt) = current.take() {
+                    worktrees.push(wt);
+                }
+                let path = line.strip_prefix("worktree ").unwrap().to_string();
+                let name = std::path::Path::new(&path)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| path.clone());
+                current = Some(crate::WorktreeInfo {
+                    name,
+                    path,
+                    branch: None,
+                    head_sha: None,
+                    is_main: is_first,
+                    is_locked: false,
+                    lock_reason: None,
+                    is_prunable: false,
+                });
+                is_first = false;
+            } else if let Some(ref mut wt) = current {
+                if line.starts_with("HEAD ") {
+                    wt.head_sha = Some(line.strip_prefix("HEAD ").unwrap().to_string());
+                } else if line.starts_with("branch ") {
+                    let branch = line.strip_prefix("branch ").unwrap();
+                    // Strip refs/heads/ prefix
+                    let branch = branch.strip_prefix("refs/heads/").unwrap_or(branch);
+                    wt.branch = Some(branch.to_string());
+                } else if line == "locked" {
+                    wt.is_locked = true;
+                } else if line.starts_with("locked ") {
+                    wt.is_locked = true;
+                    wt.lock_reason = Some(line.strip_prefix("locked ").unwrap().to_string());
+                } else if line == "prunable" {
+                    wt.is_prunable = true;
+                }
+            }
+        }
+
+        if let Some(wt) = current.take() {
+            worktrees.push(wt);
+        }
+
+        Ok(worktrees)
+    }
+
+    /// Create a new worktree using `git worktree add`
+    pub fn create_worktree(
+        repo_path: &str,
+        path: &str,
+        branch: Option<&str>,
+        new_branch: Option<&str>,
+    ) -> Result<crate::WorktreeInfo, String> {
+        let mut cmd = std::process::Command::new("git");
+        cmd.arg("-C").arg(repo_path).arg("worktree").arg("add");
+
+        if let Some(nb) = new_branch {
+            cmd.arg("-b").arg(nb);
+        }
+
+        cmd.arg(path);
+
+        if let Some(b) = branch {
+            cmd.arg(b);
+        }
+
+        let output = cmd
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git worktree add failed: {}", stderr.trim()));
+        }
+
+        // Return info about the newly created worktree
+        let worktrees = Self::list_worktrees(repo_path)?;
+        let canonical = std::fs::canonicalize(path)
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| path.to_string());
+        worktrees
+            .into_iter()
+            .find(|wt| wt.path == canonical || wt.path == path)
+            .ok_or_else(|| "Worktree created but not found in list".to_string())
+    }
+
+    /// Remove a worktree using `git worktree remove`
+    pub fn remove_worktree(repo_path: &str, worktree_path: &str, force: bool) -> Result<(), String> {
+        let mut cmd = std::process::Command::new("git");
+        cmd.arg("-C").arg(repo_path).arg("worktree").arg("remove");
+
+        if force {
+            cmd.arg("--force");
+        }
+
+        cmd.arg(worktree_path);
+
+        let output = cmd
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git worktree remove failed: {}", stderr.trim()));
+        }
+
+        Ok(())
+    }
+
+    /// Prune stale worktree entries using `git worktree prune`
+    pub fn prune_worktrees(repo_path: &str) -> Result<(), String> {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("worktree")
+            .arg("prune")
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git worktree prune failed: {}", stderr.trim()));
+        }
+
+        Ok(())
+    }
+
+    /// Lock a worktree using `git worktree lock`
+    pub fn lock_worktree(repo_path: &str, worktree_path: &str, reason: Option<&str>) -> Result<(), String> {
+        let mut cmd = std::process::Command::new("git");
+        cmd.arg("-C").arg(repo_path).arg("worktree").arg("lock");
+
+        if let Some(r) = reason {
+            cmd.arg("--reason").arg(r);
+        }
+
+        cmd.arg(worktree_path);
+
+        let output = cmd
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git worktree lock failed: {}", stderr.trim()));
+        }
+
+        Ok(())
+    }
+
+    /// Unlock a worktree using `git worktree unlock`
+    pub fn unlock_worktree(repo_path: &str, worktree_path: &str) -> Result<(), String> {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("worktree")
+            .arg("unlock")
+            .arg(worktree_path)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git worktree unlock failed: {}", stderr.trim()));
+        }
+
+        Ok(())
+    }
 }

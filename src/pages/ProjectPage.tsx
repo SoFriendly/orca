@@ -86,7 +86,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { cn } from "@/lib/utils";
 import { hslToHex, THEME_DEFAULTS } from "@/lib/colorUtils";
 import { getAllAssistants, getAllAssistantCommands } from "@/lib/assistants";
-import type { Project, GitStatus, FileDiff, Branch, Commit, CustomThemeColors, ProjectFolder, ProjectFileData } from "@/types";
+import type { Project, GitStatus, FileDiff, Branch, Commit, WorktreeInfo, CustomThemeColors, ProjectFolder, ProjectFileData } from "@/types";
 
 // Types for global file search
 interface FileTreeNode {
@@ -338,7 +338,7 @@ export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { projects, openTab, addFolderToProject, removeFolderFromProject, updateProject, addProject } = useProjectStore();
-  const { branches, setStatus, setDiffs, setBranches, setHistory, setLoading } = useGitStore();
+  const { branches, worktrees, setStatus, setDiffs, setBranches, setHistory, setWorktrees, setLoading } = useGitStore();
   const { assistantArgs, defaultAssistant, autoFetchRemote, theme, customTheme, customAssistants, hiddenAssistantIds, hasSeenOnboarding, setHasSeenOnboarding } = useSettingsStore();
 
   // Terminal background colors per theme (computed from --card CSS variable)
@@ -514,124 +514,122 @@ export default function ProjectPage() {
     }
   };
 
-  // Toggle handlers - resize window when adding/removing panels
-  const toggleGitPanel = async () => {
+  // Toggle handlers - redistribute space among visible panels (window size stays fixed)
+  const redistributePanelSpace = (
+    freedOrNeeded: number,
+    hiding: boolean,
+    otherPanels: { width: number; setWidth: (w: number) => void; minWidth: number }[]
+  ) => {
+    const visible = otherPanels.filter((p) => p.width > 0);
+    if (visible.length === 0) return;
+    const totalWidth = visible.reduce((sum, p) => sum + p.width, 0);
+    if (totalWidth <= 0) return;
+
+    for (const panel of visible) {
+      const ratio = panel.width / totalWidth;
+      const delta = freedOrNeeded * ratio;
+      const newWidth = hiding ? panel.width + delta : panel.width - delta;
+      panel.setWidth(Math.max(panel.minWidth, Math.round(newWidth)));
+    }
+  };
+
+  const toggleGitPanel = () => {
     if (showGitPanel && visiblePanelCount <= 1) return;
-    try {
-      isPanelResizing.current = true;
-      const window = getCurrentWindow();
-      const scaleFactor = await window.scaleFactor();
-      const physicalSize = await window.innerSize();
-      const logicalWidth = physicalSize.width / scaleFactor;
-      const logicalHeight = physicalSize.height / scaleFactor;
-      const panelWidth = showGitPanel ? gitPanelWidth + 8 : savedGitWidth.current + 8;
+    isPanelResizing.current = true;
+    const others = [
+      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 200 },
+      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 150 },
+      { width: showNotesPanel ? notesPanelWidth : 0, setWidth: setNotesPanelWidth, minWidth: 250 },
+    ];
 
-      if (showGitPanel) {
-        // Hiding: hide panel, then resize window
-        savedGitWidth.current = gitPanelWidth;
-        setShowGitPanel(false);
-        setGitPanelWidth(0);
-        await window.setSize(new LogicalSize(logicalWidth - panelWidth, logicalHeight));
-      } else {
-        // Showing: show panel first (clipped), then resize window to reveal it
-        setGitPanelWidth(savedGitWidth.current);
-        setShowGitPanel(true);
-        await window.setSize(new LogicalSize(logicalWidth + panelWidth, logicalHeight));
-      }
-      setTimeout(() => { isPanelResizing.current = false; }, 100);
-    } catch (err) {
-      console.error("Failed to resize window:", err);
-      isPanelResizing.current = false;
+    if (showGitPanel) {
+      const freed = gitPanelWidth + 8;
+      savedGitWidth.current = gitPanelWidth;
+      setShowGitPanel(false);
+      setGitPanelWidth(0);
+      redistributePanelSpace(freed, true, others);
+    } else {
+      const restored = savedGitWidth.current;
+      const needed = restored + 8;
+      setGitPanelWidth(restored);
+      setShowGitPanel(true);
+      redistributePanelSpace(needed, false, others);
     }
+    setTimeout(() => { isPanelResizing.current = false; }, 100);
   };
 
-  const toggleAssistantPanel = async () => {
+  const toggleAssistantPanel = () => {
     if (showAssistantPanel && visiblePanelCount <= 1) return;
-    try {
-      isPanelResizing.current = true;
-      const window = getCurrentWindow();
-      const scaleFactor = await window.scaleFactor();
-      const physicalSize = await window.innerSize();
-      const logicalWidth = physicalSize.width / scaleFactor;
-      const logicalHeight = physicalSize.height / scaleFactor;
-      const panelWidth = showAssistantPanel ? assistantPanelWidth + 8 : savedAssistantWidth.current + 8;
+    isPanelResizing.current = true;
+    const others = [
+      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 200 },
+      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 150 },
+      { width: showNotesPanel ? notesPanelWidth : 0, setWidth: setNotesPanelWidth, minWidth: 250 },
+    ];
 
-      if (showAssistantPanel) {
-        // Hiding: hide panel, then resize window
-        savedAssistantWidth.current = assistantPanelWidth;
-        setShowAssistantPanel(false);
-        await window.setSize(new LogicalSize(logicalWidth - panelWidth, logicalHeight));
-      } else {
-        // Showing: show panel first (clipped), then resize window to reveal it
-        setAssistantPanelWidth(savedAssistantWidth.current);
-        setShowAssistantPanel(true);
-        await window.setSize(new LogicalSize(logicalWidth + panelWidth, logicalHeight));
-      }
-      setTimeout(() => { isPanelResizing.current = false; }, 100);
-    } catch (err) {
-      console.error("Failed to resize window:", err);
-      isPanelResizing.current = false;
+    if (showAssistantPanel) {
+      const freed = assistantPanelWidth + 8;
+      savedAssistantWidth.current = assistantPanelWidth;
+      setShowAssistantPanel(false);
+      redistributePanelSpace(freed, true, others);
+    } else {
+      const restored = savedAssistantWidth.current;
+      const needed = restored + 8;
+      setAssistantPanelWidth(restored);
+      setShowAssistantPanel(true);
+      redistributePanelSpace(needed, false, others);
     }
+    setTimeout(() => { isPanelResizing.current = false; }, 100);
   };
 
-  const toggleShellPanel = async () => {
+  const toggleShellPanel = () => {
     if (showShellPanel && visiblePanelCount <= 1) return;
-    try {
-      isPanelResizing.current = true;
-      const window = getCurrentWindow();
-      const scaleFactor = await window.scaleFactor();
-      const physicalSize = await window.innerSize();
-      const logicalWidth = physicalSize.width / scaleFactor;
-      const logicalHeight = physicalSize.height / scaleFactor;
-      const panelWidth = showShellPanel ? shellPanelWidth + 8 : savedShellWidth.current + 8;
+    isPanelResizing.current = true;
+    const others = [
+      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 200 },
+      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 200 },
+      { width: showNotesPanel ? notesPanelWidth : 0, setWidth: setNotesPanelWidth, minWidth: 250 },
+    ];
 
-      if (showShellPanel) {
-        // Hiding: hide panel, then resize window
-        savedShellWidth.current = shellPanelWidth;
-        setShowShellPanel(false);
-        setShellPanelWidth(0);
-        await window.setSize(new LogicalSize(logicalWidth - panelWidth, logicalHeight));
-      } else {
-        // Showing: show panel first (clipped), then resize window to reveal it
-        setShellPanelWidth(savedShellWidth.current);
-        setShowShellPanel(true);
-        await window.setSize(new LogicalSize(logicalWidth + panelWidth, logicalHeight));
-      }
-      setTimeout(() => { isPanelResizing.current = false; }, 100);
-    } catch (err) {
-      console.error("Failed to resize window:", err);
-      isPanelResizing.current = false;
+    if (showShellPanel) {
+      const freed = shellPanelWidth + 8;
+      savedShellWidth.current = shellPanelWidth;
+      setShowShellPanel(false);
+      setShellPanelWidth(0);
+      redistributePanelSpace(freed, true, others);
+    } else {
+      const restored = savedShellWidth.current;
+      const needed = restored + 8;
+      setShellPanelWidth(restored);
+      setShowShellPanel(true);
+      redistributePanelSpace(needed, false, others);
     }
+    setTimeout(() => { isPanelResizing.current = false; }, 100);
   };
 
-  const toggleNotesPanel = async () => {
+  const toggleNotesPanel = () => {
     if (showNotesPanel && visiblePanelCount <= 1) return;
-    try {
-      isPanelResizing.current = true;
-      const window = getCurrentWindow();
-      const scaleFactor = await window.scaleFactor();
-      const physicalSize = await window.innerSize();
-      const logicalWidth = physicalSize.width / scaleFactor;
-      const logicalHeight = physicalSize.height / scaleFactor;
-      const panelWidth = showNotesPanel ? notesPanelWidth + 8 : savedNotesWidth.current + 8;
+    isPanelResizing.current = true;
+    const others = [
+      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 200 },
+      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 200 },
+      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 150 },
+    ];
 
-      if (showNotesPanel) {
-        // Hiding: hide panel, then resize window
-        savedNotesWidth.current = notesPanelWidth;
-        setShowNotesPanel(false);
-        setNotesPanelWidth(0);
-        await window.setSize(new LogicalSize(logicalWidth - panelWidth, logicalHeight));
-      } else {
-        // Showing: show panel first (clipped), then resize window to reveal it
-        setNotesPanelWidth(savedNotesWidth.current);
-        setShowNotesPanel(true);
-        await window.setSize(new LogicalSize(logicalWidth + panelWidth, logicalHeight));
-      }
-      setTimeout(() => { isPanelResizing.current = false; }, 100);
-    } catch (err) {
-      console.error("Failed to resize window:", err);
-      isPanelResizing.current = false;
+    if (showNotesPanel) {
+      const freed = notesPanelWidth + 8;
+      savedNotesWidth.current = notesPanelWidth;
+      setShowNotesPanel(false);
+      setNotesPanelWidth(0);
+      redistributePanelSpace(freed, true, others);
+    } else {
+      const restored = savedNotesWidth.current;
+      const needed = restored + 8;
+      setNotesPanelWidth(restored);
+      setShowNotesPanel(true);
+      redistributePanelSpace(needed, false, others);
     }
+    setTimeout(() => { isPanelResizing.current = false; }, 100);
   };
 
   const handleSaveMarkdownRef = useRef<() => void>(() => {});
@@ -642,17 +640,17 @@ export default function ProjectPage() {
       const content = await invoke<string>("read_text_file", { path: filePath });
       setMarkdownFile({ path: filePath, content, lineNumber });
 
-      // Expand window to accommodate the panel if not already showing
+      // Shrink other visible panels to make room for markdown panel
       if (!showMarkdownPanel) {
         isPanelResizing.current = true;
-        const window = getCurrentWindow();
-        const scaleFactor = await window.scaleFactor();
-        const physicalSize = await window.innerSize();
-        const logicalWidth = physicalSize.width / scaleFactor;
-        const logicalHeight = physicalSize.height / scaleFactor;
-        const panelWidth = savedMarkdownWidth.current + 8; // +5 for resize handle
-        await window.setSize(new LogicalSize(logicalWidth + panelWidth, logicalHeight));
-        // Clear the flag after layout settles
+        const needed = savedMarkdownWidth.current + 8;
+        const others = [
+          { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 200 },
+          { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 200 },
+          { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 150 },
+          { width: showNotesPanel ? notesPanelWidth : 0, setWidth: setNotesPanelWidth, minWidth: 250 },
+        ];
+        redistributePanelSpace(needed, false, others);
         setTimeout(() => { isPanelResizing.current = false; }, 100);
       }
 
@@ -674,6 +672,7 @@ export default function ProjectPage() {
         content
       });
       toast.success("File saved");
+      setMarkdownEditMode(false);
     } catch (err) {
       toast.error(`Failed to save: ${err}`);
     }
@@ -719,28 +718,23 @@ export default function ProjectPage() {
     }
   };
 
-  const handleCloseMarkdownPanel = async () => {
-    // Save width and close panel first
+  const handleCloseMarkdownPanel = () => {
+    isPanelResizing.current = true;
+    // Save width and close panel
     savedMarkdownWidth.current = markdownPanelWidth;
+    const freed = markdownPanelWidth + 8;
     setMarkdownFile(null);
     setShowMarkdownPanel(false);
 
-    // Then shrink window (don't block on this)
-    try {
-      isPanelResizing.current = true;
-      const window = getCurrentWindow();
-      const scaleFactor = await window.scaleFactor();
-      const physicalSize = await window.innerSize();
-      const logicalWidth = physicalSize.width / scaleFactor;
-      const logicalHeight = physicalSize.height / scaleFactor;
-      const panelWidth = markdownPanelWidth + 8; // +5 for resize handle
-      await window.setSize(new LogicalSize(logicalWidth - panelWidth, logicalHeight));
-      // Clear the flag after layout settles
-      setTimeout(() => { isPanelResizing.current = false; }, 100);
-    } catch (err) {
-      console.error("Failed to resize window:", err);
-      isPanelResizing.current = false;
-    }
+    // Distribute freed space to other visible panels
+    const others = [
+      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 200 },
+      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 200 },
+      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 150 },
+      { width: showNotesPanel ? notesPanelWidth : 0, setWidth: setNotesPanelWidth, minWidth: 250 },
+    ];
+    redistributePanelSpace(freed, true, others);
+    setTimeout(() => { isPanelResizing.current = false; }, 100);
   };
 
   // Open a new window
@@ -1675,16 +1669,18 @@ export default function ProjectPage() {
         return;
       }
 
-      const [status, diffs, branches, history] = await Promise.all([
+      const [status, diffs, branches, history, worktrees] = await Promise.all([
         invoke<GitStatus>("get_status", { repoPath: path }),
         invoke<FileDiff[]>("get_diff", { repoPath: path }),
         invoke<Branch[]>("get_branches", { repoPath: path }),
         invoke<Commit[]>("get_history", { repoPath: path, limit: 50 }),
+        invoke<WorktreeInfo[]>("list_worktrees", { repoPath: path }).catch(() => [] as WorktreeInfo[]),
       ]);
       setStatus(status);
       setDiffs(diffs);
       setBranches(branches);
       setHistory(history);
+      setWorktrees(worktrees);
     } catch (error) {
       console.error("Failed to load git data:", error);
     } finally {
@@ -1972,6 +1968,38 @@ export default function ProjectPage() {
                               className="flex items-center justify-between text-muted-foreground"
                             >
                               <span className="truncate">{branch.name}</span>
+                            </DropdownMenuItem>
+                          ))}
+                        </>
+                      )}
+                      {worktrees.length > 1 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                            Worktrees
+                          </div>
+                          {worktrees.filter(wt => !wt.isMain).map((wt) => (
+                            <DropdownMenuItem
+                              key={wt.path}
+                              onClick={async () => {
+                                const name = wt.path.split(/[/\\]/).pop() || "Worktree";
+                                const project: Project = {
+                                  id: crypto.randomUUID(),
+                                  name,
+                                  path: wt.path,
+                                  folders: [{ id: crypto.randomUUID(), name, path: wt.path }],
+                                  lastOpened: new Date().toISOString(),
+                                };
+                                await invoke("add_project", { project });
+                                navigate(`/project/${project.id}`);
+                              }}
+                              className="flex items-center justify-between text-muted-foreground"
+                            >
+                              <div className="flex flex-col min-w-0">
+                                <span className="truncate text-xs">{wt.branch || wt.name}</span>
+                                <span className="truncate text-[10px] text-muted-foreground/60">{wt.path}</span>
+                              </div>
+                              {wt.isLocked && <span className="text-[10px]">locked</span>}
                             </DropdownMenuItem>
                           ))}
                         </>
