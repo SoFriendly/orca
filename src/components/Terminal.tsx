@@ -342,7 +342,32 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
         terminal.write(bytes);
       });
 
-      const dataDisposable = terminal.onData((data) => invoke("write_terminal", { id: activeId, data }).catch(() => {}));
+      // Buffer manual input to record commands to project history
+      let inputBuffer = "";
+      const dataDisposable = terminal.onData((data) => {
+        invoke("write_terminal", { id: activeId, data }).catch(() => {});
+        if (!isAssistant) {
+          if (data === "\r") {
+            const cmd = inputBuffer.trim();
+            if (cmd) {
+              invoke("record_project_command", { command: cmd, projectPath: cwd }).catch(() => {});
+            }
+            inputBuffer = "";
+          } else if (data === "\x7f" || data === "\b") {
+            inputBuffer = inputBuffer.slice(0, -1);
+          } else if (data === "\x03" || data === "\x15") {
+            inputBuffer = "";
+          } else if (data === "\x17") {
+            // Ctrl+W: delete last word
+            inputBuffer = inputBuffer.replace(/\S*\s*$/, "");
+          } else if (data.length === 1 && data >= " ") {
+            inputBuffer += data;
+          } else if (data.length > 1 && !data.startsWith("\x1b")) {
+            // Pasted text
+            inputBuffer += data;
+          }
+        }
+      });
       const resizeDisposable = terminal.onResize(({ cols, rows }) => invoke("resize_terminal", { id: activeId, cols, rows }).catch(() => {}));
 
       let lastCols = cols, lastRows = rows, fitTimer: ReturnType<typeof setTimeout> | null = null;
