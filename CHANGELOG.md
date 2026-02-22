@@ -2,6 +2,15 @@
 
 All notable changes to Chell will be documented in this file.
 
+## [0.1.94]
+
+### Improvements
+
+- Update open project button to open folder directly
+- Fix for panels making window too big and add support for git work trees
+- Prevent backspace from navigating back in webview
+- Adds support for git worktrees
+
 ## [0.1.93]
 
 ### Features
