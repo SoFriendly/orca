@@ -40,7 +40,7 @@ import { useProjectStore, ensureFolders } from "@/stores/projectStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { cn } from "@/lib/utils";
 import { hslToHex, THEME_DEFAULTS } from "@/lib/colorUtils";
-import type { Project, ProjectFileData } from "@/types";
+import type { Project } from "@/types";
 import SettingsSheet from "@/components/SettingsSheet";
 import Onboarding from "@/components/Onboarding";
 
@@ -160,60 +160,6 @@ export default function HomePage() {
       }
     } catch (error) {
       toast.error("Failed to open project");
-      console.error(error);
-    }
-  };
-
-  // Open a .chell project file (Issue #6)
-  const handleOpenProjectFile = async () => {
-    try {
-      const selected = await open({
-        directory: false,
-        multiple: false,
-        title: "Open Workspace",
-        filters: [{ name: "Chell Project", extensions: ["chell"] }],
-      });
-
-      if (selected && typeof selected === "string") {
-        const projectData = await invoke<ProjectFileData>("load_project_file", { path: selected });
-        const primaryPath = projectData.folders[0]?.path || "";
-
-        if (!primaryPath) {
-          toast.error("Project file has no folders");
-          return;
-        }
-
-        // Check if project with this path already exists
-        const existingProject = projects.find(p => p.path === primaryPath);
-        if (existingProject) {
-          // Update existing project with new folders from .chell file
-          const updatedProject = {
-            ...existingProject,
-            name: projectData.name,
-            folders: projectData.folders,
-            lastOpened: new Date().toISOString(),
-          };
-          updateProject(existingProject.id, updatedProject);
-          await invoke("add_project", { project: updatedProject });
-          navigate(`/project/${existingProject.id}`);
-          toast.success(`Opened project: ${projectData.name}`);
-        } else {
-          // Create new project
-          const project: Project = {
-            id: crypto.randomUUID(),
-            name: projectData.name,
-            path: primaryPath,
-            folders: projectData.folders,
-            lastOpened: new Date().toISOString(),
-          };
-          addProject(project);
-          await invoke("add_project", { project });
-          navigate(`/project/${project.id}`);
-          toast.success(`Opened project: ${projectData.name}`);
-        }
-      }
-    } catch (error) {
-      toast.error("Failed to open project file");
       console.error(error);
     }
   };
