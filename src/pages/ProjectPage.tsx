@@ -1003,8 +1003,6 @@ export default function ProjectPage() {
     if (!container) return;
 
     // Sum all visible panel widths + resize handles (6px each)
-    const sidebarWidth = 56; // w-14
-    const padding = 16; // pl-1.5 + pr-2
     let totalNeeded = 0;
     const panels = [
       { show: showGitPanel, width: gitPanelWidth },
