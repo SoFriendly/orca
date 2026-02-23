@@ -2191,8 +2191,8 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   activeSidebarItem === "settings"
-                    ? "text-primary"
-                    : "hover:text-foreground"
+                    ? "bg-muted/30"
+                    : "hover:text-foreground/70 hover:bg-muted/20"
                 )}
               >
                 <Settings className="h-5 w-5" />
@@ -2217,7 +2217,7 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   showGitPanel
-                    ? "text-primary"
+                    ? "bg-muted/30"
                     : "hover:text-foreground/70 hover:bg-muted/20",
                   showGitPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
@@ -2240,7 +2240,7 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   showAssistantPanel
-                    ? "text-primary"
+                    ? "bg-muted/30"
                     : "hover:text-foreground/70 hover:bg-muted/20",
                   showAssistantPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
@@ -2263,7 +2263,7 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   showShellPanel
-                    ? "text-primary"
+                    ? "bg-muted/30"
                     : "hover:text-foreground/70 hover:bg-muted/20",
                   showShellPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
@@ -2286,7 +2286,7 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   showNotesPanel
-                    ? "text-primary"
+                    ? "bg-muted/30"
                     : "hover:text-foreground/70 hover:bg-muted/20",
                   showNotesPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
