@@ -323,7 +323,7 @@ export default function HomePage() {
   const navButtonBase =
     "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/50 transition-all duration-200";
   const panelShellClass =
-    "rounded-2xl bg-card border border-border/30";
+    "rounded-2xl bg-card shadow-[var(--panel-shadow)]";
 
   return (
     <div
@@ -438,10 +438,10 @@ export default function HomePage() {
             <div className="space-y-3 mt-8 shrink-0">
               <button
                 onClick={() => setShowCloneDialog(true)}
-                className="group flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/40 hover:bg-muted/35"
+                className="group flex w-full items-center gap-4 rounded-xl bg-primary/[0.06] p-4 text-left transition-all hover:bg-primary/[0.12]"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <Download className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <Download className="h-5 w-5 text-primary/70 group-hover:text-primary" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">Clone repository</p>
@@ -454,10 +454,10 @@ export default function HomePage() {
 
               <button
                 onClick={handleOpenProject}
-                className="group flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/40 hover:bg-muted/35"
+                className="group flex w-full items-center gap-4 rounded-xl bg-primary/[0.06] p-4 text-left transition-all hover:bg-primary/[0.12]"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <FolderOpen className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <FolderOpen className="h-5 w-5 text-primary/70 group-hover:text-primary" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">Open existing folder</p>
@@ -470,10 +470,10 @@ export default function HomePage() {
 
               <button
                 onClick={() => setShowCreateDialog(true)}
-                className="group flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/40 hover:bg-muted/35"
+                className="group flex w-full items-center gap-4 rounded-xl bg-primary/[0.06] p-4 text-left transition-all hover:bg-primary/[0.12]"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <Plus className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <Plus className="h-5 w-5 text-primary/70 group-hover:text-primary" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">Create new repository</p>
@@ -487,7 +487,7 @@ export default function HomePage() {
 
             {/* Recent projects */}
             {projects.length > 0 && (
-              <div className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card p-2">
+              <div className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl p-2">
                 <div className="flex items-center justify-between px-1 mb-3 shrink-0">
                   {showProjectSearch ? (
                     <div className="flex items-center gap-2 flex-1">
@@ -535,7 +535,7 @@ export default function HomePage() {
                     <ContextMenu key={project.id}>
                       <ContextMenuTrigger>
                         <button
-                          className="group flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:border-border/55 hover:bg-muted/25"
+                          className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-primary/[0.08]"
                           onClick={() => handleProjectClick(project)}
                         >
                           <FolderGit2 className="h-4 w-4 shrink-0 text-primary" />
