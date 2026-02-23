@@ -61,9 +61,9 @@
   }
 
   .dark {
-    --background: 256 16% 8%;
+    --background: 258 18% 8%;
     --foreground: 250 15% 90%;
-    --card: 256 20% 11%;
+    --card: 256 20% 12%;
     --card-foreground: 250 15% 90%;
     --popover: 256 20% 11%;
     --popover-foreground: 250 15% 90%;
@@ -80,8 +80,8 @@
     --border: 253 8% 21%;
     --input: 253 8% 21%;
     --ring: 252 56% 57%;
-    --panel-shadow: 8px 14px 36px rgba(10,0,30,0.4);
-    --nav-bg: 256 14% 10%;
+    --panel-shadow: 0 2px 8px rgba(0,0,0,0.15), 0 8px 24px rgba(10,0,30,0.25);
+    --nav-bg: 258 16% 9%;
   }
 
   .tokyo {
@@ -131,7 +131,7 @@
   }
 
   body {
-    background: radial-gradient(ellipse at 30% 20%, hsl(var(--primary) / 0.03) 0%, hsl(var(--background)) 60%),
+    background: radial-gradient(ellipse at 30% 20%, hsl(var(--primary) / 0.06) 0%, hsl(var(--background)) 60%),
                 hsl(var(--background));
   }
 
@@ -199,12 +199,12 @@
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: hsl(250 10% 25%);
+  background: hsl(255 12% 25%);
   border-radius: 3px;
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: hsl(250 12% 35%);
+  background: hsl(255 14% 35%);
 }
 
 .tokyo ::-webkit-scrollbar-thumb {

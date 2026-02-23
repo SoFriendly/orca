@@ -91,9 +91,9 @@ export function isValidHex(hex: string): boolean {
  */
 export const THEME_DEFAULTS: Record<'dark' | 'tokyo' | 'light', Record<string, string>> = {
   dark: {
-    background: '256 16% 8%',
+    background: '258 18% 8%',
     foreground: '250 15% 90%',
-    card: '256 20% 11%',
+    card: '256 20% 12%',
     cardForeground: '250 15% 90%',
     popover: '256 20% 11%',
     popoverForeground: '250 15% 90%',
