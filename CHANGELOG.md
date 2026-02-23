@@ -2,6 +2,19 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.1.95]
+
+### Rebrand: Chell → Orca
+
+- Rename app from Chell to Orca across the entire codebase
+- New app icon featuring the Orca logo
+- Updated purple theme with new primary accent color
+- Updated build artifacts and release filenames from Chell_ to Orca_
+- Updated documentation, build scripts, and CI workflows
+- Disable Remote Portal feature (hidden from settings)
+- Disable system tray icon
+- Home page UI refresh: cleaner action buttons, updated logo and layout
+
 ## [0.1.94]
 
 ### Improvements
