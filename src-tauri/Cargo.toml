@@ -50,3 +50,4 @@ libc = "0.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 portable-pty = "0.8.1"
+

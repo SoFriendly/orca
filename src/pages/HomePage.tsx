@@ -273,11 +273,18 @@ export default function HomePage() {
     }
   };
 
-  const handleOpenInFinder = async (path: string) => {
+  const getRevealLabel = () => {
+    const platform = navigator.platform.toUpperCase();
+    if (platform.indexOf('MAC') >= 0) return 'Open in Finder';
+    if (platform.indexOf('WIN') >= 0) return 'Show in Explorer';
+    return 'Open in File Manager';
+  };
+
+  const handleRevealInFileManager = async (path: string) => {
     try {
       await invoke("open_in_finder", { path });
     } catch (error) {
-      toast.error("Failed to open in Finder");
+      toast.error("Failed to open file manager");
       console.error(error);
     }
   };
@@ -425,8 +432,8 @@ export default function HomePage() {
           <div className="mx-auto w-full max-w-md flex flex-col flex-1 overflow-hidden">
             {/* Hero */}
             <div className="text-center shrink-0">
-              <div className="mb-8 flex justify-center">
-                <OrcaLogo size={96} />
+              <div className="mb-4 flex justify-center">
+                <OrcaLogo size={128} />
               </div>
               <h1 className="text-xl font-semibold">Welcome to Orca</h1>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -438,9 +445,9 @@ export default function HomePage() {
             <div className="space-y-3 mt-8 shrink-0">
               <button
                 onClick={() => setShowCloneDialog(true)}
-                className="group flex w-full items-center gap-4 rounded-xl bg-primary/[0.06] p-4 text-left transition-all hover:bg-primary/[0.12]"
+                className="group flex w-full items-center gap-4 rounded-xl p-4 text-left transition-all hover:bg-primary/[0.06]"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <div className="flex h-10 w-10 items-center justify-center">
                   <Download className="h-5 w-5 text-primary/70 group-hover:text-primary" />
                 </div>
                 <div className="flex-1">
@@ -454,9 +461,9 @@ export default function HomePage() {
 
               <button
                 onClick={handleOpenProject}
-                className="group flex w-full items-center gap-4 rounded-xl bg-primary/[0.06] p-4 text-left transition-all hover:bg-primary/[0.12]"
+                className="group flex w-full items-center gap-4 rounded-xl p-4 text-left transition-all hover:bg-primary/[0.06]"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <div className="flex h-10 w-10 items-center justify-center">
                   <FolderOpen className="h-5 w-5 text-primary/70 group-hover:text-primary" />
                 </div>
                 <div className="flex-1">
@@ -470,9 +477,9 @@ export default function HomePage() {
 
               <button
                 onClick={() => setShowCreateDialog(true)}
-                className="group flex w-full items-center gap-4 rounded-xl bg-primary/[0.06] p-4 text-left transition-all hover:bg-primary/[0.12]"
+                className="group flex w-full items-center gap-4 rounded-xl p-4 text-left transition-all hover:bg-primary/[0.06]"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <div className="flex h-10 w-10 items-center justify-center">
                   <Plus className="h-5 w-5 text-primary/70 group-hover:text-primary" />
                 </div>
                 <div className="flex-1">
@@ -551,9 +558,9 @@ export default function HomePage() {
                         </button>
                       </ContextMenuTrigger>
                       <ContextMenuContent>
-                        <ContextMenuItem onClick={() => handleOpenInFinder(project.path)}>
+                        <ContextMenuItem onClick={() => handleRevealInFileManager(project.path)}>
                           <FolderOpen className="mr-2 h-4 w-4" />
-                          Open in Finder
+                          {getRevealLabel()}
                         </ContextMenuItem>
                         <ContextMenuItem
                           className="text-destructive"

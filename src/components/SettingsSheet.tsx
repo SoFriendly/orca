@@ -15,7 +15,7 @@ import {
   Bot,
   ExternalLink,
   RefreshCw,
-  Smartphone,
+  // Smartphone,
   Eye,
   EyeOff,
   Trash2,
@@ -35,7 +35,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useUpdateStore } from "@/stores/updateStore";
 import { cn } from "@/lib/utils";
 import { CustomThemeEditor } from "@/components/CustomThemeEditor";
-import { RemotePortalSettings } from "@/components/RemotePortalSettings";
+// import { RemotePortalSettings } from "@/components/RemotePortalSettings";
 import { getAllAssistants, getAllAssistantCommands } from "@/lib/assistants";
 import type { ThemeOption, AssistantDefinition } from "@/types";
 
@@ -44,14 +44,14 @@ interface SettingsSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type SettingsTab = "general" | "assistants" | "appearance" | "ai" | "keyboard" | "portal" | "about";
+type SettingsTab = "general" | "assistants" | "appearance" | "ai" | "keyboard" | "about";
 
 const NAV_ITEMS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: "general", label: "General", icon: <Settings className="h-4 w-4" /> },
   { id: "assistants", label: "Assistants", icon: <Bot className="h-4 w-4" /> },
   { id: "appearance", label: "Appearance", icon: <Palette className="h-4 w-4" /> },
   { id: "ai", label: "AI Behavior", icon: <Sparkles className="h-4 w-4" /> },
-  { id: "portal", label: "Remote Portal", icon: <Smartphone className="h-4 w-4" /> },
+  // { id: "portal", label: "Remote Portal", icon: <Smartphone className="h-4 w-4" /> },
   { id: "keyboard", label: "Keyboard", icon: <Keyboard className="h-4 w-4" /> },
   { id: "about", label: "About", icon: <Info className="h-4 w-4" /> },
 ];
@@ -914,8 +914,8 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                 </div>
               )}
 
-              {/* Remote Portal Tab */}
-              {activeTab === "portal" && <RemotePortalSettings />}
+              {/* Remote Portal Tab (hidden for now) */}
+              {/* {activeTab === "portal" && <RemotePortalSettings />} */}
 
               {/* About Tab */}
               {activeTab === "about" && (

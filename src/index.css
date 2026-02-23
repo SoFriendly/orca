@@ -36,52 +36,52 @@
 
 @layer base {
   :root {
-    --background: 250 20% 98%;
-    --foreground: 250 30% 10%;
+    --background: 257 22% 98%;
+    --foreground: 257 30% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 250 30% 10%;
+    --card-foreground: 257 30% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 250 30% 10%;
-    --primary: 252 56% 52%;
+    --popover-foreground: 257 30% 10%;
+    --primary: 257 66% 48%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 250 20% 95%;
-    --secondary-foreground: 250 30% 10%;
-    --muted: 250 15% 94%;
-    --muted-foreground: 250 10% 45%;
-    --accent: 250 15% 94%;
-    --accent-foreground: 250 30% 10%;
+    --secondary: 256 22% 95%;
+    --secondary-foreground: 256 30% 10%;
+    --muted: 256 16% 94%;
+    --muted-foreground: 256 12% 45%;
+    --accent: 268 20% 93%;
+    --accent-foreground: 268 30% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
-    --border: 250 12% 85%;
-    --input: 250 12% 85%;
-    --ring: 252 56% 52%;
+    --border: 256 14% 85%;
+    --input: 256 14% 85%;
+    --ring: 257 66% 48%;
     --radius: 0.375rem;
     --panel-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
-    --nav-bg: 250 20% 97%;
+    --nav-bg: 257 22% 97%;
   }
 
   .dark {
-    --background: 258 18% 8%;
-    --foreground: 250 15% 90%;
-    --card: 256 20% 12%;
-    --card-foreground: 250 15% 90%;
-    --popover: 256 20% 11%;
-    --popover-foreground: 250 15% 90%;
-    --primary: 252 56% 57%;
+    --background: 255 18% 8%;
+    --foreground: 255 20% 90%;
+    --card: 255 15% 11%;
+    --card-foreground: 255 20% 90%;
+    --popover: 255 15% 11%;
+    --popover-foreground: 255 20% 90%;
+    --primary: 257 66% 48%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 253 10% 15%;
-    --secondary-foreground: 250 15% 90%;
-    --muted: 253 8% 18%;
-    --muted-foreground: 250 8% 55%;
-    --accent: 253 8% 18%;
-    --accent-foreground: 250 15% 90%;
+    --secondary: 255 12% 14%;
+    --secondary-foreground: 255 20% 90%;
+    --muted: 255 10% 16%;
+    --muted-foreground: 255 10% 55%;
+    --accent: 268 10% 16%;
+    --accent-foreground: 268 12% 90%;
     --destructive: 0 62.8% 50%;
     --destructive-foreground: 0 0% 100%;
-    --border: 253 8% 21%;
-    --input: 253 8% 21%;
-    --ring: 252 56% 57%;
+    --border: 255 10% 19%;
+    --input: 255 10% 19%;
+    --ring: 257 66% 48%;
     --panel-shadow: 0 2px 8px rgba(0,0,0,0.15), 0 8px 24px rgba(10,0,30,0.25);
-    --nav-bg: 258 16% 9%;
+    --nav-bg: 255 16% 9%;
   }
 
   .tokyo {
@@ -299,7 +299,7 @@
 
 /* Monospace text */
 .mono {
-  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-family: 'SF Mono', 'Menlo', 'Cascadia Code', 'Consolas', 'DejaVu Sans Mono', 'Monaco', monospace;
 }
 
 /* AI suggestion card */

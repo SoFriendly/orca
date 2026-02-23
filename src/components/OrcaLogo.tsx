@@ -35,7 +35,7 @@ export default function OrcaLogo({ className, size = 32 }: OrcaLogoProps) {
 
   return (
     <img
-      src="/orca.svg"
+      src="/OrcaIcon.svg"
       width={size}
       height={size}
       className={className}

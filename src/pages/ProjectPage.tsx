@@ -2418,7 +2418,7 @@ export default function ProjectPage() {
                     className={cn(
                       "group flex h-7 shrink-0 cursor-grab items-center gap-1.5 pl-3 pr-3 group-hover:pr-2 my-1.5 mx-0.5 rounded-full text-sm font-medium transition-all duration-200",
                       activeTabId === tab.id
-                        ? "text-foreground bg-primary/15"
+                        ? "text-foreground bg-accent"
                         : "text-muted-foreground/60 hover:text-foreground hover:bg-primary/5",
                       draggingTabId === tab.id && "opacity-60 cursor-grabbing",
                       dragOverTabId === tab.id && draggingTabId !== tab.id && "bg-muted/25"
