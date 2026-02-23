@@ -339,7 +339,7 @@ export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { projects, openTab, addFolderToProject, removeFolderFromProject, updateProject, addProject } = useProjectStore();
-  const { branches, worktrees, setStatus, setDiffs, setBranches, setHistory, setWorktrees, setLoading } = useGitStore();
+  const { diffs: storeDiffs, branches, worktrees, setStatus, setDiffs, setBranches, setHistory, setWorktrees, setLoading } = useGitStore();
   const { assistantArgs, defaultAssistant, autoFetchRemote, theme, customTheme, customAssistants, hiddenAssistantIds, hasSeenOnboarding, setHasSeenOnboarding } = useSettingsStore();
 
   // Terminal background colors per theme (computed from --card CSS variable)
@@ -1859,6 +1859,21 @@ export default function ProjectPage() {
       refreshGitData(gitRepoPath);
     }
   }, [gitRepoPath, refreshGitData]);
+
+  // Keep diff panel in sync with latest git data
+  useEffect(() => {
+    if (!diffPanelSelection || diffPanelSelection.source !== 'changes') return;
+    const updated = storeDiffs.find(d => d.path === diffPanelSelection.diff.path);
+    if (updated) {
+      // Update diff content if it changed
+      if (JSON.stringify(updated) !== JSON.stringify(diffPanelSelection.diff)) {
+        setDiffPanelSelection(prev => prev ? { ...prev, diff: updated } : null);
+      }
+    } else {
+      // File no longer has diffs (deleted, staged, or reverted) — close the panel
+      handleShowDiff(null);
+    }
+  }, [storeDiffs]);
 
   // File watcher for git status updates (replaces polling)
   useEffect(() => {
