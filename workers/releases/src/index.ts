@@ -80,8 +80,8 @@ export default {
             return Response.redirect(`${url.origin}/${targetKey}`, 302);
           }
         }
-      } catch {
-        return new Response("Could not determine latest version", { status: 500 });
+      } catch (e) {
+        return new Response(`Could not determine latest version: ${e}`, { status: 500 });
       }
     }
 
