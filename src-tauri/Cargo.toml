@@ -1,12 +1,12 @@
 [package]
-name = "chell"
+name = "orca"
 version = "0.1.94"
 description = "A cross-platform visual git client with integrated terminal for AI coding assistants"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "chell_lib"
+name = "orca_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -50,3 +50,4 @@ libc = "0.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 portable-pty = "0.8.1"
+

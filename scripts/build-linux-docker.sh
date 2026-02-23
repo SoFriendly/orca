@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Build Chell for Linux using Docker
+# Build Orca for Linux using Docker
 # Usage: ./scripts/build-linux-docker.sh [major|minor|patch]
 
 # Load environment variables from .env.local if it exists
@@ -19,17 +19,17 @@ if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
   echo "Warning: TAURI_SIGNING_PRIVATE_KEY not set - updates won't be signed"
 fi
 
-echo "Building Chell for Linux via Docker..."
+echo "Building Orca for Linux via Docker..."
 
 # Build the Docker image
-docker build -f Dockerfile.linux -t chell-linux-builder .
+docker build -f Dockerfile.linux -t orca-linux-builder .
 
 # Run the build, mounting target directory for output
 docker run --rm \
     -v "$PWD/src-tauri/target:/app/src-tauri/target" \
     -e TAURI_SIGNING_PRIVATE_KEY \
     -e TAURI_SIGNING_PRIVATE_KEY_PASSWORD \
-    chell-linux-builder
+    orca-linux-builder
 
 echo ""
 echo "Build complete!"

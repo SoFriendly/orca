@@ -8,10 +8,10 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Portal-inspired accent colors
-        portal: {
-          blue: '#00A4D6',
-          orange: '#FF6B00',
+        // Orca-inspired accent colors
+        orca: {
+          purple: '#803ffb',
+          deep: '#24088d',
         },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

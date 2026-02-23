@@ -30,7 +30,7 @@ import {
 } from "~/stores/connectionStore";
 import { useTheme } from "~/components/ThemeProvider";
 import { Button } from "~/components/ui";
-import ChellLogo from "~/components/ChellLogo";
+import OrcaLogo from "~/components/OrcaLogo";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -135,7 +135,7 @@ export default function HomeScreen() {
     <>
       <Stack.Screen
         options={{
-          title: "Chell",
+          title: "Orca",
           headerLeft: () => (
             <Pressable
               style={{ padding: 8 }}
@@ -200,10 +200,10 @@ export default function HomeScreen() {
                 borderColor: `${colors.primary}40`,
               }}
             >
-              <ChellLogo size={36} />
+              <OrcaLogo size={36} />
             </View>
             <Text className="text-xl font-semibold text-foreground">
-              Welcome to Chell
+              Welcome to Orca
             </Text>
             <Text className="text-sm text-muted-foreground mt-2">
               Think in changes, not commands.
@@ -253,7 +253,7 @@ export default function HomeScreen() {
                 onPress={() => {
                   Alert.alert(
                     "Open Repository",
-                    "Use Chell on your desktop to open a local repository, then it will appear here."
+                    "Use Orca on your desktop to open a local repository, then it will appear here."
                   );
                 }}
               >
@@ -268,7 +268,7 @@ export default function HomeScreen() {
                     Open existing repository
                   </Text>
                   <Text className="text-xs text-muted-foreground">
-                    Open a repo in Chell Desktop
+                    Open a repo in Orca Desktop
                   </Text>
                 </View>
                 <ArrowRight size={16} color={colors.mutedForeground} />
@@ -280,7 +280,7 @@ export default function HomeScreen() {
                 onPress={() => {
                   Alert.alert(
                     "Create Repository",
-                    "Use Chell on your desktop to create a new repository."
+                    "Use Orca on your desktop to create a new repository."
                   );
                 }}
               >
@@ -346,7 +346,7 @@ export default function HomeScreen() {
           {isConnected && sortedProjects.length === 0 && (
             <View className="items-center py-4">
               <Text className="text-muted-foreground text-sm text-center">
-                No projects yet. Clone a repository or open one in Chell Desktop.
+                No projects yet. Clone a repository or open one in Orca Desktop.
               </Text>
             </View>
           )}

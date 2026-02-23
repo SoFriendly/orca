@@ -1,4 +1,4 @@
-// Chell Portal Relay Worker
+// Orca Portal Relay Worker
 // Handles WebSocket connections between desktop and mobile apps
 
 export { SessionDO } from "./session";
@@ -57,7 +57,7 @@ export default {
       return handleApiRequest(request, url, env, corsHeaders);
     }
 
-    return new Response("Chell Portal Relay", {
+    return new Response("Orca Portal Relay", {
       headers: corsHeaders,
     });
   },

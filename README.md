@@ -1,8 +1,8 @@
-# Chell
+# Orca
 
 A visual git client with an integrated terminal, designed for AI coding assistants.
 
-Chell combines a simplified git interface with a full terminal environment, so you can run Claude Code, Aider, or any CLI-based coding assistant while keeping track of your changes.
+Orca combines a simplified git interface with a full terminal environment, so you can run Claude Code, Aider, or any CLI-based coding assistant while keeping track of your changes.
 
 ## Features
 
@@ -23,9 +23,9 @@ Chell combines a simplified git interface with a full terminal environment, so y
 
 Get the latest release:
 
-- **macOS:** [Chell.dmg](https://releases.chell.app/chell-latest.dmg)
-- **Linux:** [AppImage](https://releases.chell.app/chell-latest.AppImage) | [.deb](https://releases.chell.app/chell-latest.deb)
-- **Windows:** [Installer](https://releases.chell.app/chell-latest.exe) | [MSI](https://releases.chell.app/chell-latest.msi)
+- **macOS:** [Orca.dmg](https://releases.chell.app/orca-latest.dmg)
+- **Linux:** [AppImage](https://releases.chell.app/orca-latest.AppImage) | [.deb](https://releases.chell.app/orca-latest.deb)
+- **Windows:** [Installer](https://releases.chell.app/orca-latest.exe) | [MSI](https://releases.chell.app/orca-latest.msi)
 
 ## Development
 

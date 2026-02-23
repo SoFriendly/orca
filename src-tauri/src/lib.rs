@@ -13,9 +13,9 @@ use tauri::Emitter;
 use tauri::Manager;
 #[cfg(target_os = "macos")]
 use tauri::menu::{Menu, PredefinedMenuItem, Submenu};
-use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::image::Image;
-use tauri::menu::{MenuBuilder, MenuItemBuilder};
+// use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+// use tauri::image::Image;
+use tauri::menu::MenuItemBuilder;
 use uuid::Uuid;
 
 mod database;
@@ -44,7 +44,7 @@ pub struct Project {
     pub folders: Option<Vec<ProjectFolder>>,
 }
 
-// Project file format for .chell files
+// Project file format for .orca files
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectFileData {
     pub version: u32,
@@ -278,7 +278,7 @@ fn request_microphone_permission() -> Result<String, String> {
 /// Fetch secrets from macOS Keychain for environment variables.
 /// Automatically discovers Keychain items with service names starting with "env/"
 /// and exports them as environment variables (stripping the "env/" prefix).
-/// This runs in Chell's GUI context, so authorization dialogs appear properly.
+/// This runs in Orca's GUI context, so authorization dialogs appear properly.
 #[cfg(target_os = "macos")]
 fn fetch_keychain_env_vars() -> HashMap<String, String> {
     let mut env_vars = HashMap::new();
@@ -529,7 +529,7 @@ fn spawn_terminal(
 
     #[cfg(target_os = "macos")]
     {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/Users".to_string());
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/Users/Shared".to_string());
         let extra_paths = vec![
             format!("{}/bin", home),
             format!("{}/.local/bin", home),
@@ -569,7 +569,7 @@ fn spawn_terminal(
         }
 
         // Pre-fetch Keychain secrets and set as environment variables
-        // This runs in Chell's GUI context, so authorization dialogs appear properly
+        // This runs in Orca's GUI context, so authorization dialogs appear properly
         let keychain_vars = fetch_keychain_env_vars();
         for (key, value) in keychain_vars {
             cmd.env(key, value);
@@ -1213,7 +1213,7 @@ fn save_clipboard_image(base64: String, mime: String) -> Result<String, String> 
     };
 
     let mut dir = std::env::temp_dir();
-    dir.push("chell");
+    dir.push("orca");
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 
     let filename = format!("clipboard-{}.{}", Uuid::new_v4(), extension);
@@ -1905,8 +1905,8 @@ struct ShellHistoryEntry {
     timestamp: i64,
 }
 
-// Get the path to Chell's shell history file
-fn get_chell_history_path() -> Option<PathBuf> {
+// Get the path to Orca's shell history file
+fn get_orca_history_path() -> Option<PathBuf> {
     dirs::home_dir().map(|home| home.join(".claude").join("shell_history.json"))
 }
 
@@ -1918,7 +1918,7 @@ fn record_project_command(command: String, project_path: String) -> Result<(), S
         return Ok(());
     }
 
-    let history_path = get_chell_history_path().ok_or("Could not determine history path")?;
+    let history_path = get_orca_history_path().ok_or("Could not determine history path")?;
 
     // Ensure directory exists
     if let Some(parent) = history_path.parent() {
@@ -1960,7 +1960,7 @@ fn record_project_command(command: String, project_path: String) -> Result<(), S
 #[tauri::command]
 fn get_project_shell_history(project_path: String, limit: Option<usize>) -> Result<Vec<String>, String> {
     let limit = limit.unwrap_or(500);
-    let history_path = get_chell_history_path().ok_or("Could not determine history path")?;
+    let history_path = get_orca_history_path().ok_or("Could not determine history path")?;
 
     if !history_path.exists() {
         return Ok(Vec::new());
@@ -2109,7 +2109,12 @@ fn check_commands_installed(commands: Vec<String>) -> Result<Vec<String>, String
 
         #[cfg(not(target_os = "windows"))]
         {
-            let home = std::env::var("HOME").unwrap_or_else(|_| "/Users".to_string());
+            let home = std::env::var("HOME").unwrap_or_else(|_| {
+                #[cfg(target_os = "macos")]
+                { "/Users".to_string() }
+                #[cfg(not(target_os = "macos"))]
+                { "/home".to_string() }
+            });
 
             // Build the same augmented PATH that spawn_terminal uses
             search_dirs.extend(vec![
@@ -2212,7 +2217,12 @@ fn check_commands_installed(commands: Vec<String>) -> Result<Vec<String>, String
             #[cfg(not(target_os = "windows"))]
             {
                 // On Unix, try an interactive login shell
-                let shell_path = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+                let shell_path = std::env::var("SHELL").unwrap_or_else(|_| {
+                    #[cfg(target_os = "macos")]
+                    { "/bin/zsh".to_string() }
+                    #[cfg(not(target_os = "macos"))]
+                    { "/bin/bash".to_string() }
+                });
                 for cmd in &still_not_found {
                     let output = std::process::Command::new(&shell_path)
                         .args(["-i", "-l", "-c", &format!("command -v {}", cmd)])
@@ -2810,7 +2820,13 @@ fn write_text_file(path: String, content: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to write file: {}", e))
 }
 
-// Project file commands for .chell files (Issue #6)
+#[tauri::command]
+fn create_directory(path: String) -> Result<(), String> {
+    std::fs::create_dir_all(&path)
+        .map_err(|e| format!("Failed to create directory: {}", e))
+}
+
+// Project file commands for .orca files (Issue #6)
 #[tauri::command]
 fn save_project_file(path: String, data: ProjectFileData) -> Result<(), String> {
     let json = serde_json::to_string_pretty(&data)
@@ -3306,10 +3322,10 @@ pub fn run() {
 
     let data_dir = dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("chell");
+        .join("orca");
     std::fs::create_dir_all(&data_dir).ok();
 
-    let db = Database::new(data_dir.join("chell.db"))
+    let db = Database::new(data_dir.join("orca.db"))
         .expect("Failed to initialize database");
 
     // Load portal config from database
@@ -3402,6 +3418,7 @@ pub fn run() {
             save_clipboard_image,
             read_text_file,
             write_text_file,
+            create_directory,
             watch_project_files,
             unwatch_project_files,
             save_project_file,
@@ -3433,91 +3450,41 @@ pub fn run() {
                 let _ = native_pty_system();
             });
 
-            // Initialize portal connection if it was enabled
-            if portal_was_enabled {
-                log::info!("[Portal] Starting portal connection (was enabled on last run)");
-                let portal = Portal::new(app.handle().clone(), portal_config);
-                let state_clone = state_for_portal.clone();
+            // Portal is disabled for now
+            // if portal_was_enabled {
+            //     log::info!("[Portal] Starting portal connection (was enabled on last run)");
+            //     let portal = Portal::new(app.handle().clone(), portal_config);
+            //     let state_clone = state_for_portal.clone();
+            //     portal.connect(state_clone);
+            //     *state_for_portal.portal.lock() = Some(portal);
+            // }
 
-                // Connect first (this spawns internal task), then store
-                portal.connect(state_clone);
-
-                // Store the portal
-                *state_for_portal.portal.lock() = Some(portal);
-            }
-
-            // Create system tray icon
-            let new_window_item = MenuItemBuilder::with_id("new_window", "New Window").build(app)?;
-            let show_item = MenuItemBuilder::with_id("show", "Show Chell").build(app)?;
-            let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
-            let tray_menu = MenuBuilder::new(app)
-                .item(&new_window_item)
-                .item(&show_item)
-                .separator()
-                .item(&quit_item)
-                .build()?;
-
-            // Load custom tray icon
-            let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
-                .expect("Failed to load tray icon");
-
-            let _tray = TrayIconBuilder::new()
-                .icon(tray_icon)
-                .menu(&tray_menu)
-                .tooltip("Chell - Running in background")
-                .on_menu_event(|app, event| {
-                    match event.id().as_ref() {
-                        "new_window" => {
-                            let label = format!("chell-{}", std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap_or_default()
-                                .as_millis());
-                            let mut builder = tauri::WebviewWindowBuilder::new(
-                                app,
-                                &label,
-                                tauri::WebviewUrl::App("/".into()),
-                            )
-                            .title("Chell")
-                            .inner_size(1200.0, 800.0)
-                            .min_inner_size(600.0, 600.0)
-                            .center()
-                            .visible(false);
-                            #[cfg(target_os = "macos")]
-                            {
-                                builder = builder
-                                    .title_bar_style(tauri::TitleBarStyle::Overlay)
-                                    .hidden_title(true)
-                                    .background_color((0x12, 0x12, 0x12, 0xff).into());
-                            }
-                            match builder.build() {
-                                Ok(window) => { let _ = window.show(); }
-                                Err(e) => log::error!("Failed to create new window: {}", e),
-                            }
-                        }
-                        "show" => {
-                            if let Some(window) = app.get_webview_window("main") {
-                                let _ = window.show();
-                                let _ = window.set_focus();
-                            }
-                        }
-                        "quit" => {
-                            app.exit(0);
-                        }
-                        _ => {}
-                    }
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click { button, button_state, .. } = event {
-                        if button == MouseButton::Left && button_state == MouseButtonState::Up {
-                            let app = tray.app_handle();
-                            if let Some(window) = app.get_webview_window("main") {
-                                let _ = window.show();
-                                let _ = window.set_focus();
-                            }
-                        }
-                    }
-                })
-                .build(app)?;
+            // System tray icon (disabled for now - was used for portal background mode)
+            // let new_window_item = MenuItemBuilder::with_id("new_window", "New Window").build(app)?;
+            // let show_item = MenuItemBuilder::with_id("show", "Show Orca").build(app)?;
+            // let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+            // let tray_menu = MenuBuilder::new(app)
+            //     .item(&new_window_item)
+            //     .item(&show_item)
+            //     .separator()
+            //     .item(&quit_item)
+            //     .build()?;
+            // let tray_icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
+            //     .expect("Failed to load tray icon");
+            // let _tray = TrayIconBuilder::new()
+            //     .icon(tray_icon)
+            //     .menu(&tray_menu)
+            //     .tooltip("Orca - Running in background")
+            //     .on_menu_event(|app, event| {
+            //         match event.id().as_ref() {
+            //             "new_window" => { /* ... */ }
+            //             "show" => { /* ... */ }
+            //             "quit" => { app.exit(0); }
+            //             _ => {}
+            //         }
+            //     })
+            //     .on_tray_icon_event(|tray, event| { /* ... */ })
+            //     .build(app)?;
 
             // Create custom macOS menu with proper app name
             #[cfg(target_os = "macos")]
@@ -3525,20 +3492,20 @@ pub fn run() {
                 let check_for_updates_item = MenuItemBuilder::with_id("check_for_updates", "Check for Updates...").build(app)?;
                 let app_menu = Submenu::with_items(
                     app,
-                    "Chell",
+                    "Orca",
                     true,
                     &[
-                        &PredefinedMenuItem::about(app, Some("About Chell"), None)?,
+                        &PredefinedMenuItem::about(app, Some("About Orca"), None)?,
                         &PredefinedMenuItem::separator(app)?,
                         &check_for_updates_item,
                         &PredefinedMenuItem::separator(app)?,
                         &PredefinedMenuItem::services(app, None)?,
                         &PredefinedMenuItem::separator(app)?,
-                        &PredefinedMenuItem::hide(app, Some("Hide Chell"))?,
+                        &PredefinedMenuItem::hide(app, Some("Hide Orca"))?,
                         &PredefinedMenuItem::hide_others(app, None)?,
                         &PredefinedMenuItem::show_all(app, None)?,
                         &PredefinedMenuItem::separator(app)?,
-                        &PredefinedMenuItem::quit(app, Some("Quit Chell"))?,
+                        &PredefinedMenuItem::quit(app, Some("Quit Orca"))?,
                     ],
                 )?;
 
@@ -3609,14 +3576,14 @@ pub fn run() {
                 }
             }
 
-            // Handle file associations - when a .chell file is double-clicked (macOS only)
+            // Handle file associations - when a .orca file is double-clicked (macOS only)
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Opened { urls } = _event {
                 for url in urls {
                     // Convert URL to file path
                     if let Ok(path) = url.to_file_path() {
                         if let Some(ext) = path.extension() {
-                            if ext == "chell" {
+                            if ext == "orca" {
                                 if let Some(path_str) = path.to_str() {
                                     // Show and focus the main window
                                     if let Some(window) = _app_handle.get_webview_window("main") {

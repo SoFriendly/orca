@@ -61,7 +61,7 @@ export const applyTheme = (theme: ThemeOption, customColors?: CustomThemeColors)
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set, get) => ({
-      theme: 'tokyo',
+      theme: 'dark',
       customTheme: undefined,
       aiProvider: undefined,
       assistantArgs: {},
@@ -176,7 +176,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
     }),
     {
-      name: 'chell-settings',
+      name: 'orca-settings',
       onRehydrateStorage: () => (state) => {
         // Apply saved theme on load
         if (state?.theme) {

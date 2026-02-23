@@ -1,10 +1,10 @@
-import { useEffect, useState, useRef, useCallback, type WheelEvent } from "react";
+import { useEffect, useLayoutEffect, useState, useRef, useCallback, type WheelEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -28,12 +28,12 @@ import {
   Eye,
   LetterText,
   ExternalLink,
+  HelpCircle,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Editor from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
-import { ChellIcon } from "@/components/icons/ChellIcon";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -77,6 +77,7 @@ import {
 import Terminal from "@/components/Terminal";
 import SmartShell from "@/components/SmartShell";
 import GitPanel from "@/components/GitPanel";
+import DiffPanel from "@/components/DiffPanel";
 import NotesPanel from "@/components/NotesPanel";
 import SettingsSheet from "@/components/SettingsSheet";
 import Onboarding from "@/components/Onboarding";
@@ -86,7 +87,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { cn } from "@/lib/utils";
 import { hslToHex, THEME_DEFAULTS } from "@/lib/colorUtils";
 import { getAllAssistants, getAllAssistantCommands } from "@/lib/assistants";
-import type { Project, GitStatus, FileDiff, Branch, Commit, WorktreeInfo, CustomThemeColors, ProjectFolder, ProjectFileData } from "@/types";
+import type { Project, GitStatus, FileDiff, Branch, Commit, WorktreeInfo, CustomThemeColors, ProjectFolder, ProjectFileData, DiffPanelSelection } from "@/types";
 
 // Types for global file search
 interface FileTreeNode {
@@ -167,7 +168,7 @@ const defineMonacoThemes = (
   customTheme?: CustomThemeColors
 ) => {
   // Dark theme (matches app dark theme)
-  monaco.editor.defineTheme('chell-dark', {
+  monaco.editor.defineTheme('orca-dark', {
     base: 'vs-dark',
     inherit: true,
     rules: [
@@ -195,7 +196,7 @@ const defineMonacoThemes = (
   });
 
   // Tokyo Night theme
-  monaco.editor.defineTheme('chell-tokyo', {
+  monaco.editor.defineTheme('orca-indigo', {
     base: 'vs-dark',
     inherit: true,
     rules: [
@@ -223,7 +224,7 @@ const defineMonacoThemes = (
   });
 
   // Light theme
-  monaco.editor.defineTheme('chell-light', {
+  monaco.editor.defineTheme('orca-light', {
     base: 'vs',
     inherit: true,
     rules: [
@@ -258,7 +259,7 @@ const defineMonacoThemes = (
       ? colors.muted
       : colors.secondary;
 
-    monaco.editor.defineTheme('chell-custom', {
+    monaco.editor.defineTheme('orca-custom', {
       base: baseTheme === 'light' ? 'vs' : 'vs-dark',
       inherit: true,
       rules: baseTheme === 'light' ? [
@@ -310,10 +311,10 @@ const defineMonacoThemes = (
 // Map app theme to Monaco theme name
 const getMonacoTheme = (appTheme: string): string => {
   switch (appTheme) {
-    case 'tokyo': return 'chell-tokyo';
-    case 'light': return 'chell-light';
-    case 'custom': return 'chell-custom';
-    default: return 'chell-dark';
+    case 'tokyo': return 'orca-indigo';
+    case 'light': return 'orca-light';
+    case 'custom': return 'orca-custom';
+    default: return 'orca-dark';
   }
 };
 
@@ -514,7 +515,7 @@ export default function ProjectPage() {
     }
   };
 
-  // Toggle handlers - redistribute space among visible panels (window size stays fixed)
+  // Toggle handlers - redistribute space among visible panels
   const redistributePanelSpace = (
     freedOrNeeded: number,
     hiding: boolean,
@@ -537,8 +538,8 @@ export default function ProjectPage() {
     if (showGitPanel && visiblePanelCount <= 1) return;
     isPanelResizing.current = true;
     const others = [
-      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 200 },
-      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 150 },
+      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 320 },
+      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 280 },
       { width: showNotesPanel ? notesPanelWidth : 0, setWidth: setNotesPanelWidth, minWidth: 250 },
     ];
 
@@ -547,6 +548,8 @@ export default function ProjectPage() {
       savedGitWidth.current = gitPanelWidth;
       setShowGitPanel(false);
       setGitPanelWidth(0);
+      // Close diff panel when git panel is hidden
+      if (showDiffPanel) setDiffPanelSelection(null);
       redistributePanelSpace(freed, true, others);
     } else {
       const restored = savedGitWidth.current;
@@ -562,8 +565,8 @@ export default function ProjectPage() {
     if (showAssistantPanel && visiblePanelCount <= 1) return;
     isPanelResizing.current = true;
     const others = [
-      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 200 },
-      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 150 },
+      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 280 },
+      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 280 },
       { width: showNotesPanel ? notesPanelWidth : 0, setWidth: setNotesPanelWidth, minWidth: 250 },
     ];
 
@@ -586,8 +589,8 @@ export default function ProjectPage() {
     if (showShellPanel && visiblePanelCount <= 1) return;
     isPanelResizing.current = true;
     const others = [
-      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 200 },
-      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 200 },
+      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 280 },
+      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 320 },
       { width: showNotesPanel ? notesPanelWidth : 0, setWidth: setNotesPanelWidth, minWidth: 250 },
     ];
 
@@ -611,9 +614,9 @@ export default function ProjectPage() {
     if (showNotesPanel && visiblePanelCount <= 1) return;
     isPanelResizing.current = true;
     const others = [
-      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 200 },
-      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 200 },
-      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 150 },
+      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 280 },
+      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 320 },
+      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 280 },
     ];
 
     if (showNotesPanel) {
@@ -645,9 +648,9 @@ export default function ProjectPage() {
         isPanelResizing.current = true;
         const needed = savedMarkdownWidth.current + 8;
         const others = [
-          { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 200 },
-          { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 200 },
-          { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 150 },
+          { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 280 },
+          { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 320 },
+          { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 280 },
           { width: showNotesPanel ? notesPanelWidth : 0, setWidth: setNotesPanelWidth, minWidth: 250 },
         ];
         redistributePanelSpace(needed, false, others);
@@ -728,9 +731,9 @@ export default function ProjectPage() {
 
     // Distribute freed space to other visible panels
     const others = [
-      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 200 },
-      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 200 },
-      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 150 },
+      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 280 },
+      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 320 },
+      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 280 },
       { width: showNotesPanel ? notesPanelWidth : 0, setWidth: setNotesPanelWidth, minWidth: 250 },
     ];
     redistributePanelSpace(freed, true, others);
@@ -740,12 +743,12 @@ export default function ProjectPage() {
   // Open a new window
   const handleNewWindow = async () => {
     try {
-      const webview = new WebviewWindow(`chell-${Date.now()}`, {
+      const webview = new WebviewWindow(`orca-${Date.now()}`, {
         url: "/",
-        title: "Chell",
+        title: "Orca",
         width: 1200,
         height: 800,
-        minWidth: 600,
+        minWidth: 1024,
         minHeight: 600,
         center: true,
         titleBarStyle: "overlay",
@@ -767,7 +770,7 @@ export default function ProjectPage() {
   };
 
   // Resize handle drag handler
-  const handleResizeStart = (e: React.MouseEvent, panel: 'git' | 'shell' | 'notes' | 'markdown') => {
+  const handleResizeStart = (e: React.MouseEvent, panel: 'git' | 'shell' | 'notes' | 'markdown' | 'diff') => {
     e.preventDefault();
     const startX = e.clientX;
     const startGitWidth = gitPanelWidth;
@@ -775,19 +778,26 @@ export default function ProjectPage() {
     const startShellWidth = shellPanelWidth;
     const startNotesWidth = notesPanelWidth;
     const startMarkdownWidth = markdownPanelWidth;
+    const startDiffWidth = diffPanelWidth;
 
     const handleMouseMove = (e: MouseEvent) => {
       const delta = e.clientX - startX;
       if (panel === 'git') {
         // Git resize: adjust git and assistant panels
-        const newGitWidth = Math.max(150, Math.min(500, startGitWidth + delta));
-        const newAssistantWidth = Math.max(200, startAssistantWidth - (newGitWidth - startGitWidth));
+        const newGitWidth = Math.max(280, Math.min(500, startGitWidth + delta));
+        const newAssistantWidth = Math.max(320, startAssistantWidth - (newGitWidth - startGitWidth));
         setGitPanelWidth(newGitWidth);
+        setAssistantPanelWidth(newAssistantWidth);
+      } else if (panel === 'diff') {
+        // Diff panel resize: adjust diff and assistant panels
+        const newDiffWidth = Math.max(250, Math.min(700, startDiffWidth + delta));
+        const newAssistantWidth = Math.max(320, startAssistantWidth - (newDiffWidth - startDiffWidth));
+        setDiffPanelWidth(newDiffWidth);
         setAssistantPanelWidth(newAssistantWidth);
       } else if (panel === 'shell') {
         // Shell resize: adjust shell and assistant panels
-        const newShellWidth = Math.max(150, Math.min(600, startShellWidth - delta));
-        const newAssistantWidth = Math.max(200, startAssistantWidth + (startShellWidth - newShellWidth));
+        const newShellWidth = Math.max(280, Math.min(600, startShellWidth - delta));
+        const newAssistantWidth = Math.max(320, startAssistantWidth + (startShellWidth - newShellWidth));
         setShellPanelWidth(newShellWidth);
         setAssistantPanelWidth(newAssistantWidth);
       } else if (panel === 'notes') {
@@ -925,12 +935,16 @@ export default function ProjectPage() {
   const [assistantPanelWidth, setAssistantPanelWidth] = useState(520); // Main terminal area
   const [shellPanelWidth, setShellPanelWidth] = useState(400);
   const [markdownPanelWidth, setMarkdownPanelWidth] = useState(400);
-  const [notesPanelWidth, setNotesPanelWidth] = useState(320);
+  const [notesPanelWidth, setNotesPanelWidth] = useState(260);
+  const [diffPanelSelection, setDiffPanelSelection] = useState<DiffPanelSelection | null>(null);
+  const [diffPanelWidth, setDiffPanelWidth] = useState(400);
+  const savedDiffWidth = useRef(400);
+  const showDiffPanel = diffPanelSelection !== null;
   const savedGitWidth = useRef(280);
   const savedAssistantWidth = useRef(520);
   const savedShellWidth = useRef(400);
   const savedMarkdownWidth = useRef(400);
-  const savedNotesWidth = useRef(320);
+  const savedNotesWidth = useRef(260);
   const lastContainerWidth = useRef<number | null>(null);
   const isPanelResizing = useRef(false);
 
@@ -960,18 +974,20 @@ export default function ProjectPage() {
         const ratio = newWidth / oldWidth;
 
         // Proportionally adjust all panel widths
-        setGitPanelWidth(prev => Math.max(150, Math.round(prev * ratio)));
-        setAssistantPanelWidth(prev => Math.max(200, Math.round(prev * ratio)));
-        setShellPanelWidth(prev => Math.max(150, Math.round(prev * ratio)));
+        setGitPanelWidth(prev => Math.max(280, Math.round(prev * ratio)));
+        setAssistantPanelWidth(prev => Math.max(320, Math.round(prev * ratio)));
+        setShellPanelWidth(prev => Math.max(280, Math.round(prev * ratio)));
         setNotesPanelWidth(prev => Math.max(250, Math.round(prev * ratio)));
         setMarkdownPanelWidth(prev => Math.max(150, Math.round(prev * ratio)));
+        setDiffPanelWidth(prev => Math.max(250, Math.round(prev * ratio)));
 
         // Update saved widths too
-        savedGitWidth.current = Math.max(150, Math.round(savedGitWidth.current * ratio));
-        savedAssistantWidth.current = Math.max(200, Math.round(savedAssistantWidth.current * ratio));
-        savedShellWidth.current = Math.max(150, Math.round(savedShellWidth.current * ratio));
+        savedGitWidth.current = Math.max(280, Math.round(savedGitWidth.current * ratio));
+        savedAssistantWidth.current = Math.max(320, Math.round(savedAssistantWidth.current * ratio));
+        savedShellWidth.current = Math.max(280, Math.round(savedShellWidth.current * ratio));
         savedNotesWidth.current = Math.max(250, Math.round(savedNotesWidth.current * ratio));
         savedMarkdownWidth.current = Math.max(150, Math.round(savedMarkdownWidth.current * ratio));
+        savedDiffWidth.current = Math.max(250, Math.round(savedDiffWidth.current * ratio));
 
         lastContainerWidth.current = newWidth;
       }
@@ -980,6 +996,98 @@ export default function ProjectPage() {
     window.addEventListener('resize', handleWindowResize);
     return () => window.removeEventListener('resize', handleWindowResize);
   }, []);
+
+  // Grow window when panels overflow the container
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Sum all visible panel widths + resize handles (6px each)
+    const sidebarWidth = 56; // w-14
+    const padding = 16; // pl-1.5 + pr-2
+    let totalNeeded = 0;
+    const panels = [
+      { show: showGitPanel, width: gitPanelWidth },
+      { show: showDiffPanel, width: diffPanelWidth },
+      { show: showAssistantPanel, width: assistantPanelWidth },
+      { show: showShellPanel, width: shellPanelWidth },
+      { show: showNotesPanel, width: notesPanelWidth },
+      { show: showMarkdownPanel, width: markdownPanelWidth },
+    ];
+    let visibleCount = 0;
+    for (const p of panels) {
+      if (p.show) {
+        totalNeeded += p.width;
+        visibleCount++;
+      }
+    }
+    // Resize handles between panels
+    totalNeeded += Math.max(0, visibleCount - 1) * 6;
+
+    const availableWidth = container.clientWidth;
+    const overflow = totalNeeded - availableWidth;
+
+    if (overflow > 0) {
+      const win = getCurrentWindow();
+      win.outerSize().then(size => {
+        win.scaleFactor().then(scale => {
+          const logicalWidth = size.width / scale;
+          const logicalHeight = size.height / scale;
+          win.setSize(new LogicalSize(Math.round(logicalWidth + overflow + 8), Math.round(logicalHeight)));
+          lastContainerWidth.current = availableWidth + overflow + 8;
+        });
+      });
+    }
+  }, [showGitPanel, showAssistantPanel, showShellPanel, showNotesPanel, showMarkdownPanel, showDiffPanel,
+      gitPanelWidth, assistantPanelWidth, shellPanelWidth, notesPanelWidth, markdownPanelWidth, diffPanelWidth]);
+
+  // Diff panel handler
+  const handleShowDiff = useCallback((selection: DiffPanelSelection | null) => {
+    if (selection === null) {
+      // Closing: give space back to other panels
+      if (showDiffPanel) {
+        isPanelResizing.current = true;
+        const freed = diffPanelWidth + 8;
+        const others = [
+          { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 320 },
+          { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 280 },
+          { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 280 },
+        ].filter(p => p.width > 0);
+        const totalWidth = others.reduce((sum, p) => sum + p.width, 0);
+        if (totalWidth > 0) {
+          for (const panel of others) {
+            const ratio = panel.width / totalWidth;
+            panel.setWidth(Math.max(panel.minWidth, Math.round(panel.width + freed * ratio)));
+          }
+        }
+        savedDiffWidth.current = diffPanelWidth;
+        setTimeout(() => { isPanelResizing.current = false; }, 100);
+      }
+      setDiffPanelSelection(null);
+    } else {
+      // Opening or updating
+      if (!showDiffPanel) {
+        // First open: steal space from other panels
+        isPanelResizing.current = true;
+        const needed = savedDiffWidth.current + 8;
+        const others = [
+          { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 320 },
+          { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 280 },
+          { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 280 },
+        ].filter(p => p.width > 0);
+        const totalWidth = others.reduce((sum, p) => sum + p.width, 0);
+        if (totalWidth > 0) {
+          for (const panel of others) {
+            const ratio = panel.width / totalWidth;
+            panel.setWidth(Math.max(panel.minWidth, Math.round(panel.width - needed * ratio)));
+          }
+        }
+        setDiffPanelWidth(savedDiffWidth.current);
+        setTimeout(() => { isPanelResizing.current = false; }, 100);
+      }
+      setDiffPanelSelection(selection);
+    }
+  }, [showDiffPanel, diffPanelWidth, assistantPanelWidth, gitPanelWidth, shellPanelWidth, showAssistantPanel, showGitPanel, showShellPanel]);
 
   // Trigger terminal resize when panel visibility changes
   useEffect(() => {
@@ -1332,13 +1440,13 @@ export default function ProjectPage() {
     setCurrentProject(prev => prev ? { ...prev, name } : null);
   };
 
-  // Save project as .chell file (Issue #6)
+  // Save project as .orca file (Issue #6)
   const handleSaveProject = async () => {
     if (!currentProject) return;
 
     const filePath = await save({
-      defaultPath: `${currentProject.name}.chell`,
-      filters: [{ name: "Chell Project", extensions: ["chell"] }],
+      defaultPath: `${currentProject.name}.orca`,
+      filters: [{ name: "Orca Project", extensions: ["orca"] }],
       title: "Save Project",
     });
 
@@ -1809,9 +1917,9 @@ export default function ProjectPage() {
 
   const assistantOptions = getAssistantOptions();
   const navButtonBase =
-    "flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-muted-foreground transition-all";
+    "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/50 transition-all duration-200";
   const panelShellClass =
-    "rounded-2xl border border-border bg-card transition-opacity duration-150";
+    "rounded-2xl bg-card shadow-[var(--panel-shadow)] transition-opacity duration-150";
 
   return (
     <div
@@ -1834,7 +1942,7 @@ export default function ProjectPage() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0 mr-1 text-muted-foreground hover:text-foreground"
+              className="h-7 w-7 p-0 mr-1 text-muted-foreground hover:text-foreground"
               onClick={() => {
                 loadFileTree();
                 setShowFileSearch(true);
@@ -1855,7 +1963,7 @@ export default function ProjectPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 gap-1 px-2 text-sm font-medium hover:bg-muted/50"
+                      className="h-6 gap-1 px-2.5 rounded-full text-sm font-medium hover:bg-muted/50"
                     >
                       <span className="truncate max-w-[150px]">{activeFolder?.name || currentProject.name}</span>
                       <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -1865,18 +1973,19 @@ export default function ProjectPage() {
                     <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
                       Folders
                     </div>
-                    {currentProject.folders.map((folder) => (
-                      <DropdownMenuItem
-                        key={folder.id}
-                        onClick={() => setActiveFolderId(folder.id)}
-                        className="flex items-center justify-between"
-                      >
-                        <span className="truncate">{folder.name}</span>
-                        {folder.id === (activeFolderId || currentProject.folders?.[0]?.id) && (
-                          <Check className="h-3 w-3 text-primary" />
-                        )}
-                      </DropdownMenuItem>
-                    ))}
+                    {currentProject.folders.map((folder) => {
+                      const isActive = folder.id === (activeFolderId || currentProject.folders?.[0]?.id);
+                      return (
+                        <DropdownMenuItem
+                          key={folder.id}
+                          onClick={() => setActiveFolderId(folder.id)}
+                          className={cn("flex items-center justify-between", isActive && "bg-muted/50 text-foreground")}
+                        >
+                          <span className="truncate">{folder.name}</span>
+                          {isActive && <Check className="h-3 w-3 text-primary" />}
+                        </DropdownMenuItem>
+                      );
+                    })}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleAddFolder}>
                       <Plus className="mr-2 h-3 w-3" />
@@ -1922,7 +2031,7 @@ export default function ProjectPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 gap-1 px-2 text-sm font-normal text-muted-foreground hover:text-foreground translate-y-px"
+                        className="h-6 gap-1 px-2.5 rounded-full text-sm font-normal text-muted-foreground hover:text-foreground translate-y-px"
                         disabled={isSwitchingBranch}
                       >
                         <GitBranch className="h-3.5 w-3.5" />
@@ -1949,7 +2058,7 @@ export default function ProjectPage() {
                         <DropdownMenuItem
                           key={branch.name}
                           onClick={() => handleSwitchBranch(branch.name)}
-                          className="flex items-center justify-between"
+                          className={cn("flex items-center justify-between", branch.isHead && "bg-muted/50 text-foreground")}
                         >
                           <span className="truncate">{branch.name}</span>
                           {branch.isHead && <Check className="h-3 w-3 text-primary" />}
@@ -2023,16 +2132,16 @@ export default function ProjectPage() {
       <nav
         ref={sidebarNavRef}
         aria-label="Sidebar"
-        className="relative z-20 flex w-14 flex-col pl-2 pb-2 pt-12"
+        className="relative z-20 flex w-14 flex-col pl-2 pb-2 pt-12 backdrop-blur-sm"
       >
         {/* Top icon container */}
-        <div className="flex flex-col items-center gap-1 px-3 py-1">
+        <div className="flex flex-col items-center gap-1.5 px-3 py-1">
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
               <button
                 onClick={handleNewWindow}
                 aria-label="New window"
-                className={cn(navButtonBase, "hover:border-border/60 hover:bg-muted/40 hover:text-foreground")}
+                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
               >
                 <Plus className="h-5 w-5" />
               </button>
@@ -2063,7 +2172,7 @@ export default function ProjectPage() {
                   }
                 }}
                 aria-label="Open folder"
-                className={cn(navButtonBase, "hover:border-border/60 hover:bg-muted/40 hover:text-foreground")}
+                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
               >
                 <FolderOpen className="h-5 w-5" />
               </button>
@@ -2082,8 +2191,8 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   activeSidebarItem === "settings"
-                    ? "border-border bg-muted/70 text-foreground shadow-[0_0_0_1px_hsl(var(--primary)/0.3)]"
-                    : "hover:border-border/60 hover:bg-muted/40 hover:text-foreground"
+                    ? "bg-muted/30"
+                    : "hover:text-foreground/70 hover:bg-muted/20"
                 )}
               >
                 <Settings className="h-5 w-5" />
@@ -2097,9 +2206,9 @@ export default function ProjectPage() {
         <div className="flex-1" />
 
         {/* Bottom icon container */}
-        <div className="flex flex-col items-center gap-1 px-3 py-2">
+        <div className="flex flex-col items-center gap-1.5 px-3 py-2">
           {/* Panel toggle icons */}
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-col items-center gap-1.5">
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
                 <button
@@ -2107,10 +2216,9 @@ export default function ProjectPage() {
                   aria-label={showGitPanel ? "Hide git panel" : "Show git panel"}
                 className={cn(
                   navButtonBase,
-                  "text-foreground",
                   showGitPanel
-                    ? "border-border bg-muted hover:bg-muted/80"
-                    : "hover:border-border/60 hover:bg-muted/40",
+                    ? "bg-muted/30"
+                    : "hover:text-foreground/70 hover:bg-muted/20",
                   showGitPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2131,10 +2239,9 @@ export default function ProjectPage() {
                   aria-label={showAssistantPanel ? "Hide assistant" : "Show assistant"}
                 className={cn(
                   navButtonBase,
-                  "text-foreground",
                   showAssistantPanel
-                    ? "border-border bg-muted hover:bg-muted/80"
-                    : "hover:border-border/60 hover:bg-muted/40",
+                    ? "bg-muted/30"
+                    : "hover:text-foreground/70 hover:bg-muted/20",
                   showAssistantPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2155,10 +2262,9 @@ export default function ProjectPage() {
                   aria-label={showShellPanel ? "Hide shell" : "Show shell"}
                 className={cn(
                   navButtonBase,
-                  "text-foreground",
                   showShellPanel
-                    ? "border-border bg-muted hover:bg-muted/80"
-                    : "hover:border-border/60 hover:bg-muted/40",
+                    ? "bg-muted/30"
+                    : "hover:text-foreground/70 hover:bg-muted/20",
                   showShellPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2179,10 +2285,9 @@ export default function ProjectPage() {
                   aria-label={showNotesPanel ? "Hide notes" : "Show notes"}
                 className={cn(
                   navButtonBase,
-                  "text-foreground",
                   showNotesPanel
-                    ? "border-border bg-muted hover:bg-muted/80"
-                    : "hover:border-border/60 hover:bg-muted/40",
+                    ? "bg-muted/30"
+                    : "hover:text-foreground/70 hover:bg-muted/20",
                   showNotesPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2197,18 +2302,18 @@ export default function ProjectPage() {
             </Tooltip>
           </div>
 
-          <div className="my-1 h-px w-7 bg-border/65" />
+          <div className="my-1.5" />
 
           {/* Bottom icons */}
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-col items-center gap-1.5">
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
                 <button
                   aria-label="Help"
                   onClick={() => setHasSeenOnboarding(false)}
-                  className={cn(navButtonBase, "hover:border-border/60 hover:bg-muted/40 hover:text-foreground")}
+                  className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
                 >
-                  <ChellIcon className="h-5 w-5" />
+                  <HelpCircle className="h-5 w-5" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right">Help</TooltipContent>
@@ -2220,15 +2325,15 @@ export default function ProjectPage() {
       {/* Main content area */}
       <main
         ref={containerRef}
-        className="relative z-10 flex flex-1 overflow-hidden px-2 pb-2 pt-12"
+        className="relative z-10 flex flex-1 overflow-hidden pl-1.5 pr-2 pb-2 pt-12"
       >
-        <h1 className="sr-only">{currentProject.name} - Chell</h1>
+        <h1 className="sr-only">{currentProject.name} - Orca</h1>
         {/* Left sidebar - Git panel */}
         <div
           role="region"
           aria-label="Git panel"
           className={cn("h-full flex flex-col overflow-hidden", panelShellClass, !showGitPanel && "hidden")}
-          style={{ width: gitPanelWidth, minWidth: 200 }}
+          style={{ flex: `0 1 ${gitPanelWidth}px`, minWidth: 280 }}
         >
           <GitPanel
             projectPath={currentProject.path}
@@ -2243,14 +2348,36 @@ export default function ProjectPage() {
             workspaceName={currentProject.name}
             onRenameWorkspace={handleRenameWorkspace}
             onSaveWorkspace={handleSaveProject}
+            onShowDiff={handleShowDiff}
+            activeDiffPath={diffPanelSelection?.diff.path ?? null}
           />
         </div>
         {/* Resize handle for git panel */}
         {showGitPanel && (
           <div
-            className="w-2 shrink-0 cursor-col-resize"
+            className="w-1.5 shrink-0 cursor-col-resize"
             onMouseDown={(e) => handleResizeStart(e, 'git')}
           />
+        )}
+
+        {/* Diff panel */}
+        {showDiffPanel && (
+          <>
+            <div
+              className={cn("h-full flex flex-col overflow-hidden", panelShellClass)}
+              style={{ flex: `0 1 ${diffPanelWidth}px`, minWidth: 250 }}
+            >
+              <DiffPanel
+                selection={diffPanelSelection}
+                onClose={() => handleShowDiff(null)}
+                onRefresh={() => refreshGitData()}
+              />
+            </div>
+            <div
+              className="w-1.5 shrink-0 cursor-col-resize"
+              onMouseDown={(e) => handleResizeStart(e, 'diff')}
+            />
+          </>
         )}
 
         {/* Center - Terminal area */}
@@ -2263,13 +2390,13 @@ export default function ProjectPage() {
             panelShellClass,
             !showAssistantPanel && "hidden"
           )}
-          style={{ flex: `1 1 ${assistantPanelWidth}px`, minWidth: 200, backgroundColor: terminalBg }}
+          style={{ flex: `1 1 ${assistantPanelWidth}px`, minWidth: 320, backgroundColor: terminalBg }}
           onDragOver={handlePanelDragOver}
           onDrop={handleAssistantPanelDrop}
         >
           <div className="flex h-full flex-col select-none overflow-hidden">
           {/* Tab bar */}
-          <div className="flex h-10 items-center border-b border-border">
+          <div className="flex h-10 items-center px-1.5 pt-1">
             <div
               ref={tabListRef}
               role="tablist"
@@ -2278,7 +2405,7 @@ export default function ProjectPage() {
               onWheel={handleTabWheel}
             >
               <div className="flex min-w-max items-center">
-                {terminalTabs.map((tab, index) => (
+                {terminalTabs.map((tab) => (
                   <div
                     key={tab.id}
                     data-tab-item
@@ -2289,15 +2416,13 @@ export default function ProjectPage() {
                       else tabRefs.current.delete(tab.id);
                     }}
                     className={cn(
-                      "group relative flex h-10 shrink-0 cursor-grab items-center gap-1.5 px-3 text-sm font-medium transition-colors",
+                      "group flex h-7 shrink-0 cursor-grab items-center gap-1.5 pl-3 pr-3 group-hover:pr-2 my-1.5 mx-0.5 rounded-full text-sm font-medium transition-all duration-200",
                       activeTabId === tab.id
-                        ? "text-foreground border-r border-border/70"
-                        : "text-muted-foreground hover:bg-card/50 hover:text-foreground",
-                      index > 0 && "border-l border-border/70",
+                        ? "text-foreground bg-accent"
+                        : "text-muted-foreground/60 hover:text-foreground hover:bg-primary/5",
                       draggingTabId === tab.id && "opacity-60 cursor-grabbing",
-                      dragOverTabId === tab.id && draggingTabId !== tab.id && "bg-card/30"
+                      dragOverTabId === tab.id && draggingTabId !== tab.id && "bg-muted/25"
                     )}
-                    style={activeTabId === tab.id ? { backgroundColor: terminalBg } : undefined}
                     onClick={() => !draggingTabId && setActiveTabId(tab.id)}
                     onMouseDown={(event) => handleTabMouseDown(event, tab.id)}
                   >
@@ -2333,8 +2458,7 @@ export default function ProjectPage() {
                       closeTab(tab.id);
                     }}
                     aria-label={`Close ${tab.name} tab`}
-                    className="absolute right-1 rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity"
-                    style={{ backgroundColor: terminalBg }}
+                    className="ml-1 shrink-0 rounded-full p-0.5 hidden group-hover:flex hover:bg-muted/50 transition-opacity"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -2346,7 +2470,7 @@ export default function ProjectPage() {
               <DropdownMenuTrigger asChild>
                 <button
                   aria-label="New tab"
-                  className="flex h-10 items-center px-3 text-muted-foreground transition-colors hover:bg-card/50 hover:text-foreground"
+                  className="flex h-7 w-7 items-center justify-center my-1.5 mx-0.5 rounded-full text-muted-foreground/70 transition-all duration-200 hover:bg-muted/25 hover:text-foreground"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -2553,7 +2677,7 @@ export default function ProjectPage() {
         {/* Resize handle for shell panel - only show when assistant is visible */}
         {showShellPanel && showAssistantPanel && (
           <div
-            className="w-2 shrink-0 cursor-col-resize"
+            className="w-1.5 shrink-0 cursor-col-resize"
             onMouseDown={(e) => handleResizeStart(e, 'shell')}
           />
         )}
@@ -2569,12 +2693,12 @@ export default function ProjectPage() {
             !showShellPanel && "hidden",
             !showAssistantPanel && "flex-1 min-w-0"
           )}
-          style={showAssistantPanel ? { width: shellPanelWidth, minWidth: 200 } : undefined}
+          style={showAssistantPanel ? { flex: `0 1 ${shellPanelWidth}px`, minWidth: 280 } : undefined}
           onDragOver={handlePanelDragOver}
           onDrop={handleShellPanelDrop}
         >
           {/* Header */}
-          <div className="flex h-10 items-center justify-between border-b border-border/70 bg-card/45 px-2">
+          <div className="flex h-10 items-center justify-between px-3 text-muted-foreground/60">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {shellCwd && (
                 <DropdownMenu onOpenChange={(open) => open && loadShellDirectories(shellCwd)}>
@@ -2582,7 +2706,7 @@ export default function ProjectPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 gap-1 px-1.5 text-xs font-normal text-muted-foreground hover:text-foreground min-w-0"
+                      className="h-6 gap-1 px-2.5 rounded-full text-xs font-normal text-inherit hover:text-foreground min-w-0"
                     >
                       <Folder className="h-3 w-3 shrink-0" />
                       <span className="truncate max-w-[120px]">
@@ -2619,8 +2743,8 @@ export default function ProjectPage() {
                         size="icon"
                         aria-label="Natural language terminal"
                         className={cn(
-                          "h-6 w-6 shrink-0",
-                          showNlt && "text-primary"
+                          "h-7 w-7 shrink-0 text-inherit hover:text-foreground",
+                          showNlt && "!text-primary"
                         )}
                         onClick={() => setShowNlt(!showNlt)}
                       >
@@ -2635,7 +2759,7 @@ export default function ProjectPage() {
                         variant="ghost"
                         size="icon"
                         aria-label="Search history"
-                        className="h-6 w-6 shrink-0"
+                        className="h-7 w-7 shrink-0 text-inherit hover:text-foreground"
                         onClick={() => {
                           loadShellHistory();
                           setShowHistorySearch(true);
@@ -2653,7 +2777,7 @@ export default function ProjectPage() {
                   variant="ghost"
                   size="icon"
                   aria-label="Kill shell"
-                  className="h-6 w-6 shrink-0"
+                  className="h-7 w-7 shrink-0"
                   onClick={() => {
                     if (utilityTerminalId) {
                       invoke("kill_terminal", { id: utilityTerminalId });
@@ -2804,7 +2928,7 @@ export default function ProjectPage() {
         {/* Resize handle for notes panel */}
         {showNotesPanel && (
           <div
-            className="w-2 shrink-0 cursor-col-resize"
+            className="w-1.5 shrink-0 cursor-col-resize"
             onMouseDown={(e) => handleResizeStart(e, 'notes')}
           />
         )}
@@ -2814,11 +2938,11 @@ export default function ProjectPage() {
           role="region"
           aria-label="Notes panel"
           className={cn(
-            "h-full flex flex-col overflow-hidden shrink-0",
+            "h-full flex flex-col overflow-hidden",
             panelShellClass,
             !showNotesPanel && "hidden"
           )}
-          style={{ width: notesPanelWidth, minWidth: 250 }}
+          style={{ flex: `0 1 ${notesPanelWidth}px`, minWidth: 250 }}
         >
           <NotesPanel projectPath={currentProject.path} onNoteDropAtPosition={handleNoteDropAtPosition} />
         </div>
@@ -2826,7 +2950,7 @@ export default function ProjectPage() {
         {/* Resize handle for markdown panel */}
         {showMarkdownPanel && (
           <div
-            className="w-2 shrink-0 cursor-col-resize"
+            className="w-1.5 shrink-0 cursor-col-resize"
             onMouseDown={(e) => handleResizeStart(e, 'markdown')}
           />
         )}
@@ -2839,10 +2963,10 @@ export default function ProjectPage() {
             !showMarkdownPanel && "hidden",
             !showAssistantPanel && !showShellPanel && "flex-1 min-w-0"
           )}
-          style={showAssistantPanel || showShellPanel ? { width: markdownPanelWidth, minWidth: 300 } : undefined}
+          style={showAssistantPanel || showShellPanel ? { flex: `0 1 ${markdownPanelWidth}px`, minWidth: 300 } : undefined}
         >
           {/* Header */}
-          <div className="relative flex h-10 items-center justify-between border-b border-border/70 bg-card/45 px-2">
+          <div className="relative flex h-10 items-center justify-between px-3 text-muted-foreground/60">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <FileText className="h-4 w-4 shrink-0 text-primary" />
               <span className="text-xs truncate">
@@ -2858,7 +2982,7 @@ export default function ProjectPage() {
                         variant="ghost"
                         size="icon"
                         aria-label={markdownEditMode ? "Preview" : "Edit"}
-                        className={cn("h-6 w-6", markdownEditMode && "text-primary hover:text-primary")}
+                        className={cn("h-7 w-7 text-inherit hover:text-foreground", markdownEditMode && "!text-primary")}
                         onClick={() => setMarkdownEditMode(!markdownEditMode)}
                       >
                         {markdownEditMode ? <Eye className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
@@ -2873,7 +2997,7 @@ export default function ProjectPage() {
                           variant="ghost"
                           size="icon"
                           aria-label="Save"
-                          className="h-6 w-6"
+                          className="h-7 w-7 text-inherit hover:text-foreground"
                           onClick={handleSaveMarkdown}
                         >
                           <Save className="h-3 w-3" />
@@ -2892,7 +3016,7 @@ export default function ProjectPage() {
                       variant="ghost"
                       size="icon"
                       aria-label="Save"
-                      className="h-6 w-6"
+                      className="h-7 w-7 text-inherit hover:text-foreground"
                       onClick={handleSaveMarkdown}
                     >
                       <Save className="h-3 w-3" />
@@ -2909,7 +3033,7 @@ export default function ProjectPage() {
                       variant="ghost"
                       size="icon"
                       aria-label="Find"
-                      className="h-6 w-6"
+                      className="h-7 w-7 text-inherit hover:text-foreground"
                       onClick={handleEditorFind}
                     >
                       <Search className="h-3 w-3" />
@@ -2922,7 +3046,7 @@ export default function ProjectPage() {
                 variant="ghost"
                 size="icon"
                 aria-label="Close file panel"
-                className="h-6 w-6"
+                className="h-7 w-7 text-inherit hover:text-foreground"
                 onClick={handleCloseMarkdownPanel}
               >
                 <X className="h-3 w-3" />

@@ -82,7 +82,7 @@ export function RemotePortalSettings() {
   // Generate QR code data
   const qrData = useMemo(() => {
     return JSON.stringify({
-      type: "chell-portal",
+      type: "orca-portal",
       version: 1,
       relay: relayUrl,
       passphrase: pairingPassphrase,
@@ -133,7 +133,7 @@ export function RemotePortalSettings() {
               Remote Portal
             </h2>
             <p className="text-sm text-muted-foreground">
-              Control Chell from your mobile device
+              Control Orca from your mobile device
             </p>
           </div>
           <Switch checked={isEnabled} onCheckedChange={handleTogglePortal} />
@@ -179,7 +179,7 @@ export function RemotePortalSettings() {
               </div>
               <div className="flex-1 space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Scan this QR code with the Chell Portal app on your phone to
+                  Scan this QR code with the Orca Portal app on your phone to
                   connect.
                 </p>
 
@@ -336,7 +336,7 @@ export function RemotePortalSettings() {
                   <div>
                     <p className="text-sm font-medium">Get Mobile App</p>
                     <p className="text-xs text-muted-foreground">
-                      Download Chell Portal for iOS or Android
+                      Download Orca Portal for iOS or Android
                     </p>
                   </div>
                   <Button variant="outline" size="sm" asChild>

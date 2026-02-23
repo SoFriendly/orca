@@ -200,7 +200,7 @@ export default function ConnectPage() {
             <CardTitle className="ml-2">Add Desktop</CardTitle>
           </View>
           <CardDescription>
-            Scan the QR code shown in Chell Desktop settings
+            Scan the QR code shown in Orca Desktop settings
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -236,7 +236,7 @@ export default function ConnectPage() {
                 No desktops linked yet
               </Text>
               <Text className="text-muted-foreground text-sm mt-1 text-center">
-                Scan a QR code from Chell Desktop to get started
+                Scan a QR code from Orca Desktop to get started
               </Text>
             </View>
           ) : (
@@ -305,7 +305,7 @@ export default function ConnectPage() {
             <View className="flex-row">
               <Text className="text-primary font-bold mr-2">1.</Text>
               <Text className="text-foreground flex-1">
-                Open Chell on your desktop computer
+                Open Orca on your desktop computer
               </Text>
             </View>
             <View className="flex-row">
@@ -350,7 +350,7 @@ export default function ConnectPage() {
           <View className="absolute inset-0 items-center justify-center">
             <View className="w-64 h-64 border-2 border-white rounded-2xl" />
             <Text className="text-white text-center mt-8 px-8">
-              Point your camera at the QR code in Chell Desktop settings
+              Point your camera at the QR code in Orca Desktop settings
             </Text>
           </View>
 

@@ -65,7 +65,7 @@ function RootLayoutContent() {
         <Stack.Screen
           name="index"
           options={{
-            title: "Chell",
+            title: "Orca",
             headerShown: true,
             headerBackTitle: "",
           }}

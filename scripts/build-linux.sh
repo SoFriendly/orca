@@ -19,7 +19,7 @@ if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
   echo "Warning: TAURI_SIGNING_PRIVATE_KEY not set - updates won't be signed"
 fi
 
-echo "Building Chell for Linux..."
+echo "Building Orca for Linux..."
 
 # Build the app
 pnpm tauri build

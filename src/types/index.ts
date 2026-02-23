@@ -13,7 +13,7 @@ export interface Project {
   lastOpened: string;
 }
 
-// Project file format for .chell files
+// Project file format for .orca files
 export interface ProjectFileData {
   version: number;
   name: string;
@@ -77,6 +77,14 @@ export interface WorktreeInfo {
   isLocked: boolean;
   lockReason?: string;
   isPrunable: boolean;
+}
+
+export interface DiffPanelSelection {
+  diff: FileDiff;
+  source: 'changes' | 'history';
+  commitId?: string;
+  commitMessage?: string;
+  projectPath: string;
 }
 
 // Terminal types

@@ -15,7 +15,7 @@ import {
   Bot,
   ExternalLink,
   RefreshCw,
-  Smartphone,
+  // Smartphone,
   Eye,
   EyeOff,
   Trash2,
@@ -35,7 +35,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useUpdateStore } from "@/stores/updateStore";
 import { cn } from "@/lib/utils";
 import { CustomThemeEditor } from "@/components/CustomThemeEditor";
-import { RemotePortalSettings } from "@/components/RemotePortalSettings";
+// import { RemotePortalSettings } from "@/components/RemotePortalSettings";
 import { getAllAssistants, getAllAssistantCommands } from "@/lib/assistants";
 import type { ThemeOption, AssistantDefinition } from "@/types";
 
@@ -44,14 +44,14 @@ interface SettingsSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type SettingsTab = "general" | "assistants" | "appearance" | "ai" | "keyboard" | "portal" | "about";
+type SettingsTab = "general" | "assistants" | "appearance" | "ai" | "keyboard" | "about";
 
 const NAV_ITEMS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: "general", label: "General", icon: <Settings className="h-4 w-4" /> },
   { id: "assistants", label: "Assistants", icon: <Bot className="h-4 w-4" /> },
   { id: "appearance", label: "Appearance", icon: <Palette className="h-4 w-4" /> },
   { id: "ai", label: "AI Behavior", icon: <Sparkles className="h-4 w-4" /> },
-  { id: "portal", label: "Remote Portal", icon: <Smartphone className="h-4 w-4" /> },
+  // { id: "portal", label: "Remote Portal", icon: <Smartphone className="h-4 w-4" /> },
   { id: "keyboard", label: "Keyboard", icon: <Keyboard className="h-4 w-4" /> },
   { id: "about", label: "About", icon: <Info className="h-4 w-4" /> },
 ];
@@ -63,8 +63,8 @@ interface ThemeInfo {
 }
 
 const THEMES: ThemeInfo[] = [
-  { id: "tokyo", name: "Chell Blue", gradient: "from-indigo-500/60 to-slate-900" },
-  { id: "dark", name: "Chell Orange", gradient: "from-portal-orange/60 to-neutral-900" },
+  { id: "dark", name: "Orca Purple", gradient: "from-purple-500/60 to-indigo-950" },
+  { id: "tokyo", name: "Orca Ember", gradient: "from-orange-500/60 to-red-950" },
   { id: "light", name: "Light", gradient: "from-slate-200 to-slate-100" },
   { id: "custom", name: "Custom", gradient: "from-purple-500/60 via-pink-500/60 to-orange-500/60" },
 ];
@@ -914,14 +914,14 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                 </div>
               )}
 
-              {/* Remote Portal Tab */}
-              {activeTab === "portal" && <RemotePortalSettings />}
+              {/* Remote Portal Tab (hidden for now) */}
+              {/* {activeTab === "portal" && <RemotePortalSettings />} */}
 
               {/* About Tab */}
               {activeTab === "about" && (
                 <div className="space-y-8">
                   <section>
-                    <h3 className="text-lg font-semibold">About Chell</h3>
+                    <h3 className="text-lg font-semibold">About Orca</h3>
                     <p className="text-sm text-muted-foreground mb-6">
                       Think in changes, not commands.
                     </p>
@@ -972,7 +972,7 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
 
                     <div className="mt-8 rounded-lg border border-border bg-muted/30 p-4">
                       <p className="text-xs text-muted-foreground">
-                        Chell brings git, a terminal, and AI coding into one place. Visually track
+                        Orca brings git, a terminal, and AI coding into one place. Visually track
                         what your agent changes in real-time and commit often with confidence.
                       </p>
                     </div>

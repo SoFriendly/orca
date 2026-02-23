@@ -214,7 +214,7 @@ export const usePortalStore = create<PortalState>()(
       },
     }),
     {
-      name: "chell-portal",
+      name: "orca-portal",
       partialize: (state) => ({
         // Only persist local terminal IDs, everything else comes from backend
         localTerminalIds: Array.from(state.localTerminalIds),

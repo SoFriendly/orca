@@ -25,13 +25,13 @@ export default {
 
     // Handle root path
     if (!key) {
-      return new Response("Chell Releases", {
+      return new Response("Orca Releases", {
         headers: { "Content-Type": "text/plain" },
       });
     }
 
-    // Handle chell-latest.* and chell-latest-{arch}.* - redirect to the latest release files
-    const latestFileMatch = key.match(/^chell-latest(?:-(arm64|amd64))?\.(dmg|AppImage|deb|msi|exe)$/);
+    // Handle orca-latest.* and chell-latest.* (legacy) - redirect to the latest release files
+    const latestFileMatch = key.match(/^(?:orca|chell)-latest(?:-(arm64|amd64))?\.(dmg|AppImage|deb|msi|exe)$/);
     if (latestFileMatch) {
       try {
         const latestJson = await env.BUCKET.get("latest.json");
@@ -48,11 +48,11 @@ export default {
           const version = latest.version;
           const archSuffix = arch === "arm64" ? "arm64" : "amd64";
           const fileMap: Record<string, string> = {
-            dmg: `v${version}/Chell_${version}_aarch64.dmg`,
-            AppImage: `v${version}/Chell_${version}_${archSuffix}.AppImage`,
-            deb: `v${version}/Chell_${version}_${archSuffix}.deb`,
-            msi: `v${version}/Chell_${version}_x64-setup.msi`,
-            exe: `v${version}/Chell_${version}_x64-setup.exe`,
+            dmg: `v${version}/Orca_${version}_aarch64.dmg`,
+            AppImage: `v${version}/Orca_${version}_${archSuffix}.AppImage`,
+            deb: `v${version}/Orca_${version}_${archSuffix}.deb`,
+            msi: `v${version}/Orca_${version}_x64-setup.msi`,
+            exe: `v${version}/Orca_${version}_x64-setup.exe`,
           };
 
           const targetKey = fileMap[ext];

@@ -65,20 +65,20 @@ Write-Host "=== Uploading Windows artifacts ===" -ForegroundColor Green
 # Windows MSI
 $msiFile = Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($msiFile) {
-    Upload-File $msiFile.FullName "v$VERSION/Chell_${VERSION}_x64-setup.msi"
+    Upload-File $msiFile.FullName "v$VERSION/Orca_${VERSION}_x64-setup.msi"
     $msiSig = "$($msiFile.FullName).sig"
     if (Test-Path $msiSig) {
-        Upload-File $msiSig "v$VERSION/Chell_${VERSION}_x64-setup.msi.sig"
+        Upload-File $msiSig "v$VERSION/Orca_${VERSION}_x64-setup.msi.sig"
     }
 }
 
 # Windows NSIS installer  
 $nsisFile = Get-ChildItem -Path "src-tauri\target\release\bundle\nsis\*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($nsisFile) {
-    Upload-File $nsisFile.FullName "v$VERSION/Chell_${VERSION}_x64-setup.exe"
+    Upload-File $nsisFile.FullName "v$VERSION/Orca_${VERSION}_x64-setup.exe"
     $nsisSig = "$($nsisFile.FullName).sig"
     if (Test-Path $nsisSig) {
-        Upload-File $nsisSig "v$VERSION/Chell_${VERSION}_x64-setup.exe.sig"
+        Upload-File $nsisSig "v$VERSION/Orca_${VERSION}_x64-setup.exe.sig"
     }
 }
 
@@ -103,7 +103,7 @@ $latestJson = @{
     platforms = @{
         "windows-x86_64" = @{
             signature = $winSig
-            url = "https://releases.chell.app/v$VERSION/Chell_${VERSION}_x64-setup.msi"
+            url = "https://releases.chell.app/v$VERSION/Orca_${VERSION}_x64-setup.msi"
         }
     }
 }

@@ -15,9 +15,9 @@ import {
   ArrowRight,
   Search,
   X,
+  HelpCircle,
 } from "lucide-react";
-import { ChellIcon } from "@/components/icons/ChellIcon";
-import ChellLogo from "@/components/ChellLogo";
+import OrcaLogo from "@/components/OrcaLogo";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -112,9 +112,9 @@ export default function HomePage() {
 
   const handleNewWindow = async () => {
     try {
-      const webview = new WebviewWindow(`chell-${Date.now()}`, {
+      const webview = new WebviewWindow(`orca-${Date.now()}`, {
         url: "/",
-        title: "Chell",
+        title: "Orca",
         width: 1200,
         height: 800,
         minWidth: 600,
@@ -273,11 +273,18 @@ export default function HomePage() {
     }
   };
 
-  const handleOpenInFinder = async (path: string) => {
+  const getRevealLabel = () => {
+    const platform = navigator.platform.toUpperCase();
+    if (platform.indexOf('MAC') >= 0) return 'Open in Finder';
+    if (platform.indexOf('WIN') >= 0) return 'Show in Explorer';
+    return 'Open in File Manager';
+  };
+
+  const handleRevealInFileManager = async (path: string) => {
     try {
       await invoke("open_in_finder", { path });
     } catch (error) {
-      toast.error("Failed to open in Finder");
+      toast.error("Failed to open file manager");
       console.error(error);
     }
   };
@@ -321,9 +328,9 @@ export default function HomePage() {
   };
 
   const navButtonBase =
-    "flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-muted-foreground transition-all";
+    "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/50 transition-all duration-200";
   const panelShellClass =
-    "rounded-2xl border border-border bg-card";
+    "rounded-2xl bg-card shadow-[var(--panel-shadow)]";
 
   return (
     <div
@@ -342,17 +349,17 @@ export default function HomePage() {
       <nav
         ref={sidebarNavRef}
         aria-label="Main navigation"
-        className="relative z-20 flex w-14 flex-col pl-2 pb-2 pt-9"
+        className="relative z-20 flex w-14 flex-col pl-2 pb-2 pt-9 backdrop-blur-sm"
       >
         {/* Top icon container */}
-        <div className="flex flex-col items-center gap-1 px-3 py-1">
-          <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-1.5 px-3 py-1">
+          <div className="flex flex-col items-center gap-1.5">
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
               <button
                 onClick={handleNewWindow}
                 aria-label="New window"
-                className={cn(navButtonBase, "hover:border-border/60 hover:bg-muted/40 hover:text-foreground")}
+                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
               >
                 <Plus className="h-5 w-5" />
               </button>
@@ -365,7 +372,7 @@ export default function HomePage() {
               <button
                 onClick={handleOpenProject}
                 aria-label="Open folder"
-                className={cn(navButtonBase, "hover:border-border/60 hover:bg-muted/40 hover:text-foreground")}
+                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
               >
                 <FolderOpen className="h-5 w-5" />
               </button>
@@ -384,8 +391,8 @@ export default function HomePage() {
                 className={cn(
                   navButtonBase,
                   activeSidebarItem === "settings"
-                    ? "border-border bg-muted/70 text-foreground shadow-[0_0_0_1px_hsl(var(--primary)/0.3)]"
-                    : "hover:border-border/60 hover:bg-muted/40 hover:text-foreground"
+                    ? "text-primary"
+                    : "hover:text-foreground/70 hover:bg-muted/20"
                 )}
               >
                 <Settings className="h-5 w-5" />
@@ -400,16 +407,16 @@ export default function HomePage() {
         <div className="flex-1" />
 
         {/* Bottom icon container */}
-        <div className="flex flex-col items-center gap-1 px-3 py-2">
-          <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-1.5 px-3 py-2">
+          <div className="flex flex-col items-center gap-1.5">
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
                 <button
                   onClick={() => setHasSeenOnboarding(false)}
                   aria-label="Show tour"
-                  className="flex h-9 w-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+                  className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
                 >
-                  <ChellIcon className="h-5 w-5" />
+                  <HelpCircle className="h-5 w-5" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right">Show Tour</TooltipContent>
@@ -419,18 +426,18 @@ export default function HomePage() {
       </nav>
 
       {/* Main content */}
-      <main className="relative z-10 flex flex-1 flex-col overflow-hidden px-2 pb-2 pt-9">
+      <main className="relative z-10 flex flex-1 flex-col overflow-hidden px-3 pb-3 pt-9">
         <div className={cn("flex flex-1 flex-col overflow-hidden", panelShellClass)}>
         <div className="flex flex-1 flex-col overflow-hidden px-6 py-8">
           <div className="mx-auto w-full max-w-md flex flex-col flex-1 overflow-hidden">
             {/* Hero */}
             <div className="text-center shrink-0">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30">
-                <ChellLogo size={36} />
+              <div className="mb-4 flex justify-center">
+                <OrcaLogo size={128} />
               </div>
-              <h1 className="text-xl font-semibold">Welcome to Chell</h1>
+              <h1 className="text-xl font-semibold">Welcome to Orca</h1>
               <p className="mt-2 text-sm text-muted-foreground">
-                Think in changes, not commands.
+                Think in changes, not chats.
               </p>
             </div>
 
@@ -438,10 +445,10 @@ export default function HomePage() {
             <div className="space-y-3 mt-8 shrink-0">
               <button
                 onClick={() => setShowCloneDialog(true)}
-                className="group flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/40 hover:bg-muted/35"
+                className="group flex w-full items-center gap-4 rounded-xl p-4 text-left transition-all hover:bg-primary/[0.06]"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <Download className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
+                <div className="flex h-10 w-10 items-center justify-center">
+                  <Download className="h-5 w-5 text-primary/70 group-hover:text-primary" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">Clone repository</p>
@@ -454,10 +461,10 @@ export default function HomePage() {
 
               <button
                 onClick={handleOpenProject}
-                className="group flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/40 hover:bg-muted/35"
+                className="group flex w-full items-center gap-4 rounded-xl p-4 text-left transition-all hover:bg-primary/[0.06]"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <FolderOpen className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
+                <div className="flex h-10 w-10 items-center justify-center">
+                  <FolderOpen className="h-5 w-5 text-primary/70 group-hover:text-primary" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">Open existing folder</p>
@@ -470,10 +477,10 @@ export default function HomePage() {
 
               <button
                 onClick={() => setShowCreateDialog(true)}
-                className="group flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/40 hover:bg-muted/35"
+                className="group flex w-full items-center gap-4 rounded-xl p-4 text-left transition-all hover:bg-primary/[0.06]"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <Plus className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
+                <div className="flex h-10 w-10 items-center justify-center">
+                  <Plus className="h-5 w-5 text-primary/70 group-hover:text-primary" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">Create new repository</p>
@@ -487,7 +494,7 @@ export default function HomePage() {
 
             {/* Recent projects */}
             {projects.length > 0 && (
-              <div className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card p-2">
+              <div className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl p-2">
                 <div className="flex items-center justify-between px-1 mb-3 shrink-0">
                   {showProjectSearch ? (
                     <div className="flex items-center gap-2 flex-1">
@@ -535,7 +542,7 @@ export default function HomePage() {
                     <ContextMenu key={project.id}>
                       <ContextMenuTrigger>
                         <button
-                          className="group flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:border-border/55 hover:bg-muted/40"
+                          className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-primary/[0.08]"
                           onClick={() => handleProjectClick(project)}
                         >
                           <FolderGit2 className="h-4 w-4 shrink-0 text-primary" />
@@ -551,9 +558,9 @@ export default function HomePage() {
                         </button>
                       </ContextMenuTrigger>
                       <ContextMenuContent>
-                        <ContextMenuItem onClick={() => handleOpenInFinder(project.path)}>
+                        <ContextMenuItem onClick={() => handleRevealInFileManager(project.path)}>
                           <FolderOpen className="mr-2 h-4 w-4" />
-                          Open in Finder
+                          {getRevealLabel()}
                         </ContextMenuItem>
                         <ContextMenuItem
                           className="text-destructive"

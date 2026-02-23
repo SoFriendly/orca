@@ -14,8 +14,8 @@ import { getThemeDefaultsAsHex } from '@/lib/colorUtils';
 import type { CustomThemeColors } from '@/types';
 
 const BASE_THEMES: { id: 'dark' | 'tokyo' | 'light'; name: string }[] = [
-  { id: 'tokyo', name: 'Chell Blue' },
-  { id: 'dark', name: 'Chell Orange' },
+  { id: 'tokyo', name: 'Orca Indigo' },
+  { id: 'dark', name: 'Orca Purple' },
   { id: 'light', name: 'Light' },
 ];
 

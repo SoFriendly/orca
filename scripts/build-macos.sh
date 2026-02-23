@@ -26,7 +26,7 @@ if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
   echo "Warning: TAURI_SIGNING_PRIVATE_KEY not set - updates won't be signed"
 fi
 
-echo "Building Chell..."
+echo "Building Orca..."
 echo "Apple ID: $APPLE_ID"
 echo "Team ID: $APPLE_TEAM_ID"
 
@@ -45,6 +45,21 @@ echo "Artifacts are in: src-tauri/target/release/bundle/"
 APP_PATH=$(find src-tauri/target/release/bundle/macos -name "*.app" -type d 2>/dev/null | head -1)
 DMG_PATH=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" 2>/dev/null | head -1)
 
+# Compile Asset Catalog for macOS Tahoe dark/tinted icon variants
+if [ -n "$APP_PATH" ]; then
+  echo ""
+  echo "Compiling Asset Catalog for icon variants..."
+  xcrun actool src-tauri/Icons.xcassets \
+    --compile "$APP_PATH/Contents/Resources" \
+    --platform macosx \
+    --minimum-deployment-target 11.0 \
+    --app-icon AppIcon \
+    --output-partial-info-plist /tmp/orca-icon-info.plist
+  /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" "$APP_PATH/Contents/Info.plist" 2>/dev/null || \
+  /usr/libexec/PlistBuddy -c "Set :CFBundleIconName AppIcon" "$APP_PATH/Contents/Info.plist"
+  echo "Asset Catalog compiled and CFBundleIconName set"
+fi
+
 # Sign the app if it exists
 if [ -n "$APP_PATH" ]; then
   echo ""
@@ -58,7 +73,7 @@ fi
 if [ -n "$APP_PATH" ]; then
   echo ""
   echo "Creating zip for notarization..."
-  ZIP_PATH="src-tauri/target/release/bundle/Chell.zip"
+  ZIP_PATH="src-tauri/target/release/bundle/Orca.zip"
   ditto -c -k --keepParent "$APP_PATH" "$ZIP_PATH"
   
   echo "Submitting for notarization..."
@@ -103,7 +118,7 @@ echo "Creating update bundle..."
 
 APP_DIR=$(find src-tauri/target/release/bundle/macos -name "*.app" -type d 2>/dev/null | head -1)
 if [ -n "$APP_DIR" ]; then
-  TAR_FILE="src-tauri/target/release/bundle/Chell_${VERSION}_darwin-aarch64.app.tar.gz"
+  TAR_FILE="src-tauri/target/release/bundle/Orca_${VERSION}_darwin-aarch64.app.tar.gz"
 
   # Create tar.gz (COPYFILE_DISABLE prevents macOS resource forks like ._* files)
   COPYFILE_DISABLE=1 tar -czf "$TAR_FILE" -C "$(dirname "$APP_DIR")" "$(basename "$APP_DIR")"

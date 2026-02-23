@@ -85,7 +85,7 @@ if ($cert) {
 }
 
 Write-Host ""
-Write-Host "Building Chell for Windows..."
+Write-Host "Building Orca for Windows..."
 
 # Build the app
 npm run tauri -- build

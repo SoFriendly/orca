@@ -1,5 +1,5 @@
 {
-  "name": "chell-releases-worker",
+  "name": "orca-releases-worker",
   "version": "1.0.0",
   "private": true,
   "scripts": {

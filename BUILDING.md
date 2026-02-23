@@ -1,6 +1,6 @@
-# Building Chell
+# Building Orca
 
-This document covers how to build Chell locally and how the CI/CD release process works.
+This document covers how to build Orca locally and how the CI/CD release process works.
 
 ## Prerequisites
 
@@ -183,7 +183,7 @@ The workflow will:
 
 ## Auto-Updates
 
-Chell uses Tauri's built-in updater. The update flow:
+Orca uses Tauri's built-in updater. The update flow:
 
 1. App checks `https://releases.chell.app/latest.json` on startup
 2. If a newer version exists, user is prompted to update
@@ -209,7 +209,7 @@ Note: Linux users who installed via `.deb` will receive updates via AppImage. Th
 If you need to generate new Tauri signing keys:
 
 ```bash
-pnpm tauri signer generate -w ~/.tauri/chell.key
+pnpm tauri signer generate -w ~/.tauri/orca.key
 ```
 
 This outputs:
