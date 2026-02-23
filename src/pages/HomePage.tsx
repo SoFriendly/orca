@@ -16,8 +16,8 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { ChellIcon } from "@/components/icons/ChellIcon";
-import ChellLogo from "@/components/ChellLogo";
+import { OrcaIcon } from "@/components/icons/OrcaIcon";
+import OrcaLogo from "@/components/OrcaLogo";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -112,9 +112,9 @@ export default function HomePage() {
 
   const handleNewWindow = async () => {
     try {
-      const webview = new WebviewWindow(`chell-${Date.now()}`, {
+      const webview = new WebviewWindow(`orca-${Date.now()}`, {
         url: "/",
-        title: "Chell",
+        title: "Orca",
         width: 1200,
         height: 800,
         minWidth: 600,
@@ -409,7 +409,7 @@ export default function HomePage() {
                   aria-label="Show tour"
                   className="flex h-9 w-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  <ChellIcon className="h-5 w-5" />
+                  <OrcaIcon className="h-8 w-8" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right">Show Tour</TooltipContent>
@@ -425,12 +425,12 @@ export default function HomePage() {
           <div className="mx-auto w-full max-w-md flex flex-col flex-1 overflow-hidden">
             {/* Hero */}
             <div className="text-center shrink-0">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30">
-                <ChellLogo size={36} />
+              <div className="mb-8 flex justify-center">
+                <OrcaLogo size={96} />
               </div>
-              <h1 className="text-xl font-semibold">Welcome to Chell</h1>
+              <h1 className="text-xl font-semibold">Welcome to Orca</h1>
               <p className="mt-2 text-sm text-muted-foreground">
-                Think in changes, not commands.
+                Think in changes, not chats.
               </p>
             </div>
 

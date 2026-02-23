@@ -264,7 +264,7 @@ export const useThemeStore = create<ThemeStore>()(
       },
     }),
     {
-      name: "chell-theme",
+      name: "orca-theme",
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         theme: state.theme,

@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import * as Device from "expo-device";
 import type { ConnectionState, Project, GitStatus, WSMessage, RemoteTerminal } from "~/types";
-import { initWebSocket, getWebSocket, ChellWebSocket } from "~/lib/websocket";
+import { initWebSocket, getWebSocket, OrcaWebSocket } from "~/lib/websocket";
 
 // Linked portal (desktop) info
 export interface LinkedPortal {
@@ -78,8 +78,8 @@ interface ConnectionStore extends ConnectionState {
   detachTerminal: (terminalId: string) => void;
 }
 
-const SECURE_TOKEN_PREFIX = "chell_session_";
-const SECURE_PASSPHRASE_PREFIX = "chell_passphrase_";
+const SECURE_TOKEN_PREFIX = "orca_session_";
+const SECURE_PASSPHRASE_PREFIX = "orca_passphrase_";
 
 function getDeviceName(): string {
   if (Device.deviceName) return Device.deviceName;
@@ -92,7 +92,7 @@ let currentHandlerUnsubscribe: (() => void) | null = null;
 
 // Shared message handler setup - used by both connect() and pairFromQR()
 function setupMessageHandler(
-  ws: ChellWebSocket,
+  ws: OrcaWebSocket,
   get: () => ConnectionStore,
   set: (partial: any) => void,
   desktopNameOverride?: string,
@@ -393,7 +393,7 @@ export const useConnectionStore = create<ConnectionStore>()(
         try {
           const data = JSON.parse(qrData);
 
-          if (data.type !== "chell-portal") {
+          if (data.type !== "orca-portal") {
             throw new Error("Invalid QR code");
           }
 
@@ -548,7 +548,7 @@ export const useConnectionStore = create<ConnectionStore>()(
       },
     }),
     {
-      name: "chell-connection",
+      name: "orca-connection",
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         wsUrl: state.wsUrl,

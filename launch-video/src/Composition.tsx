@@ -27,7 +27,7 @@ import {
   Sparkles,
   Check,
 } from "lucide-react";
-import { ChellIcon } from "./components/ChellIcon";
+import { OrcaIcon } from "./components/OrcaIcon";
 import { cn } from "./lib/utils";
 
 // Typewriter text component
@@ -545,9 +545,9 @@ function OpeningScene() {
         }}
         className="flex items-center gap-8 relative z-10"
       >
-        <ChellIcon className="h-40 w-40 text-[hsl(var(--primary))]" />
+        <OrcaIcon className="h-40 w-40 text-[hsl(var(--primary))]" />
         <span className="text-[10rem] font-bold text-[hsl(var(--foreground))] leading-none">
-          chell
+          orca
         </span>
       </div>
       <div
@@ -752,9 +752,9 @@ function ClosingScene() {
         }}
         className="flex items-center gap-6 mb-6 relative z-10"
       >
-        <ChellIcon className="h-32 w-32 text-[hsl(var(--primary))]" />
+        <OrcaIcon className="h-32 w-32 text-[hsl(var(--primary))]" />
         <span className="text-9xl font-bold text-[hsl(var(--foreground))]">
-          chell
+          orca
         </span>
       </div>
 
@@ -780,7 +780,7 @@ function ClosingScene() {
         className="relative z-10"
       >
         <span className="text-5xl font-semibold text-[hsl(var(--primary))]">
-          chell.ai
+          orca.ai
         </span>
       </div>
     </AbsoluteFill>
@@ -851,7 +851,7 @@ export const MyComposition = () => {
         <TransitionSeries.Sequence durationInFrames={BEAT * 6}>
           <FeatureScene
             title="One-click commits that make sense"
-            description="Chell analyzes your changes and generates meaningful commit messages. Review, edit if needed, and commit with confidence."
+            description="Orca analyzes your changes and generates meaningful commit messages. Review, edit if needed, and commit with confidence."
             panDirection="left"
             rotateY={10}
             rotateX={5}
@@ -869,7 +869,7 @@ export const MyComposition = () => {
         <TransitionSeries.Sequence durationInFrames={BEAT * 6}>
           <FeatureScene
             title="Claude Code, OpenAI Codex, and whatever's next"
-            description="Switch between assistants with tabs. Chell doesn't lock you into one AI—it gives you a great terminal that understands what any assistant is doing to your codebase."
+            description="Switch between assistants with tabs. Orca doesn't lock you into one AI—it gives you a great terminal that understands what any assistant is doing to your codebase."
             panDirection="left"
             rotateY={10}
             rotateX={5}

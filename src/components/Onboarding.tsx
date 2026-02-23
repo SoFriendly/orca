@@ -25,7 +25,7 @@ import {
   History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ChellIcon } from "@/components/icons/ChellIcon";
+import { OrcaIcon } from "@/components/icons/OrcaIcon";
 import { cn } from "@/lib/utils";
 
 interface OnboardingProps {
@@ -45,7 +45,7 @@ const steps: Step[] = [
     title: "Think in changes, not commands",
     subtitle: "Built for vibecoding",
     description:
-      "Stop switching between your terminal, editor, and git client. Chell shows you what matters — the changes your AI is making — so you can stay in flow and ship faster.",
+      "Stop switching between your terminal, editor, and git client. Orca shows you what matters — the changes your AI is making — so you can stay in flow and ship faster.",
     icon: <Sparkles className="h-12 w-12" />,
   },
   {
@@ -383,7 +383,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
           {/* Bottom icon - help */}
           <div className="flex flex-col items-center gap-1 px-3 py-2">
             <button className="flex h-9 w-9 items-center justify-center text-muted-foreground">
-              <ChellIcon className="h-5 w-5" />
+              <OrcaIcon className="h-5 w-5" />
             </button>
           </div>
         </div>

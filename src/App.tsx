@@ -23,7 +23,7 @@ function App() {
     return () => { unlisten.then((fn) => fn()); };
   }, [navigate]);
 
-  // Handle opening .chell workspace files (from double-click in OS)
+  // Handle opening .orca workspace files (from double-click in OS)
   useEffect(() => {
     const unlisten = listen<string>("open-workspace-file", async (event) => {
       const filePath = event.payload;
@@ -39,7 +39,7 @@ function App() {
         // Check if project with this path already exists
         const existingProject = projects.find(p => p.path === primaryPath);
         if (existingProject) {
-          // Update existing project with folders from .chell file
+          // Update existing project with folders from .orca file
           const updatedProject = {
             ...existingProject,
             name: projectData.name,

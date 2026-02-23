@@ -148,8 +148,8 @@ export default function SettingsPage() {
   };
 
   const themes: { id: ThemeOption; name: string; icon: typeof Sun }[] = [
-    { id: "tokyo", name: "Chell Blue", icon: Sparkles },
-    { id: "dark", name: "Chell Orange", icon: Moon },
+    { id: "tokyo", name: "Orca Indigo", icon: Sparkles },
+    { id: "dark", name: "Orca Purple", icon: Moon },
     { id: "light", name: "Light", icon: Sun },
   ];
 
@@ -369,7 +369,7 @@ export default function SettingsPage() {
           <View className="gap-4">
             <View className="flex-row justify-between py-2">
               <Text className="text-muted-foreground text-sm">App</Text>
-              <Text className="text-foreground text-sm">Chell Portal</Text>
+              <Text className="text-foreground text-sm">Orca Portal</Text>
             </View>
             <View className="flex-row justify-between py-2">
               <Text className="text-muted-foreground text-sm">Version</Text>
@@ -383,7 +383,7 @@ export default function SettingsPage() {
 
           <View className="mt-6 p-4 rounded-xl bg-muted/50">
             <Text className="text-xs text-muted-foreground">
-              Chell brings git, a terminal, and AI coding into one place.
+              Orca brings git, a terminal, and AI coding into one place.
               Visually track what your agent changes in real-time and commit
               often with confidence.
             </Text>
@@ -411,7 +411,7 @@ export default function SettingsPage() {
           <View className="absolute inset-0 items-center justify-center">
             <View className="w-64 h-64 border-2 border-white rounded-2xl" />
             <Text className="text-white text-center mt-8 px-8">
-              Point your camera at the QR code in Chell Desktop settings
+              Point your camera at the QR code in Orca Desktop settings
             </Text>
           </View>
 

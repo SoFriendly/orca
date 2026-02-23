@@ -176,7 +176,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
     }),
     {
-      name: 'chell-settings',
+      name: 'orca-settings',
       onRehydrateStorage: () => (state) => {
         // Apply saved theme on load
         if (state?.theme) {

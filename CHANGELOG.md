@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Chell will be documented in this file.
+All notable changes to Orca will be documented in this file.
 
 ## [0.1.94]
 

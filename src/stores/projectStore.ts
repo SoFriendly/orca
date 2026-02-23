@@ -123,7 +123,7 @@ export const useProjectStore = create<ProjectState>()(
       setActiveTab: (tabId) => set({ activeTabId: tabId }),
     }),
     {
-      name: 'chell-projects',
+      name: 'orca-projects',
       partialize: (state) => ({ projects: state.projects }), // Only persist projects, not tabs
     }
   )

@@ -13,7 +13,7 @@ export interface Project {
   lastOpened: string;
 }
 
-// Project file format for .chell files
+// Project file format for .orca files
 export interface ProjectFileData {
   version: number;
   name: string;

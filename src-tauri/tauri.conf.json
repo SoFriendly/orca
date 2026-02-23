@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Chell",
+  "productName": "Orca",
   "version": "0.1.94",
-  "identifier": "com.sofriendly.chell",
+  "identifier": "com.sofriendly.orca",
   "plugins": {
     "updater": {
       "endpoints": [
@@ -21,7 +21,7 @@
     "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "Chell",
+        "title": "Orca",
         "width": 1200,
         "height": 800,
         "minWidth": 600,
@@ -55,16 +55,16 @@
     ],
     "fileAssociations": [
       {
-        "ext": ["chell"],
-        "name": "Chell Workspace",
+        "ext": ["orca"],
+        "name": "Orca Workspace",
         "role": "Editor",
-        "mimeType": "application/x-chell"
+        "mimeType": "application/x-orca"
       }
     ],
     "macOS": {
       "signingIdentity": null,
       "providerShortName": "2H66PPM438",
-      "entitlements": "Chell.entitlements",
+      "entitlements": "Orca.entitlements",
       "exceptionDomain": null
     },
     "windows": {

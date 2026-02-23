@@ -33,7 +33,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Editor from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
-import { ChellIcon } from "@/components/icons/ChellIcon";
+import { OrcaIcon } from "@/components/icons/OrcaIcon";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -167,7 +167,7 @@ const defineMonacoThemes = (
   customTheme?: CustomThemeColors
 ) => {
   // Dark theme (matches app dark theme)
-  monaco.editor.defineTheme('chell-dark', {
+  monaco.editor.defineTheme('orca-dark', {
     base: 'vs-dark',
     inherit: true,
     rules: [
@@ -195,7 +195,7 @@ const defineMonacoThemes = (
   });
 
   // Tokyo Night theme
-  monaco.editor.defineTheme('chell-tokyo', {
+  monaco.editor.defineTheme('orca-indigo', {
     base: 'vs-dark',
     inherit: true,
     rules: [
@@ -223,7 +223,7 @@ const defineMonacoThemes = (
   });
 
   // Light theme
-  monaco.editor.defineTheme('chell-light', {
+  monaco.editor.defineTheme('orca-light', {
     base: 'vs',
     inherit: true,
     rules: [
@@ -258,7 +258,7 @@ const defineMonacoThemes = (
       ? colors.muted
       : colors.secondary;
 
-    monaco.editor.defineTheme('chell-custom', {
+    monaco.editor.defineTheme('orca-custom', {
       base: baseTheme === 'light' ? 'vs' : 'vs-dark',
       inherit: true,
       rules: baseTheme === 'light' ? [
@@ -310,10 +310,10 @@ const defineMonacoThemes = (
 // Map app theme to Monaco theme name
 const getMonacoTheme = (appTheme: string): string => {
   switch (appTheme) {
-    case 'tokyo': return 'chell-tokyo';
-    case 'light': return 'chell-light';
-    case 'custom': return 'chell-custom';
-    default: return 'chell-dark';
+    case 'tokyo': return 'orca-indigo';
+    case 'light': return 'orca-light';
+    case 'custom': return 'orca-custom';
+    default: return 'orca-dark';
   }
 };
 
@@ -740,9 +740,9 @@ export default function ProjectPage() {
   // Open a new window
   const handleNewWindow = async () => {
     try {
-      const webview = new WebviewWindow(`chell-${Date.now()}`, {
+      const webview = new WebviewWindow(`orca-${Date.now()}`, {
         url: "/",
-        title: "Chell",
+        title: "Orca",
         width: 1200,
         height: 800,
         minWidth: 600,
@@ -1332,13 +1332,13 @@ export default function ProjectPage() {
     setCurrentProject(prev => prev ? { ...prev, name } : null);
   };
 
-  // Save project as .chell file (Issue #6)
+  // Save project as .orca file (Issue #6)
   const handleSaveProject = async () => {
     if (!currentProject) return;
 
     const filePath = await save({
-      defaultPath: `${currentProject.name}.chell`,
-      filters: [{ name: "Chell Project", extensions: ["chell"] }],
+      defaultPath: `${currentProject.name}.orca`,
+      filters: [{ name: "Orca Project", extensions: ["orca"] }],
       title: "Save Project",
     });
 
@@ -2208,7 +2208,7 @@ export default function ProjectPage() {
                   onClick={() => setHasSeenOnboarding(false)}
                   className={cn(navButtonBase, "hover:border-border/60 hover:bg-muted/40 hover:text-foreground")}
                 >
-                  <ChellIcon className="h-5 w-5" />
+                  <OrcaIcon className="h-5 w-5" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right">Help</TooltipContent>
@@ -2222,7 +2222,7 @@ export default function ProjectPage() {
         ref={containerRef}
         className="relative z-10 flex flex-1 overflow-hidden px-2 pb-2 pt-12"
       >
-        <h1 className="sr-only">{currentProject.name} - Chell</h1>
+        <h1 className="sr-only">{currentProject.name} - Orca</h1>
         {/* Left sidebar - Git panel */}
         <div
           role="region"

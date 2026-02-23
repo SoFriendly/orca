@@ -1,5 +1,5 @@
 /**
- * End-to-end encryption utilities for the Chell Portal.
+ * End-to-end encryption utilities for the Orca Portal.
  *
  * Uses PBKDF2 for key derivation and AES-256-GCM for encryption.
  * Both desktop and mobile derive the same key from the pairing passphrase
@@ -25,7 +25,7 @@ export async function deriveKey(
   desktopId: string
 ): Promise<CryptoKey> {
   // Create salt from desktop ID (deterministic, shared by all parties)
-  const saltInput = `chell-portal:${desktopId}`;
+  const saltInput = `orca-portal:${desktopId}`;
   const saltBuffer = await crypto.subtle.digest(
     "SHA-256",
     encoder.encode(saltInput)

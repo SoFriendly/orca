@@ -25,7 +25,7 @@ export default {
 
     // Handle root path
     if (!key) {
-      return new Response("Chell Releases", {
+      return new Response("Orca Releases", {
         headers: { "Content-Type": "text/plain" },
       });
     }

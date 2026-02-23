@@ -75,7 +75,7 @@ export default function UpdateChecker() {
             Update Available
           </DialogTitle>
           <DialogDescription>
-            A new version of Chell is available: <strong>v{updateAvailable.version}</strong>
+            A new version of Orca is available: <strong>v{updateAvailable.version}</strong>
           </DialogDescription>
         </DialogHeader>
 

@@ -61,25 +61,25 @@
   }
 
   .dark {
-    --background: 0 0% 7%;
+    --background: 250 12% 7%;
     --foreground: 0 0% 90%;
-    --card: 0 0% 9%;
+    --card: 250 10% 9%;
     --card-foreground: 0 0% 90%;
-    --popover: 0 0% 9%;
+    --popover: 250 10% 9%;
     --popover-foreground: 0 0% 90%;
-    --primary: 24 100% 50%;
+    --primary: 252 56% 57%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 12%;
+    --secondary: 250 8% 12%;
     --secondary-foreground: 0 0% 90%;
-    --muted: 0 0% 15%;
+    --muted: 250 6% 15%;
     --muted-foreground: 0 0% 55%;
-    --accent: 0 0% 15%;
+    --accent: 250 6% 15%;
     --accent-foreground: 0 0% 90%;
     --destructive: 0 62.8% 50%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
-    --ring: 24 100% 50%;
+    --border: 250 6% 18%;
+    --input: 250 6% 18%;
+    --ring: 252 56% 57%;
     --panel-shadow: 8px 14px 36px rgba(0,0,0,0.35);
     --nav-bg: 0 0% 9%;
   }
@@ -91,7 +91,7 @@
     --card-foreground: 225 27% 88%;
     --popover: 228 18% 14%;
     --popover-foreground: 225 27% 88%;
-    --primary: 252 87% 67%;
+    --primary: 252 56% 57%;
     --primary-foreground: 0 0% 100%;
     --secondary: 228 18% 18%;
     --secondary-foreground: 225 27% 88%;
@@ -103,7 +103,7 @@
     --destructive-foreground: 0 0% 100%;
     --border: 228 18% 22%;
     --input: 228 18% 22%;
-    --ring: 252 87% 67%;
+    --ring: 252 56% 57%;
     --panel-shadow: 8px 14px 36px rgba(0,0,0,0.35);
     --nav-bg: 228 18% 14%;
   }
@@ -206,12 +206,12 @@
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: hsl(0 0% 25%);
+  background: hsl(250 10% 25%);
   border-radius: 3px;
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: hsl(0 0% 35%);
+  background: hsl(250 12% 35%);
 }
 
 .tokyo ::-webkit-scrollbar-thumb {

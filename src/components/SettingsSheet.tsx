@@ -63,8 +63,8 @@ interface ThemeInfo {
 }
 
 const THEMES: ThemeInfo[] = [
-  { id: "tokyo", name: "Chell Blue", gradient: "from-indigo-500/60 to-slate-900" },
-  { id: "dark", name: "Chell Orange", gradient: "from-portal-orange/60 to-neutral-900" },
+  { id: "tokyo", name: "Orca Indigo", gradient: "from-indigo-500/60 to-slate-900" },
+  { id: "dark", name: "Orca Purple", gradient: "from-purple-500/60 to-indigo-950" },
   { id: "light", name: "Light", gradient: "from-slate-200 to-slate-100" },
   { id: "custom", name: "Custom", gradient: "from-purple-500/60 via-pink-500/60 to-orange-500/60" },
 ];
@@ -921,7 +921,7 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
               {activeTab === "about" && (
                 <div className="space-y-8">
                   <section>
-                    <h3 className="text-lg font-semibold">About Chell</h3>
+                    <h3 className="text-lg font-semibold">About Orca</h3>
                     <p className="text-sm text-muted-foreground mb-6">
                       Think in changes, not commands.
                     </p>
@@ -972,7 +972,7 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
 
                     <div className="mt-8 rounded-lg border border-border bg-muted/30 p-4">
                       <p className="text-xs text-muted-foreground">
-                        Chell brings git, a terminal, and AI coding into one place. Visually track
+                        Orca brings git, a terminal, and AI coding into one place. Visually track
                         what your agent changes in real-time and commit often with confidence.
                       </p>
                     </div>

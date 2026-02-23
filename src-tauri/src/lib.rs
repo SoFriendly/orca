@@ -44,7 +44,7 @@ pub struct Project {
     pub folders: Option<Vec<ProjectFolder>>,
 }
 
-// Project file format for .chell files
+// Project file format for .orca files
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectFileData {
     pub version: u32,
@@ -1213,7 +1213,7 @@ fn save_clipboard_image(base64: String, mime: String) -> Result<String, String> 
     };
 
     let mut dir = std::env::temp_dir();
-    dir.push("chell");
+    dir.push("orca");
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 
     let filename = format!("clipboard-{}.{}", Uuid::new_v4(), extension);
@@ -1905,8 +1905,8 @@ struct ShellHistoryEntry {
     timestamp: i64,
 }
 
-// Get the path to Chell's shell history file
-fn get_chell_history_path() -> Option<PathBuf> {
+// Get the path to Orca's shell history file
+fn get_orca_history_path() -> Option<PathBuf> {
     dirs::home_dir().map(|home| home.join(".claude").join("shell_history.json"))
 }
 
@@ -1918,7 +1918,7 @@ fn record_project_command(command: String, project_path: String) -> Result<(), S
         return Ok(());
     }
 
-    let history_path = get_chell_history_path().ok_or("Could not determine history path")?;
+    let history_path = get_orca_history_path().ok_or("Could not determine history path")?;
 
     // Ensure directory exists
     if let Some(parent) = history_path.parent() {
@@ -1960,7 +1960,7 @@ fn record_project_command(command: String, project_path: String) -> Result<(), S
 #[tauri::command]
 fn get_project_shell_history(project_path: String, limit: Option<usize>) -> Result<Vec<String>, String> {
     let limit = limit.unwrap_or(500);
-    let history_path = get_chell_history_path().ok_or("Could not determine history path")?;
+    let history_path = get_orca_history_path().ok_or("Could not determine history path")?;
 
     if !history_path.exists() {
         return Ok(Vec::new());
@@ -2810,7 +2810,7 @@ fn write_text_file(path: String, content: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to write file: {}", e))
 }
 
-// Project file commands for .chell files (Issue #6)
+// Project file commands for .orca files (Issue #6)
 #[tauri::command]
 fn save_project_file(path: String, data: ProjectFileData) -> Result<(), String> {
     let json = serde_json::to_string_pretty(&data)
@@ -3306,10 +3306,10 @@ pub fn run() {
 
     let data_dir = dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("chell");
+        .join("orca");
     std::fs::create_dir_all(&data_dir).ok();
 
-    let db = Database::new(data_dir.join("chell.db"))
+    let db = Database::new(data_dir.join("orca.db"))
         .expect("Failed to initialize database");
 
     // Load portal config from database
@@ -3464,11 +3464,11 @@ pub fn run() {
             let _tray = TrayIconBuilder::new()
                 .icon(tray_icon)
                 .menu(&tray_menu)
-                .tooltip("Chell - Running in background")
+                .tooltip("Orca - Running in background")
                 .on_menu_event(|app, event| {
                     match event.id().as_ref() {
                         "new_window" => {
-                            let label = format!("chell-{}", std::time::SystemTime::now()
+                            let label = format!("orca-{}", std::time::SystemTime::now()
                                 .duration_since(std::time::UNIX_EPOCH)
                                 .unwrap_or_default()
                                 .as_millis());
@@ -3609,14 +3609,14 @@ pub fn run() {
                 }
             }
 
-            // Handle file associations - when a .chell file is double-clicked (macOS only)
+            // Handle file associations - when a .orca file is double-clicked (macOS only)
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Opened { urls } = _event {
                 for url in urls {
                     // Convert URL to file path
                     if let Ok(path) = url.to_file_path() {
                         if let Some(ext) = path.extension() {
-                            if ext == "chell" {
+                            if ext == "orca" {
                                 if let Some(path_str) = path.to_str() {
                                     // Show and focus the main window
                                     if let Some(window) = _app_handle.get_webview_window("main") {

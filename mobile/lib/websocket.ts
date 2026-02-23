@@ -23,7 +23,7 @@ interface PendingCommand {
   timeout: ReturnType<typeof setTimeout>;
 }
 
-export class ChellWebSocket {
+export class OrcaWebSocket {
   private ws: WebSocket | null = null;
   private url: string;
   private sessionToken: string | null = null;
@@ -44,9 +44,9 @@ export class ChellWebSocket {
   async setEncryptionKey(passphrase: string, desktopId: string): Promise<void> {
     try {
       this.encryptionKey = await deriveKey(passphrase, desktopId);
-      console.log("[ChellWS] Encryption key derived successfully");
+      console.log("[OrcaWS] Encryption key derived successfully");
     } catch (err) {
-      console.error("[ChellWS] Failed to derive encryption key:", err);
+      console.error("[OrcaWS] Failed to derive encryption key:", err);
       throw err;
     }
   }
@@ -59,7 +59,7 @@ export class ChellWebSocket {
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
-          console.log("[ChellWS] Connected to relay server");
+          console.log("[OrcaWS] Connected to relay server");
           this.reconnectAttempts = 0;
           this.connectHandlers.forEach((handler) => handler());
           resolve();
@@ -68,7 +68,7 @@ export class ChellWebSocket {
         this.ws.onmessage = async (event) => {
           try {
             let message: WSMessage = JSON.parse(event.data);
-            console.log("[ChellWS] Received message:", message.type, JSON.stringify(message).slice(0, 200));
+            console.log("[OrcaWS] Received message:", message.type, JSON.stringify(message).slice(0, 200));
 
             // Decrypt message if it has encrypted payload
             if ((message as any).encrypted && this.encryptionKey) {
@@ -84,27 +84,27 @@ export class ChellWebSocket {
                 // Merge decrypted payload back into message
                 message = { ...message, ...decrypted } as WSMessage;
                 delete (message as any).encrypted;
-                console.log("[ChellWS] Decrypted message type:", type);
+                console.log("[OrcaWS] Decrypted message type:", type);
               } catch (err) {
-                console.error("[ChellWS] Failed to decrypt message:", err);
+                console.error("[OrcaWS] Failed to decrypt message:", err);
                 return;
               }
             }
 
             this.handleMessage(message);
           } catch (err) {
-            console.error("[ChellWS] Failed to parse message:", err);
+            console.error("[OrcaWS] Failed to parse message:", err);
           }
         };
 
         this.ws.onclose = () => {
-          console.log("[ChellWS] Disconnected from relay server");
+          console.log("[OrcaWS] Disconnected from relay server");
           this.disconnectHandlers.forEach((handler) => handler());
           this.attemptReconnect();
         };
 
         this.ws.onerror = (error) => {
-          console.error("[ChellWS] WebSocket error:", error);
+          console.error("[OrcaWS] WebSocket error:", error);
           reject(error);
         };
       } catch (err) {
@@ -131,7 +131,7 @@ export class ChellWebSocket {
 
   private attemptReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log("[ChellWS] Max reconnect attempts reached");
+      console.log("[OrcaWS] Max reconnect attempts reached");
       return;
     }
 
@@ -139,26 +139,26 @@ export class ChellWebSocket {
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
 
     console.log(
-      `[ChellWS] Attempting reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`
+      `[OrcaWS] Attempting reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`
     );
 
     setTimeout(() => {
       this.connect().catch((err) => {
-        console.error("[ChellWS] Reconnect failed:", err);
+        console.error("[OrcaWS] Reconnect failed:", err);
       });
     }, delay);
   }
 
   private handleMessage(message: WSMessage): void {
-    console.log("[ChellWS] handleMessage called, type:", message.type, "handlers count:", this.messageHandlers.size);
+    console.log("[OrcaWS] handleMessage called, type:", message.type, "handlers count:", this.messageHandlers.size);
 
     // Handle command responses
     if (message.type === "command_response") {
       const response = message as CommandResponseMessage;
-      console.log("[ChellWS] Received command_response, requestId:", response.requestId, "pending commands:", Array.from(this.pendingCommands.keys()));
+      console.log("[OrcaWS] Received command_response, requestId:", response.requestId, "pending commands:", Array.from(this.pendingCommands.keys()));
       const pending = this.pendingCommands.get(response.requestId);
       if (pending) {
-        console.log("[ChellWS] Found pending command for requestId:", response.requestId);
+        console.log("[OrcaWS] Found pending command for requestId:", response.requestId);
         clearTimeout(pending.timeout);
         this.pendingCommands.delete(response.requestId);
 
@@ -168,7 +168,7 @@ export class ChellWebSocket {
           pending.reject(new Error(response.error || "Command failed"));
         }
       } else {
-        console.warn("[ChellWS] No pending command found for requestId:", response.requestId);
+        console.warn("[OrcaWS] No pending command found for requestId:", response.requestId);
       }
     }
 
@@ -178,7 +178,7 @@ export class ChellWebSocket {
 
   async sendAsync(message: Omit<WSMessage, "timestamp">): Promise<void> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.error("[ChellWS] send failed - WebSocket not connected, state:", this.ws?.readyState);
+      console.error("[OrcaWS] send failed - WebSocket not connected, state:", this.ws?.readyState);
       throw new Error("WebSocket not connected");
     }
 
@@ -206,11 +206,11 @@ export class ChellWebSocket {
           encrypted,
         };
 
-        console.log("[ChellWS] Sending encrypted message type:", message.type);
+        console.log("[OrcaWS] Sending encrypted message type:", message.type);
         this.ws.send(JSON.stringify(fullMessage));
         return;
       } catch (err) {
-        console.error("[ChellWS] Failed to encrypt message:", err);
+        console.error("[OrcaWS] Failed to encrypt message:", err);
         // Fall through to send unencrypted as fallback
       }
     }
@@ -221,7 +221,7 @@ export class ChellWebSocket {
       timestamp,
     };
 
-    console.log("[ChellWS] Sending message type:", message.type);
+    console.log("[OrcaWS] Sending message type:", message.type);
     this.ws.send(JSON.stringify(fullMessage));
   }
 
@@ -230,13 +230,13 @@ export class ChellWebSocket {
     // For messages that need encryption, use sendAsync
     if (this.encryptionKey && shouldEncrypt(message.type)) {
       this.sendAsync(message).catch((err) => {
-        console.error("[ChellWS] Failed to send encrypted message:", err);
+        console.error("[OrcaWS] Failed to send encrypted message:", err);
       });
       return;
     }
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.error("[ChellWS] send failed - WebSocket not connected, state:", this.ws?.readyState);
+      console.error("[OrcaWS] send failed - WebSocket not connected, state:", this.ws?.readyState);
       throw new Error("WebSocket not connected");
     }
 
@@ -245,7 +245,7 @@ export class ChellWebSocket {
       timestamp: Date.now(),
     };
 
-    console.log("[ChellWS] Sending message type:", message.type);
+    console.log("[OrcaWS] Sending message type:", message.type);
     this.ws.send(JSON.stringify(fullMessage));
   }
 
@@ -266,9 +266,9 @@ export class ChellWebSocket {
     command: string,
     params: Record<string, unknown> = {}
   ): Promise<T> {
-    console.log("[ChellWS] invoke called:", command);
+    console.log("[OrcaWS] invoke called:", command);
     if (!this.sessionToken) {
-      console.error("[ChellWS] No session token!");
+      console.error("[OrcaWS] No session token!");
       throw new Error("Not authenticated - please pair with desktop first");
     }
 
@@ -283,7 +283,7 @@ export class ChellWebSocket {
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        console.error("[ChellWS] Command timeout:", command);
+        console.error("[OrcaWS] Command timeout:", command);
         this.pendingCommands.delete(id);
         reject(new Error("Command timeout"));
       }, 30000);
@@ -295,10 +295,10 @@ export class ChellWebSocket {
       });
 
       try {
-        console.log("[ChellWS] Sending command:", command, "id:", id);
+        console.log("[OrcaWS] Sending command:", command, "id:", id);
         this.send(message);
       } catch (err) {
-        console.error("[ChellWS] Send failed:", err);
+        console.error("[OrcaWS] Send failed:", err);
         clearTimeout(timeout);
         this.pendingCommands.delete(id);
         reject(err);
@@ -309,11 +309,11 @@ export class ChellWebSocket {
   // Terminal input
   sendTerminalInput(terminalId: string, data: string): void {
     if (!this.sessionToken) {
-      console.error("[ChellWS] sendTerminalInput called but no sessionToken");
+      console.error("[OrcaWS] sendTerminalInput called but no sessionToken");
       throw new Error("Not authenticated");
     }
 
-    console.log("[ChellWS] sendTerminalInput:", terminalId, "data:", JSON.stringify(data));
+    console.log("[OrcaWS] sendTerminalInput:", terminalId, "data:", JSON.stringify(data));
 
     const message: Omit<TerminalInputMessage, "timestamp"> = {
       type: "terminal_input",
@@ -324,23 +324,23 @@ export class ChellWebSocket {
     };
 
     this.send(message);
-    console.log("[ChellWS] terminal_input message sent");
+    console.log("[OrcaWS] terminal_input message sent");
   }
 
   // Request status update from desktop
   requestStatus(): void {
     if (!this.sessionToken) {
-      console.log("[ChellWS] requestStatus called but no sessionToken");
+      console.log("[OrcaWS] requestStatus called but no sessionToken");
       throw new Error("Not authenticated");
     }
 
-    console.log("[ChellWS] Sending request_status with sessionToken:", this.sessionToken.slice(0, 20) + "...");
+    console.log("[OrcaWS] Sending request_status with sessionToken:", this.sessionToken.slice(0, 20) + "...");
     this.send({
       type: "request_status",
       id: generateId(),
       sessionToken: this.sessionToken,
     } as any);
-    console.log("[ChellWS] request_status message sent");
+    console.log("[OrcaWS] request_status message sent");
   }
 
   // Resume session after reconnecting with saved token
@@ -349,7 +349,7 @@ export class ChellWebSocket {
       throw new Error("Not authenticated");
     }
 
-    console.log("[ChellWS] Sending resume_session with token:", this.sessionToken.slice(0, 20) + "...");
+    console.log("[OrcaWS] Sending resume_session with token:", this.sessionToken.slice(0, 20) + "...");
     this.send({
       type: "resume_session",
       id: generateId(),
@@ -361,7 +361,7 @@ export class ChellWebSocket {
 
   // Event handlers
   onMessage(handler: MessageHandler): () => void {
-    console.log("[ChellWS] Adding message handler, total:", this.messageHandlers.size + 1);
+    console.log("[OrcaWS] Adding message handler, total:", this.messageHandlers.size + 1);
     this.messageHandlers.add(handler);
     return () => this.messageHandlers.delete(handler);
   }
@@ -382,11 +382,11 @@ export class ChellWebSocket {
 }
 
 // Singleton instance
-let wsInstance: ChellWebSocket | null = null;
+let wsInstance: OrcaWebSocket | null = null;
 
-export function getWebSocket(url?: string): ChellWebSocket {
+export function getWebSocket(url?: string): OrcaWebSocket {
   if (!wsInstance && url) {
-    wsInstance = new ChellWebSocket(url);
+    wsInstance = new OrcaWebSocket(url);
   }
   if (!wsInstance) {
     throw new Error("WebSocket not initialized - provide URL first");
@@ -394,10 +394,10 @@ export function getWebSocket(url?: string): ChellWebSocket {
   return wsInstance;
 }
 
-export function initWebSocket(url: string): ChellWebSocket {
+export function initWebSocket(url: string): OrcaWebSocket {
   if (wsInstance) {
     wsInstance.disconnect();
   }
-  wsInstance = new ChellWebSocket(url);
+  wsInstance = new OrcaWebSocket(url);
   return wsInstance;
 }
