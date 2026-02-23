@@ -8,7 +8,7 @@
 
 ### 2. Encryption Scheme
 - **Key Derivation**: PBKDF2 with SHA-256, 10,000 iterations (reduced from 100k for mobile performance)
-- **Salt**: SHA-256 hash of `chell-portal:{desktopId}`
+- **Salt**: SHA-256 hash of `orca-portal:{desktopId}`
 - **Encryption**: AES-256-GCM with 12-byte random IV
 - **AAD**: `{messageType}:{timestamp}` for replay protection
 
@@ -22,7 +22,7 @@
 - `handleMessage()` decrypts incoming encrypted messages
 
 **Mobile (`mobile/lib/websocket.ts`)**:
-- Added `encryptionKey: EncryptionKey | null` to ChellWebSocket class
+- Added `encryptionKey: EncryptionKey | null` to OrcaWebSocket class
 - `setEncryptionKey(passphrase, desktopId)` method to derive key
 - `sendAsync()` encrypts outgoing messages
 - `onmessage` handler decrypts incoming encrypted messages

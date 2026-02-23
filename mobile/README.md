@@ -1,6 +1,6 @@
-# Chell Portal - Mobile App
+# Orca Portal - Mobile App
 
-A React Native mobile app that acts as a remote portal to control your Chell desktop application. It provides the same functionality as the desktop app (Git operations, AI assistants, terminal) but relays all commands through a secure WebSocket connection.
+A React Native mobile app that acts as a remote portal to control your Orca desktop application. It provides the same functionality as the desktop app (Git operations, AI assistants, terminal) but relays all commands through a secure WebSocket connection.
 
 ## Architecture
 
@@ -23,7 +23,7 @@ The mobile app doesn't run any commands locally. Instead:
 - **Git Panel**: View status, stage/unstage files, view diffs, commit, pull, push, switch branches
 - **Terminal**: Remote shell with command history, Ctrl+C, Tab completion
 - **AI Assistant**: Launch Claude Code, Aider, OpenCode, or shell; Smart Shell for natural language commands
-- **Theme Sync**: Automatically matches your desktop theme (Chell Blue, Chell Orange, Light, Custom)
+- **Theme Sync**: Automatically matches your desktop theme (Dark, Tokyo, Light, Custom)
 - **Multi-Desktop**: Link multiple desktop machines and switch between them
 - **Project Switching**: See all projects opened on desktop and switch between them from mobile
 
@@ -70,7 +70,7 @@ npx expo start --android
 
 ### 4. Connect to Your Desktop
 
-1. Open Chell on your desktop
+1. Open Orca on your desktop
 2. Go to Settings > Remote Portal
 3. Enable "Remote Portal"
 4. A QR code will appear
@@ -196,12 +196,12 @@ All components support theming via CSS variables defined in `global.css`.
 
 ## Themes
 
-Three built-in themes matching the desktop app:
+Built-in themes matching the desktop app:
 
 | Theme | Background | Primary | Description |
 |-------|------------|---------|-------------|
-| Chell Blue | #1a1b26 | #7aa2f7 (blue) | Default theme with blue accents |
-| Chell Orange | #121212 | #FF6B00 (orange) | Dark theme with orange accents |
+| Tokyo | #1a1b26 | #7aa2f7 (blue) | Default theme with blue accents |
+| Dark | #121212 | #FF6B00 (orange) | Dark theme with orange accents |
 | Light | #ffffff | #FF6B00 (orange) | Light mode |
 
 Custom themes are synced from desktop with full color palette support.

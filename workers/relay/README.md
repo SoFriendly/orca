@@ -1,6 +1,6 @@
-# Chell Portal Relay - Cloudflare Worker
+# Orca Portal Relay - Cloudflare Worker
 
-A Cloudflare Worker that acts as a WebSocket relay between Chell Desktop and Chell Portal mobile apps. It handles secure pairing, session management, and message forwarding using Durable Objects for persistent state.
+A Cloudflare Worker that acts as a WebSocket relay between Orca Desktop and Orca Portal mobile apps. It handles secure pairing, session management, and message forwarding using Durable Objects for persistent state.
 
 ## Architecture
 
@@ -8,7 +8,7 @@ A Cloudflare Worker that acts as a WebSocket relay between Chell Desktop and Che
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Cloudflare Edge Network                       │
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │                    Chell Relay Worker                      │  │
+│  │                    Orca Relay Worker                       │  │
 │  │  ┌─────────────────┐    ┌─────────────────────────────┐   │  │
 │  │  │   HTTP Router   │───►│     Durable Object          │   │  │
 │  │  │  /ws, /health   │    │      (SessionDO)            │   │  │

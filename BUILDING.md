@@ -209,7 +209,7 @@ Note: Linux users who installed via `.deb` will receive updates via AppImage. Th
 If you need to generate new Tauri signing keys:
 
 ```bash
-pnpm tauri signer generate -w ~/.tauri/chell.key
+pnpm tauri signer generate -w ~/.tauri/orca.key
 ```
 
 This outputs:

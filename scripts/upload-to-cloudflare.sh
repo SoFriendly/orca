@@ -92,13 +92,13 @@ echo "=== Uploading macOS artifacts ==="
 
 # macOS DMG
 DMG_FILE=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" 2>/dev/null | head -1)
-[ -n "$DMG_FILE" ] && upload_file "$DMG_FILE" "v${VERSION}/Chell_${VERSION}_aarch64.dmg"
+[ -n "$DMG_FILE" ] && upload_file "$DMG_FILE" "v${VERSION}/Orca_${VERSION}_aarch64.dmg"
 
 # macOS app bundle (for updates) - tar.gz is created and signed by build-macos.sh
-TAR_FILE="src-tauri/target/release/bundle/Chell_${VERSION}_darwin-aarch64.app.tar.gz"
+TAR_FILE="src-tauri/target/release/bundle/Orca_${VERSION}_darwin-aarch64.app.tar.gz"
 if [ -f "$TAR_FILE" ]; then
-  upload_file "$TAR_FILE" "v${VERSION}/Chell_${VERSION}_darwin-aarch64.app.tar.gz"
-  [ -f "${TAR_FILE}.sig" ] && upload_file "${TAR_FILE}.sig" "v${VERSION}/Chell_${VERSION}_darwin-aarch64.app.tar.gz.sig"
+  upload_file "$TAR_FILE" "v${VERSION}/Orca_${VERSION}_darwin-aarch64.app.tar.gz"
+  [ -f "${TAR_FILE}.sig" ] && upload_file "${TAR_FILE}.sig" "v${VERSION}/Orca_${VERSION}_darwin-aarch64.app.tar.gz.sig"
 else
   echo "Warning: $TAR_FILE not found - run build-macos.sh first"
 fi
@@ -110,42 +110,42 @@ echo "=== Uploading Linux artifacts ==="
 APPIMAGE_X64=$(find artifacts/linux-appimage-x86_64 -name "*.AppImage" 2>/dev/null | head -1)
 [ -z "$APPIMAGE_X64" ] && APPIMAGE_X64=$(find src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage -name "*.AppImage" 2>/dev/null | head -1)
 [ -z "$APPIMAGE_X64" ] && APPIMAGE_X64=$(find src-tauri/target/release/bundle/appimage -name "*amd64*.AppImage" -o -name "*x86_64*.AppImage" 2>/dev/null | head -1)
-[ -n "$APPIMAGE_X64" ] && upload_file "$APPIMAGE_X64" "v${VERSION}/Chell_${VERSION}_amd64.AppImage"
-[ -n "$APPIMAGE_X64" ] && [ -f "${APPIMAGE_X64}.sig" ] && upload_file "${APPIMAGE_X64}.sig" "v${VERSION}/Chell_${VERSION}_amd64.AppImage.sig"
+[ -n "$APPIMAGE_X64" ] && upload_file "$APPIMAGE_X64" "v${VERSION}/Orca_${VERSION}_amd64.AppImage"
+[ -n "$APPIMAGE_X64" ] && [ -f "${APPIMAGE_X64}.sig" ] && upload_file "${APPIMAGE_X64}.sig" "v${VERSION}/Orca_${VERSION}_amd64.AppImage.sig"
 # Also check for separate .sig file in artifacts dir
-[ -n "$APPIMAGE_X64" ] && for sig in artifacts/linux-appimage-x86_64/*.AppImage.sig; do [ -f "$sig" ] && upload_file "$sig" "v${VERSION}/Chell_${VERSION}_amd64.AppImage.sig"; done
+[ -n "$APPIMAGE_X64" ] && for sig in artifacts/linux-appimage-x86_64/*.AppImage.sig; do [ -f "$sig" ] && upload_file "$sig" "v${VERSION}/Orca_${VERSION}_amd64.AppImage.sig"; done
 
 # Linux AppImage - aarch64
 APPIMAGE_ARM=$(find artifacts/linux-appimage-aarch64 -name "*.AppImage" 2>/dev/null | head -1)
 [ -z "$APPIMAGE_ARM" ] && APPIMAGE_ARM=$(find src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/appimage -name "*.AppImage" 2>/dev/null | head -1)
-[ -n "$APPIMAGE_ARM" ] && upload_file "$APPIMAGE_ARM" "v${VERSION}/Chell_${VERSION}_arm64.AppImage"
-[ -n "$APPIMAGE_ARM" ] && [ -f "${APPIMAGE_ARM}.sig" ] && upload_file "${APPIMAGE_ARM}.sig" "v${VERSION}/Chell_${VERSION}_arm64.AppImage.sig"
+[ -n "$APPIMAGE_ARM" ] && upload_file "$APPIMAGE_ARM" "v${VERSION}/Orca_${VERSION}_arm64.AppImage"
+[ -n "$APPIMAGE_ARM" ] && [ -f "${APPIMAGE_ARM}.sig" ] && upload_file "${APPIMAGE_ARM}.sig" "v${VERSION}/Orca_${VERSION}_arm64.AppImage.sig"
 # Also check for separate .sig file in artifacts dir
-[ -n "$APPIMAGE_ARM" ] && for sig in artifacts/linux-appimage-aarch64/*.AppImage.sig; do [ -f "$sig" ] && upload_file "$sig" "v${VERSION}/Chell_${VERSION}_arm64.AppImage.sig"; done
+[ -n "$APPIMAGE_ARM" ] && for sig in artifacts/linux-appimage-aarch64/*.AppImage.sig; do [ -f "$sig" ] && upload_file "$sig" "v${VERSION}/Orca_${VERSION}_arm64.AppImage.sig"; done
 
 # Linux .deb - x86_64
 DEB_X64=$(find artifacts/linux-deb-x86_64 -name "*.deb" 2>/dev/null | head -1)
 [ -z "$DEB_X64" ] && DEB_X64=$(find src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb -name "*.deb" 2>/dev/null | head -1)
 [ -z "$DEB_X64" ] && DEB_X64=$(find src-tauri/target/release/bundle/deb -name "*amd64*.deb" 2>/dev/null | head -1)
-[ -n "$DEB_X64" ] && upload_file "$DEB_X64" "v${VERSION}/Chell_${VERSION}_amd64.deb"
+[ -n "$DEB_X64" ] && upload_file "$DEB_X64" "v${VERSION}/Orca_${VERSION}_amd64.deb"
 
 # Linux .deb - aarch64
 DEB_ARM=$(find artifacts/linux-deb-aarch64 -name "*.deb" 2>/dev/null | head -1)
 [ -z "$DEB_ARM" ] && DEB_ARM=$(find src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/deb -name "*.deb" 2>/dev/null | head -1)
-[ -n "$DEB_ARM" ] && upload_file "$DEB_ARM" "v${VERSION}/Chell_${VERSION}_arm64.deb"
+[ -n "$DEB_ARM" ] && upload_file "$DEB_ARM" "v${VERSION}/Orca_${VERSION}_arm64.deb"
 
 echo ""
 echo "=== Uploading Windows artifacts ==="
 
 # Windows MSI
 MSI_FILE=$(find src-tauri/target/release/bundle/msi -name "*.msi" 2>/dev/null | head -1)
-[ -n "$MSI_FILE" ] && upload_file "$MSI_FILE" "v${VERSION}/Chell_${VERSION}_x64-setup.msi"
-[ -f "${MSI_FILE}.sig" ] && upload_file "${MSI_FILE}.sig" "v${VERSION}/Chell_${VERSION}_x64-setup.msi.sig"
+[ -n "$MSI_FILE" ] && upload_file "$MSI_FILE" "v${VERSION}/Orca_${VERSION}_x64-setup.msi"
+[ -f "${MSI_FILE}.sig" ] && upload_file "${MSI_FILE}.sig" "v${VERSION}/Orca_${VERSION}_x64-setup.msi.sig"
 
 # Windows NSIS installer
 NSIS_FILE=$(find src-tauri/target/release/bundle/nsis -name "*.exe" 2>/dev/null | head -1)
-[ -n "$NSIS_FILE" ] && upload_file "$NSIS_FILE" "v${VERSION}/Chell_${VERSION}_x64-setup.exe"
-[ -f "${NSIS_FILE}.sig" ] && upload_file "${NSIS_FILE}.sig" "v${VERSION}/Chell_${VERSION}_x64-setup.exe.sig"
+[ -n "$NSIS_FILE" ] && upload_file "$NSIS_FILE" "v${VERSION}/Orca_${VERSION}_x64-setup.exe"
+[ -f "${NSIS_FILE}.sig" ] && upload_file "${NSIS_FILE}.sig" "v${VERSION}/Orca_${VERSION}_x64-setup.exe.sig"
 
 echo ""
 echo "=== Updating latest.json ==="
@@ -156,8 +156,8 @@ LINUX_SIG=""
 LINUX_ARM_SIG=""
 WIN_SIG=""
 
-[ -f "src-tauri/target/release/bundle/Chell_${VERSION}_darwin-aarch64.app.tar.gz.sig" ] && \
-  MAC_SIG=$(cat "src-tauri/target/release/bundle/Chell_${VERSION}_darwin-aarch64.app.tar.gz.sig")
+[ -f "src-tauri/target/release/bundle/Orca_${VERSION}_darwin-aarch64.app.tar.gz.sig" ] && \
+  MAC_SIG=$(cat "src-tauri/target/release/bundle/Orca_${VERSION}_darwin-aarch64.app.tar.gz.sig")
 
 # Linux x64 signature
 if [ -n "$APPIMAGE_X64" ] && [ -f "${APPIMAGE_X64}.sig" ]; then
@@ -191,23 +191,23 @@ JQ_FILTER=""
 
 if [ -n "$MAC_SIG" ]; then
   echo "Updating macOS entries..."
-  JQ_FILTER="$JQ_FILTER | .platforms[\"darwin-aarch64\"] = {\"signature\": \$mac_sig, \"url\": \"https://releases.chell.app/v\(\$ver)/Chell_\(\$ver)_darwin-aarch64.app.tar.gz\"}"
-  JQ_FILTER="$JQ_FILTER | .platforms[\"darwin-x86_64\"] = {\"signature\": \$mac_sig, \"url\": \"https://releases.chell.app/v\(\$ver)/Chell_\(\$ver)_darwin-x86_64.app.tar.gz\"}"
+  JQ_FILTER="$JQ_FILTER | .platforms[\"darwin-aarch64\"] = {\"signature\": \$mac_sig, \"url\": \"https://releases.chell.app/v\(\$ver)/Orca_\(\$ver)_darwin-aarch64.app.tar.gz\"}"
+  JQ_FILTER="$JQ_FILTER | .platforms[\"darwin-x86_64\"] = {\"signature\": \$mac_sig, \"url\": \"https://releases.chell.app/v\(\$ver)/Orca_\(\$ver)_darwin-x86_64.app.tar.gz\"}"
 fi
 
 if [ -n "$LINUX_SIG" ]; then
   echo "Updating Linux x64 entry..."
-  JQ_FILTER="$JQ_FILTER | .platforms[\"linux-x86_64\"] = {\"signature\": \$linux_sig, \"url\": \"https://releases.chell.app/v\(\$ver)/Chell_\(\$ver)_amd64.AppImage\"}"
+  JQ_FILTER="$JQ_FILTER | .platforms[\"linux-x86_64\"] = {\"signature\": \$linux_sig, \"url\": \"https://releases.chell.app/v\(\$ver)/Orca_\(\$ver)_amd64.AppImage\"}"
 fi
 
 if [ -n "$LINUX_ARM_SIG" ]; then
   echo "Updating Linux ARM entry..."
-  JQ_FILTER="$JQ_FILTER | .platforms[\"linux-aarch64\"] = {\"signature\": \$linux_arm_sig, \"url\": \"https://releases.chell.app/v\(\$ver)/Chell_\(\$ver)_arm64.AppImage\"}"
+  JQ_FILTER="$JQ_FILTER | .platforms[\"linux-aarch64\"] = {\"signature\": \$linux_arm_sig, \"url\": \"https://releases.chell.app/v\(\$ver)/Orca_\(\$ver)_arm64.AppImage\"}"
 fi
 
 if [ -n "$WIN_SIG" ]; then
   echo "Updating Windows entry..."
-  JQ_FILTER="$JQ_FILTER | .platforms[\"windows-x86_64\"] = {\"signature\": \$win_sig, \"url\": \"https://releases.chell.app/v\(\$ver)/Chell_\(\$ver)_x64-setup.msi\"}"
+  JQ_FILTER="$JQ_FILTER | .platforms[\"windows-x86_64\"] = {\"signature\": \$win_sig, \"url\": \"https://releases.chell.app/v\(\$ver)/Orca_\(\$ver)_x64-setup.msi\"}"
 fi
 
 if [ -n "$JQ_FILTER" ]; then
