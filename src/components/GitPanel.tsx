@@ -2169,7 +2169,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Show changes"
-                className={cn("h-7 w-7", viewMode === "changes" && "bg-primary/15 text-primary")}
+                className={cn("h-7 w-7", viewMode === "changes" && "text-primary")}
                 onClick={() => setViewMode("changes")}
               >
                 <GitBranch className="h-3.5 w-3.5" />
@@ -2184,7 +2184,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Show history"
-                className={cn("h-7 w-7", viewMode === "history" && "bg-primary/15 text-primary")}
+                className={cn("h-7 w-7", viewMode === "history" && "text-primary")}
                 onClick={() => setViewMode("history")}
               >
                 <History className="h-3.5 w-3.5" />
@@ -2199,7 +2199,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Browse files"
-                className={cn("h-7 w-7", viewMode === "files" && "bg-primary/15 text-primary")}
+                className={cn("h-7 w-7", viewMode === "files" && "text-primary")}
                 onClick={() => setViewMode("files")}
               >
                 <FolderTree className="h-3.5 w-3.5" />
@@ -2214,7 +2214,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Worktrees"
-                className={cn("h-7 w-7", viewMode === "worktrees" && "bg-primary/15 text-primary")}
+                className={cn("h-7 w-7", viewMode === "worktrees" && "text-primary")}
                 onClick={() => setViewMode("worktrees")}
               >
                 <GitFork className="h-3.5 w-3.5" />

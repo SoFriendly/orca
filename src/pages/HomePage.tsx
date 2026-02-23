@@ -15,8 +15,8 @@ import {
   ArrowRight,
   Search,
   X,
+  HelpCircle,
 } from "lucide-react";
-import { OrcaIcon } from "@/components/icons/OrcaIcon";
 import OrcaLogo from "@/components/OrcaLogo";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -321,7 +321,7 @@ export default function HomePage() {
   };
 
   const navButtonBase =
-    "flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-muted-foreground transition-all";
+    "flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors";
   const panelShellClass =
     "rounded-2xl border border-border bg-card";
 
@@ -352,7 +352,7 @@ export default function HomePage() {
               <button
                 onClick={handleNewWindow}
                 aria-label="New window"
-                className={cn(navButtonBase, "hover:border-border/60 hover:bg-muted/40 hover:text-foreground")}
+                className={cn(navButtonBase, "hover:text-foreground")}
               >
                 <Plus className="h-5 w-5" />
               </button>
@@ -365,7 +365,7 @@ export default function HomePage() {
               <button
                 onClick={handleOpenProject}
                 aria-label="Open folder"
-                className={cn(navButtonBase, "hover:border-border/60 hover:bg-muted/40 hover:text-foreground")}
+                className={cn(navButtonBase, "hover:text-foreground")}
               >
                 <FolderOpen className="h-5 w-5" />
               </button>
@@ -384,8 +384,8 @@ export default function HomePage() {
                 className={cn(
                   navButtonBase,
                   activeSidebarItem === "settings"
-                    ? "border-border bg-muted/70 text-foreground shadow-[0_0_0_1px_hsl(var(--primary)/0.3)]"
-                    : "hover:border-border/60 hover:bg-muted/40 hover:text-foreground"
+                    ? "text-primary"
+                    : "hover:text-foreground"
                 )}
               >
                 <Settings className="h-5 w-5" />
@@ -407,9 +407,9 @@ export default function HomePage() {
                 <button
                   onClick={() => setHasSeenOnboarding(false)}
                   aria-label="Show tour"
-                  className="flex h-9 w-9 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+                  className={cn(navButtonBase, "hover:text-foreground")}
                 >
-                  <OrcaIcon className="h-8 w-8" />
+                  <HelpCircle className="h-5 w-5" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right">Show Tour</TooltipContent>

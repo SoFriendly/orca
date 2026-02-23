@@ -28,12 +28,12 @@ import {
   Eye,
   LetterText,
   ExternalLink,
+  HelpCircle,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Editor from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
-import { OrcaIcon } from "@/components/icons/OrcaIcon";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -1809,7 +1809,7 @@ export default function ProjectPage() {
 
   const assistantOptions = getAssistantOptions();
   const navButtonBase =
-    "flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-muted-foreground transition-all";
+    "flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors";
   const panelShellClass =
     "rounded-2xl border border-border bg-card transition-opacity duration-150";
 
@@ -2032,7 +2032,7 @@ export default function ProjectPage() {
               <button
                 onClick={handleNewWindow}
                 aria-label="New window"
-                className={cn(navButtonBase, "hover:border-border/60 hover:bg-muted/40 hover:text-foreground")}
+                className={cn(navButtonBase, "hover:text-foreground")}
               >
                 <Plus className="h-5 w-5" />
               </button>
@@ -2063,7 +2063,7 @@ export default function ProjectPage() {
                   }
                 }}
                 aria-label="Open folder"
-                className={cn(navButtonBase, "hover:border-border/60 hover:bg-muted/40 hover:text-foreground")}
+                className={cn(navButtonBase, "hover:text-foreground")}
               >
                 <FolderOpen className="h-5 w-5" />
               </button>
@@ -2082,8 +2082,8 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   activeSidebarItem === "settings"
-                    ? "border-border bg-muted/70 text-foreground shadow-[0_0_0_1px_hsl(var(--primary)/0.3)]"
-                    : "hover:border-border/60 hover:bg-muted/40 hover:text-foreground"
+                    ? "text-primary"
+                    : "hover:text-foreground"
                 )}
               >
                 <Settings className="h-5 w-5" />
@@ -2107,10 +2107,9 @@ export default function ProjectPage() {
                   aria-label={showGitPanel ? "Hide git panel" : "Show git panel"}
                 className={cn(
                   navButtonBase,
-                  "text-foreground",
                   showGitPanel
-                    ? "border-border bg-muted hover:bg-muted/80"
-                    : "hover:border-border/60 hover:bg-muted/40",
+                    ? "text-primary"
+                    : "hover:text-foreground",
                   showGitPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2131,10 +2130,9 @@ export default function ProjectPage() {
                   aria-label={showAssistantPanel ? "Hide assistant" : "Show assistant"}
                 className={cn(
                   navButtonBase,
-                  "text-foreground",
                   showAssistantPanel
-                    ? "border-border bg-muted hover:bg-muted/80"
-                    : "hover:border-border/60 hover:bg-muted/40",
+                    ? "text-primary"
+                    : "hover:text-foreground",
                   showAssistantPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2155,10 +2153,9 @@ export default function ProjectPage() {
                   aria-label={showShellPanel ? "Hide shell" : "Show shell"}
                 className={cn(
                   navButtonBase,
-                  "text-foreground",
                   showShellPanel
-                    ? "border-border bg-muted hover:bg-muted/80"
-                    : "hover:border-border/60 hover:bg-muted/40",
+                    ? "text-primary"
+                    : "hover:text-foreground",
                   showShellPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2179,10 +2176,9 @@ export default function ProjectPage() {
                   aria-label={showNotesPanel ? "Hide notes" : "Show notes"}
                 className={cn(
                   navButtonBase,
-                  "text-foreground",
                   showNotesPanel
-                    ? "border-border bg-muted hover:bg-muted/80"
-                    : "hover:border-border/60 hover:bg-muted/40",
+                    ? "text-primary"
+                    : "hover:text-foreground",
                   showNotesPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2206,9 +2202,9 @@ export default function ProjectPage() {
                 <button
                   aria-label="Help"
                   onClick={() => setHasSeenOnboarding(false)}
-                  className={cn(navButtonBase, "hover:border-border/60 hover:bg-muted/40 hover:text-foreground")}
+                  className={cn(navButtonBase, "hover:text-foreground")}
                 >
-                  <OrcaIcon className="h-5 w-5" />
+                  <HelpCircle className="h-5 w-5" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right">Help</TooltipContent>
