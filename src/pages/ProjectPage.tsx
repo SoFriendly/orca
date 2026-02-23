@@ -77,6 +77,7 @@ import {
 import Terminal from "@/components/Terminal";
 import SmartShell from "@/components/SmartShell";
 import GitPanel from "@/components/GitPanel";
+import DiffPanel from "@/components/DiffPanel";
 import NotesPanel from "@/components/NotesPanel";
 import SettingsSheet from "@/components/SettingsSheet";
 import Onboarding from "@/components/Onboarding";
@@ -86,7 +87,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { cn } from "@/lib/utils";
 import { hslToHex, THEME_DEFAULTS } from "@/lib/colorUtils";
 import { getAllAssistants, getAllAssistantCommands } from "@/lib/assistants";
-import type { Project, GitStatus, FileDiff, Branch, Commit, WorktreeInfo, CustomThemeColors, ProjectFolder, ProjectFileData } from "@/types";
+import type { Project, GitStatus, FileDiff, Branch, Commit, WorktreeInfo, CustomThemeColors, ProjectFolder, ProjectFileData, DiffPanelSelection } from "@/types";
 
 // Types for global file search
 interface FileTreeNode {
@@ -537,8 +538,8 @@ export default function ProjectPage() {
     if (showGitPanel && visiblePanelCount <= 1) return;
     isPanelResizing.current = true;
     const others = [
-      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 200 },
-      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 150 },
+      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 320 },
+      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 280 },
       { width: showNotesPanel ? notesPanelWidth : 0, setWidth: setNotesPanelWidth, minWidth: 250 },
     ];
 
@@ -547,6 +548,8 @@ export default function ProjectPage() {
       savedGitWidth.current = gitPanelWidth;
       setShowGitPanel(false);
       setGitPanelWidth(0);
+      // Close diff panel when git panel is hidden
+      if (showDiffPanel) setDiffPanelSelection(null);
       redistributePanelSpace(freed, true, others);
     } else {
       const restored = savedGitWidth.current;
@@ -562,8 +565,8 @@ export default function ProjectPage() {
     if (showAssistantPanel && visiblePanelCount <= 1) return;
     isPanelResizing.current = true;
     const others = [
-      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 200 },
-      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 150 },
+      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 280 },
+      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 280 },
       { width: showNotesPanel ? notesPanelWidth : 0, setWidth: setNotesPanelWidth, minWidth: 250 },
     ];
 
@@ -586,8 +589,8 @@ export default function ProjectPage() {
     if (showShellPanel && visiblePanelCount <= 1) return;
     isPanelResizing.current = true;
     const others = [
-      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 200 },
-      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 200 },
+      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 280 },
+      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 320 },
       { width: showNotesPanel ? notesPanelWidth : 0, setWidth: setNotesPanelWidth, minWidth: 250 },
     ];
 
@@ -611,9 +614,9 @@ export default function ProjectPage() {
     if (showNotesPanel && visiblePanelCount <= 1) return;
     isPanelResizing.current = true;
     const others = [
-      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 200 },
-      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 200 },
-      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 150 },
+      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 280 },
+      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 320 },
+      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 280 },
     ];
 
     if (showNotesPanel) {
@@ -645,9 +648,9 @@ export default function ProjectPage() {
         isPanelResizing.current = true;
         const needed = savedMarkdownWidth.current + 8;
         const others = [
-          { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 200 },
-          { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 200 },
-          { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 150 },
+          { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 280 },
+          { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 320 },
+          { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 280 },
           { width: showNotesPanel ? notesPanelWidth : 0, setWidth: setNotesPanelWidth, minWidth: 250 },
         ];
         redistributePanelSpace(needed, false, others);
@@ -728,9 +731,9 @@ export default function ProjectPage() {
 
     // Distribute freed space to other visible panels
     const others = [
-      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 200 },
-      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 200 },
-      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 150 },
+      { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 280 },
+      { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 320 },
+      { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 280 },
       { width: showNotesPanel ? notesPanelWidth : 0, setWidth: setNotesPanelWidth, minWidth: 250 },
     ];
     redistributePanelSpace(freed, true, others);
@@ -767,7 +770,7 @@ export default function ProjectPage() {
   };
 
   // Resize handle drag handler
-  const handleResizeStart = (e: React.MouseEvent, panel: 'git' | 'shell' | 'notes' | 'markdown') => {
+  const handleResizeStart = (e: React.MouseEvent, panel: 'git' | 'shell' | 'notes' | 'markdown' | 'diff') => {
     e.preventDefault();
     const startX = e.clientX;
     const startGitWidth = gitPanelWidth;
@@ -775,19 +778,26 @@ export default function ProjectPage() {
     const startShellWidth = shellPanelWidth;
     const startNotesWidth = notesPanelWidth;
     const startMarkdownWidth = markdownPanelWidth;
+    const startDiffWidth = diffPanelWidth;
 
     const handleMouseMove = (e: MouseEvent) => {
       const delta = e.clientX - startX;
       if (panel === 'git') {
         // Git resize: adjust git and assistant panels
-        const newGitWidth = Math.max(150, Math.min(500, startGitWidth + delta));
-        const newAssistantWidth = Math.max(200, startAssistantWidth - (newGitWidth - startGitWidth));
+        const newGitWidth = Math.max(280, Math.min(500, startGitWidth + delta));
+        const newAssistantWidth = Math.max(320, startAssistantWidth - (newGitWidth - startGitWidth));
         setGitPanelWidth(newGitWidth);
+        setAssistantPanelWidth(newAssistantWidth);
+      } else if (panel === 'diff') {
+        // Diff panel resize: adjust diff and assistant panels
+        const newDiffWidth = Math.max(250, Math.min(700, startDiffWidth + delta));
+        const newAssistantWidth = Math.max(320, startAssistantWidth - (newDiffWidth - startDiffWidth));
+        setDiffPanelWidth(newDiffWidth);
         setAssistantPanelWidth(newAssistantWidth);
       } else if (panel === 'shell') {
         // Shell resize: adjust shell and assistant panels
-        const newShellWidth = Math.max(150, Math.min(600, startShellWidth - delta));
-        const newAssistantWidth = Math.max(200, startAssistantWidth + (startShellWidth - newShellWidth));
+        const newShellWidth = Math.max(280, Math.min(600, startShellWidth - delta));
+        const newAssistantWidth = Math.max(320, startAssistantWidth + (startShellWidth - newShellWidth));
         setShellPanelWidth(newShellWidth);
         setAssistantPanelWidth(newAssistantWidth);
       } else if (panel === 'notes') {
@@ -925,12 +935,16 @@ export default function ProjectPage() {
   const [assistantPanelWidth, setAssistantPanelWidth] = useState(520); // Main terminal area
   const [shellPanelWidth, setShellPanelWidth] = useState(400);
   const [markdownPanelWidth, setMarkdownPanelWidth] = useState(400);
-  const [notesPanelWidth, setNotesPanelWidth] = useState(320);
+  const [notesPanelWidth, setNotesPanelWidth] = useState(260);
+  const [diffPanelSelection, setDiffPanelSelection] = useState<DiffPanelSelection | null>(null);
+  const [diffPanelWidth, setDiffPanelWidth] = useState(400);
+  const savedDiffWidth = useRef(400);
+  const showDiffPanel = diffPanelSelection !== null;
   const savedGitWidth = useRef(280);
   const savedAssistantWidth = useRef(520);
   const savedShellWidth = useRef(400);
   const savedMarkdownWidth = useRef(400);
-  const savedNotesWidth = useRef(320);
+  const savedNotesWidth = useRef(260);
   const lastContainerWidth = useRef<number | null>(null);
   const isPanelResizing = useRef(false);
 
@@ -960,18 +974,20 @@ export default function ProjectPage() {
         const ratio = newWidth / oldWidth;
 
         // Proportionally adjust all panel widths
-        setGitPanelWidth(prev => Math.max(150, Math.round(prev * ratio)));
-        setAssistantPanelWidth(prev => Math.max(200, Math.round(prev * ratio)));
-        setShellPanelWidth(prev => Math.max(150, Math.round(prev * ratio)));
+        setGitPanelWidth(prev => Math.max(280, Math.round(prev * ratio)));
+        setAssistantPanelWidth(prev => Math.max(320, Math.round(prev * ratio)));
+        setShellPanelWidth(prev => Math.max(280, Math.round(prev * ratio)));
         setNotesPanelWidth(prev => Math.max(250, Math.round(prev * ratio)));
         setMarkdownPanelWidth(prev => Math.max(150, Math.round(prev * ratio)));
+        setDiffPanelWidth(prev => Math.max(250, Math.round(prev * ratio)));
 
         // Update saved widths too
-        savedGitWidth.current = Math.max(150, Math.round(savedGitWidth.current * ratio));
-        savedAssistantWidth.current = Math.max(200, Math.round(savedAssistantWidth.current * ratio));
-        savedShellWidth.current = Math.max(150, Math.round(savedShellWidth.current * ratio));
+        savedGitWidth.current = Math.max(280, Math.round(savedGitWidth.current * ratio));
+        savedAssistantWidth.current = Math.max(320, Math.round(savedAssistantWidth.current * ratio));
+        savedShellWidth.current = Math.max(280, Math.round(savedShellWidth.current * ratio));
         savedNotesWidth.current = Math.max(250, Math.round(savedNotesWidth.current * ratio));
         savedMarkdownWidth.current = Math.max(150, Math.round(savedMarkdownWidth.current * ratio));
+        savedDiffWidth.current = Math.max(250, Math.round(savedDiffWidth.current * ratio));
 
         lastContainerWidth.current = newWidth;
       }
@@ -980,6 +996,54 @@ export default function ProjectPage() {
     window.addEventListener('resize', handleWindowResize);
     return () => window.removeEventListener('resize', handleWindowResize);
   }, []);
+
+  // Diff panel handler
+  const handleShowDiff = useCallback((selection: DiffPanelSelection | null) => {
+    if (selection === null) {
+      // Closing: give space back to other panels
+      if (showDiffPanel) {
+        isPanelResizing.current = true;
+        const freed = diffPanelWidth + 8;
+        const others = [
+          { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 320 },
+          { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 280 },
+          { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 280 },
+        ].filter(p => p.width > 0);
+        const totalWidth = others.reduce((sum, p) => sum + p.width, 0);
+        if (totalWidth > 0) {
+          for (const panel of others) {
+            const ratio = panel.width / totalWidth;
+            panel.setWidth(Math.max(panel.minWidth, Math.round(panel.width + freed * ratio)));
+          }
+        }
+        savedDiffWidth.current = diffPanelWidth;
+        setTimeout(() => { isPanelResizing.current = false; }, 100);
+      }
+      setDiffPanelSelection(null);
+    } else {
+      // Opening or updating
+      if (!showDiffPanel) {
+        // First open: steal space from other panels
+        isPanelResizing.current = true;
+        const needed = savedDiffWidth.current + 8;
+        const others = [
+          { width: showAssistantPanel ? assistantPanelWidth : 0, setWidth: setAssistantPanelWidth, minWidth: 320 },
+          { width: showGitPanel ? gitPanelWidth : 0, setWidth: setGitPanelWidth, minWidth: 280 },
+          { width: showShellPanel ? shellPanelWidth : 0, setWidth: setShellPanelWidth, minWidth: 280 },
+        ].filter(p => p.width > 0);
+        const totalWidth = others.reduce((sum, p) => sum + p.width, 0);
+        if (totalWidth > 0) {
+          for (const panel of others) {
+            const ratio = panel.width / totalWidth;
+            panel.setWidth(Math.max(panel.minWidth, Math.round(panel.width - needed * ratio)));
+          }
+        }
+        setDiffPanelWidth(savedDiffWidth.current);
+        setTimeout(() => { isPanelResizing.current = false; }, 100);
+      }
+      setDiffPanelSelection(selection);
+    }
+  }, [showDiffPanel, diffPanelWidth, assistantPanelWidth, gitPanelWidth, shellPanelWidth, showAssistantPanel, showGitPanel, showShellPanel]);
 
   // Trigger terminal resize when panel visibility changes
   useEffect(() => {
@@ -2225,7 +2289,7 @@ export default function ProjectPage() {
           role="region"
           aria-label="Git panel"
           className={cn("h-full flex flex-col overflow-hidden", panelShellClass, !showGitPanel && "hidden")}
-          style={{ width: gitPanelWidth, minWidth: 200 }}
+          style={{ width: gitPanelWidth, minWidth: 280 }}
         >
           <GitPanel
             projectPath={currentProject.path}
@@ -2240,6 +2304,8 @@ export default function ProjectPage() {
             workspaceName={currentProject.name}
             onRenameWorkspace={handleRenameWorkspace}
             onSaveWorkspace={handleSaveProject}
+            onShowDiff={handleShowDiff}
+            activeDiffPath={diffPanelSelection?.diff.path ?? null}
           />
         </div>
         {/* Resize handle for git panel */}
@@ -2248,6 +2314,26 @@ export default function ProjectPage() {
             className="w-1.5 shrink-0 cursor-col-resize"
             onMouseDown={(e) => handleResizeStart(e, 'git')}
           />
+        )}
+
+        {/* Diff panel */}
+        {showDiffPanel && (
+          <>
+            <div
+              className={cn("h-full flex flex-col overflow-hidden", panelShellClass)}
+              style={{ width: diffPanelWidth, minWidth: 250 }}
+            >
+              <DiffPanel
+                selection={diffPanelSelection}
+                onClose={() => handleShowDiff(null)}
+                onRefresh={() => refreshGitData()}
+              />
+            </div>
+            <div
+              className="w-1.5 shrink-0 cursor-col-resize"
+              onMouseDown={(e) => handleResizeStart(e, 'diff')}
+            />
+          </>
         )}
 
         {/* Center - Terminal area */}
@@ -2260,7 +2346,7 @@ export default function ProjectPage() {
             panelShellClass,
             !showAssistantPanel && "hidden"
           )}
-          style={{ flex: `1 1 ${assistantPanelWidth}px`, minWidth: 200, backgroundColor: terminalBg }}
+          style={{ flex: `1 1 ${assistantPanelWidth}px`, minWidth: 320, backgroundColor: terminalBg }}
           onDragOver={handlePanelDragOver}
           onDrop={handleAssistantPanelDrop}
         >
@@ -2563,7 +2649,7 @@ export default function ProjectPage() {
             !showShellPanel && "hidden",
             !showAssistantPanel && "flex-1 min-w-0"
           )}
-          style={showAssistantPanel ? { width: shellPanelWidth, minWidth: 200 } : undefined}
+          style={showAssistantPanel ? { width: shellPanelWidth, minWidth: 280 } : undefined}
           onDragOver={handlePanelDragOver}
           onDrop={handleShellPanelDrop}
         >

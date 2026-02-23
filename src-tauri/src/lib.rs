@@ -2810,6 +2810,12 @@ fn write_text_file(path: String, content: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to write file: {}", e))
 }
 
+#[tauri::command]
+fn create_directory(path: String) -> Result<(), String> {
+    std::fs::create_dir_all(&path)
+        .map_err(|e| format!("Failed to create directory: {}", e))
+}
+
 // Project file commands for .orca files (Issue #6)
 #[tauri::command]
 fn save_project_file(path: String, data: ProjectFileData) -> Result<(), String> {
@@ -3402,6 +3408,7 @@ pub fn run() {
             save_clipboard_image,
             read_text_file,
             write_text_file,
+            create_directory,
             watch_project_files,
             unwatch_project_files,
             save_project_file,

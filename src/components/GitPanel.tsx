@@ -81,7 +81,7 @@ import {
 import { useGitStore } from "@/stores/gitStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { cn, formatTimestamp } from "@/lib/utils";
-import type { FileDiff, DiffHunk, ProjectFolder, WorktreeInfo } from "@/types";
+import type { FileDiff, DiffHunk, ProjectFolder, WorktreeInfo, DiffPanelSelection } from "@/types";
 
 
 interface GitPanelProps {
@@ -97,6 +97,8 @@ interface GitPanelProps {
   workspaceName?: string; // Custom workspace name (Issue #6)
   onRenameWorkspace?: (name: string) => void; // Callback to rename workspace
   onSaveWorkspace?: () => void; // Callback to save workspace file
+  onShowDiff?: (selection: DiffPanelSelection | null) => void;
+  activeDiffPath?: string | null;
 }
 
 interface CommitSuggestion {
@@ -158,8 +160,7 @@ const isPreviewable = (path: string): boolean => {
   return !binaryExtensions.some(ext => lower.endsWith(ext));
 };
 
-function WorktreeView({ worktrees, repoPath, onRefresh }: { worktrees: WorktreeInfo[]; repoPath: string; onRefresh: () => void }) {
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
+function WorktreeView({ worktrees, repoPath, onRefresh, showCreateDialog, setShowCreateDialog }: { worktrees: WorktreeInfo[]; repoPath: string; onRefresh: () => void; showCreateDialog: boolean; setShowCreateDialog: (v: boolean) => void }) {
   const [newWorktreePath, setNewWorktreePath] = useState("");
   const [newWorktreeBranch, setNewWorktreeBranch] = useState("");
   const [createNewBranch, setCreateNewBranch] = useState(true);
@@ -219,15 +220,6 @@ function WorktreeView({ worktrees, repoPath, onRefresh }: { worktrees: WorktreeI
     }
   };
 
-  const handlePrune = async () => {
-    try {
-      await invoke("prune_worktrees", { repoPath });
-      toast.success("Stale worktrees pruned");
-      onRefresh();
-    } catch (error) {
-      toast.error(`Failed to prune worktrees: ${error}`);
-    }
-  };
 
   const handleOpen = async (wt: WorktreeInfo) => {
     try {
@@ -257,30 +249,6 @@ function WorktreeView({ worktrees, repoPath, onRefresh }: { worktrees: WorktreeI
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">
-          {worktrees.length} worktree{worktrees.length !== 1 ? "s" : ""}
-        </span>
-        <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handlePrune}>
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Prune stale worktrees</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowCreateDialog(true)}>
-                <FolderPlus className="h-3 w-3" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Create worktree</TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
-
       {worktrees.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8">
           <GitFork className="mb-2 h-8 w-8 text-muted-foreground" />
@@ -430,7 +398,7 @@ function WorktreeView({ worktrees, repoPath, onRefresh }: { worktrees: WorktreeI
   );
 }
 
-export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo, onOpenMarkdown, shellCwd, folders, onAddFolder, onRemoveFolder, workspaceName, onRenameWorkspace, onSaveWorkspace }: GitPanelProps) {
+export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo, onOpenMarkdown, shellCwd, folders, onAddFolder, onRemoveFolder, workspaceName, onRenameWorkspace, onSaveWorkspace, onShowDiff, activeDiffPath }: GitPanelProps) {
   const { diffs, branches, loading, status, history, worktrees } = useGitStore();
   const { autoCommitMessage, groqApiKey, preferredEditor, showHiddenFiles } = useSettingsStore();
   // Track the current root path for the file tree (can be changed by cd command)
@@ -462,7 +430,6 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
   // Expandable commit history state
   const [expandedCommits, setExpandedCommits] = useState<Set<string>>(new Set());
   const [commitDiffs, setCommitDiffs] = useState<Map<string, FileDiff[]>>(new Map());
-  const [expandedCommitFiles, setExpandedCommitFiles] = useState<Set<string>>(new Set());
   const [loadingCommitDiffs, setLoadingCommitDiffs] = useState<Set<string>>(new Set());
   const [commitToReset, setCommitToReset] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
@@ -476,6 +443,8 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
   const [renameValue, setRenameValue] = useState("");
   const [creatingFileInDir, setCreatingFileInDir] = useState<string | null>(null);
   const [newFileValue, setNewFileValue] = useState("");
+  const [creatingFolderInDir, setCreatingFolderInDir] = useState<string | null>(null);
+  const [newFolderValue, setNewFolderValue] = useState("");
   const [draggingFile, setDraggingFile] = useState<{ name: string; x: number; y: number; isDir: boolean } | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   // File tree search state
@@ -492,6 +461,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
   const hasGeneratedInitialMessage = useRef(false);
   const pendingAutoGenerate = useRef(false);
   const lastClickedIndex = useRef<number>(-1);
+  const [showCreateWorktreeDialog, setShowCreateWorktreeDialog] = useState(false);
   const justDraggedRef = useRef(false);
 
   const currentBranch = branches.find((b) => b.isHead);
@@ -1054,6 +1024,40 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     }
   };
 
+  const handleStartCreateFolder = (dirPath: string) => {
+    setCreatingFolderInDir(dirPath);
+    setNewFolderValue("");
+    if (dirPath) {
+      setExpandedDirs(prev => new Set([...prev, dirPath]));
+    }
+    if (viewMode !== "files") {
+      setViewMode("files");
+    }
+  };
+
+  const handleFinishCreateFolder = async (dirPath: string, folderName: string, basePath?: string) => {
+    if (!folderName.trim()) {
+      setCreatingFolderInDir(null);
+      return;
+    }
+
+    const effectivePath = basePath || projectPath;
+    const fullPath = dirPath ? `${effectivePath}/${dirPath}/${folderName}` : `${effectivePath}/${folderName}`;
+
+    try {
+      await invoke("create_directory", { path: fullPath });
+      toast.success(`Created ${folderName}`);
+      setCreatingFolderInDir(null);
+      setNewFolderValue("");
+      loadFileTree();
+      onRefresh();
+    } catch (error) {
+      toast.error("Failed to create folder");
+      console.error(error);
+      setCreatingFolderInDir(null);
+    }
+  };
+
   const handleOpenFile = (filePath: string, basePath?: string) => {
     invoke("open_in_finder", { path: `${basePath || projectPath}/${filePath}` });
   };
@@ -1319,6 +1323,16 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     }
   };
 
+  const handlePruneWorktrees = async () => {
+    try {
+      await invoke("prune_worktrees", { repoPath: gitRepoPath });
+      toast.success("Stale worktrees pruned");
+      onRefresh(gitRepoPath);
+    } catch (error) {
+      toast.error(`Failed to prune worktrees: ${error}`);
+    }
+  };
+
   const handlePull = async () => {
     setIsPulling(true);
     // Double RAF + timeout to ensure UI updates before blocking operation
@@ -1404,6 +1418,13 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     const next = new Set(expandedCommits);
     if (next.has(commitId)) {
       next.delete(commitId);
+      // Close diff panel if it belongs to this commit
+      if (onShowDiff && activeDiffPath) {
+        const fileDiffsForCommit = commitDiffs.get(commitId);
+        if (fileDiffsForCommit?.some(d => d.path === activeDiffPath)) {
+          onShowDiff(null);
+        }
+      }
     } else {
       next.add(commitId);
       // Fetch diff if not cached
@@ -1431,18 +1452,6 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     setExpandedCommits(next);
   };
 
-  const toggleCommitFile = (commitId: string, filePath: string) => {
-    const key = `${commitId}:${filePath}`;
-    setExpandedCommitFiles(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
 
   const handleDiscardFile = async (filePath: string) => {
     try {
@@ -1516,13 +1525,20 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
           next.add(filePath);
         }
       } else {
-        // Plain click: select this file only
-        if (next.has(filePath) && next.size === 1) {
-          next.delete(filePath);
-        } else {
-          next.clear();
-          next.add(filePath);
+        // Plain click: show diff in panel, clear selection
+        next.clear();
+        if (onShowDiff) {
+          if (activeDiffPath === filePath) {
+            onShowDiff(null);
+          } else {
+            onShowDiff({
+              diff: diffs[index],
+              source: 'changes',
+              projectPath: gitRepoPath,
+            });
+          }
         }
+        return next;
       }
 
       return next;
@@ -1555,14 +1571,14 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     }
   };
 
-  const toggleFileExpanded = (path: string, force?: boolean) => {
+
+  const toggleFileExpanded = (path: string) => {
     setExpandedFiles((prev) => {
       const next = new Set(prev);
-      const shouldExpand = force !== undefined ? force : !next.has(path);
-      if (shouldExpand) {
-        next.add(path);
-      } else {
+      if (next.has(path)) {
         next.delete(path);
+      } else {
+        next.add(path);
       }
       return next;
     });
@@ -1637,13 +1653,12 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
 
   const FileItem = ({ diff, index }: { diff: FileDiff; index: number }) => {
     const isSelected = selectedFiles.has(diff.path);
+    const isActive = diff.path === activeDiffPath;
     const isExpanded = expandedFiles.has(diff.path);
 
     // Check if file is an image
     const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico', '.bmp'];
     const isImage = imageExtensions.some(ext => diff.path.toLowerCase().endsWith(ext));
-
-    // Check if file has diff content (non-binary)
     const hasDiff = diff.hunks.length > 0;
 
     return (
@@ -1659,7 +1674,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
               role="button"
               className={cn(
                 "relative -mx-2 flex items-center gap-2 rounded-full px-2 py-1.5 transition-colors cursor-pointer",
-                isSelected ? "bg-primary/20" : "hover:bg-muted/50"
+                isActive ? "bg-primary/10" : isSelected ? "bg-primary/20" : "hover:bg-muted/50"
               )}
               onClick={(e) => handleFileClick(diff.path, index, e)}
               onKeyDown={(e) => {
@@ -1755,14 +1770,12 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
           >
             <div className="p-2 select-text">
               {isImage ? (
-                /* Image preview */
                 <div className="flex flex-col items-center gap-2 py-2">
                   <img
                     src={`asset://localhost/${projectPath}/${diff.path}`}
                     alt={diff.path}
                     className="max-w-full max-h-48 rounded border border-border object-contain"
                     onError={(e) => {
-                      // Hide broken image and show placeholder
                       e.currentTarget.style.display = 'none';
                       e.currentTarget.nextElementSibling?.classList.remove('hidden');
                     }}
@@ -1776,7 +1789,6 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                   </span>
                 </div>
               ) : hasDiff ? (
-                /* Text diff */
                 <div className="font-mono text-[10px] leading-relaxed">
                   {diff.hunks.map((hunk, hi) => (
                     <ContextMenu key={hi}>
@@ -1858,7 +1870,6 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                   ))}
                 </div>
               ) : (
-                /* Binary file with no diff */
                 <div className="flex items-center gap-2 py-2 text-muted-foreground">
                   <FileIcon className="h-4 w-4" />
                   <span className="text-xs">Binary file changed</span>
@@ -1911,6 +1922,10 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                     <FilePlus className="mr-2 h-4 w-4" />
                     New File
                   </ContextMenuItem>
+                  <ContextMenuItem onClick={() => handleStartCreateFolder(node.path)}>
+                    <FolderPlus className="mr-2 h-4 w-4" />
+                    New Folder
+                  </ContextMenuItem>
                   <ContextMenuSeparator />
                   <ContextMenuItem onClick={() => handleRevealInFileManager(node.path, projectPath)}>
                     <FolderOpen className="mr-2 h-4 w-4" />
@@ -1943,6 +1958,25 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                         }}
                         autoFocus
                         placeholder="filename"
+                        className="text-xs bg-muted border border-border rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary w-full"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  )}
+                  {creatingFolderInDir === node.path && (
+                    <div className="flex items-center gap-1.5 py-1 px-1 pl-5">
+                      <Folder className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <input
+                        type="text"
+                        value={newFolderValue}
+                        onChange={(e) => setNewFolderValue(e.target.value)}
+                        onBlur={() => handleFinishCreateFolder(node.path, newFolderValue, projectPath)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleFinishCreateFolder(node.path, newFolderValue, projectPath);
+                          if (e.key === "Escape") setCreatingFolderInDir(null);
+                        }}
+                        autoFocus
+                        placeholder="folder name"
                         className="text-xs bg-muted border border-border rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary w-full"
                         onClick={(e) => e.stopPropagation()}
                       />
@@ -2024,6 +2058,13 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                   <FilePlus className="mr-2 h-4 w-4" />
                   New File
                 </ContextMenuItem>
+                <ContextMenuItem onClick={() => {
+                  const parentDir = node.path.includes('/') ? node.path.substring(0, node.path.lastIndexOf('/')) : '';
+                  handleStartCreateFolder(parentDir);
+                }}>
+                  <FolderPlus className="mr-2 h-4 w-4" />
+                  New Folder
+                </ContextMenuItem>
                 <ContextMenuItem onClick={() => handleStartRename(node.path, node.name)}>
                   <Pencil className="mr-2 h-4 w-4" />
                   Rename
@@ -2076,75 +2117,177 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
       <div className="flex h-10 items-center justify-between px-3 text-muted-foreground/60">
         {/* Git operations - left aligned */}
         <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={isPulling ? "Pulling..." : status && status.behind > 0 ? `Pull (${status.behind} behind)` : "Pull"}
-                className={cn("h-7 w-7 relative text-inherit hover:text-foreground", isPulling && "text-primary")}
-                onClick={handlePull}
-                disabled={isPulling}
-              >
-                {isPulling ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <ArrowDownToLine className="h-3.5 w-3.5" />
-                )}
-                {!isPulling && status && status.behind > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500 px-1 text-[9px] font-medium text-white">
-                    {status.behind}<span className="sr-only"> commits behind</span>
-                  </span>
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {isPulling ? "Pulling..." : status && status.behind > 0 ? `Pull (${status.behind} behind)` : "Pull"}
-            </TooltipContent>
-          </Tooltip>
+          {viewMode === "worktrees" ? (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Prune stale worktrees"
+                    className="h-7 w-7 text-inherit hover:text-foreground"
+                    onClick={handlePruneWorktrees}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Prune stale worktrees</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Create worktree"
+                    className="h-7 w-7 text-inherit hover:text-foreground"
+                    onClick={() => setShowCreateWorktreeDialog(true)}
+                  >
+                    <FolderPlus className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Create worktree</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Refresh"
+                    className="h-7 w-7 text-inherit hover:text-foreground"
+                    onClick={() => onRefresh(gitRepoPath)}
+                    disabled={loading}
+                  >
+                    <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Refresh</TooltipContent>
+              </Tooltip>
+            </>
+          ) : viewMode === "files" ? (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="New file"
+                    className="h-7 w-7 text-inherit hover:text-foreground"
+                    onClick={() => handleStartCreateFile("")}
+                  >
+                    <FilePlus className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>New file</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="New folder"
+                    className="h-7 w-7 text-inherit hover:text-foreground"
+                    onClick={() => handleStartCreateFolder("")}
+                  >
+                    <FolderPlus className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>New folder</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Refresh files"
+                    className="h-7 w-7 text-inherit hover:text-foreground"
+                    onClick={() => {
+                      if (folders && folders.length > 0) {
+                        loadAllFolderTrees();
+                      } else {
+                        loadFileTree();
+                      }
+                    }}
+                    disabled={isLoadingFiles}
+                  >
+                    <RefreshCw className={cn("h-3.5 w-3.5", isLoadingFiles && "animate-spin")} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Refresh files</TooltipContent>
+              </Tooltip>
+            </>
+          ) : (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={isPulling ? "Pulling..." : status && status.behind > 0 ? `Pull (${status.behind} behind)` : "Pull"}
+                    className={cn("h-7 w-7 relative text-inherit hover:text-foreground", isPulling && "text-primary")}
+                    onClick={handlePull}
+                    disabled={isPulling}
+                  >
+                    {isPulling ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <ArrowDownToLine className="h-3.5 w-3.5" />
+                    )}
+                    {!isPulling && status && status.behind > 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500 px-1 text-[9px] font-medium text-white">
+                        {status.behind}<span className="sr-only"> commits behind</span>
+                      </span>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isPulling ? "Pulling..." : status && status.behind > 0 ? `Pull (${status.behind} behind)` : "Pull"}
+                </TooltipContent>
+              </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={isPushing ? "Pushing..." : status && status.ahead > 0 ? `Push (${status.ahead} ahead)` : "Push"}
-                className={cn("h-7 w-7 relative text-inherit hover:text-foreground", isPushing && "text-primary")}
-                onClick={handlePush}
-                disabled={isPushing}
-              >
-                {isPushing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <ArrowUpFromLine className="h-3.5 w-3.5" />
-                )}
-                {!isPushing && status && status.ahead > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-medium text-primary-foreground">
-                    {status.ahead}<span className="sr-only"> commits ahead</span>
-                  </span>
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {isPushing ? "Pushing..." : status && status.ahead > 0 ? `Push (${status.ahead} ahead)` : "Push"}
-            </TooltipContent>
-          </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={isPushing ? "Pushing..." : status && status.ahead > 0 ? `Push (${status.ahead} ahead)` : "Push"}
+                    className={cn("h-7 w-7 relative text-inherit hover:text-foreground", isPushing && "text-primary")}
+                    onClick={handlePush}
+                    disabled={isPushing}
+                  >
+                    {isPushing ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <ArrowUpFromLine className="h-3.5 w-3.5" />
+                    )}
+                    {!isPushing && status && status.ahead > 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-medium text-primary-foreground">
+                        {status.ahead}<span className="sr-only"> commits ahead</span>
+                      </span>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isPushing ? "Pushing..." : status && status.ahead > 0 ? `Push (${status.ahead} ahead)` : "Push"}
+                </TooltipContent>
+              </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Refresh"
-                className="h-7 w-7 text-inherit hover:text-foreground"
-                onClick={() => onRefresh(gitRepoPath)}
-                disabled={loading}
-              >
-                <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Refresh</TooltipContent>
-          </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Refresh"
+                    className="h-7 w-7 text-inherit hover:text-foreground"
+                    onClick={() => onRefresh(gitRepoPath)}
+                    disabled={loading}
+                  >
+                    <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Refresh</TooltipContent>
+              </Tooltip>
+            </>
+          )}
         </div>
 
         {/* Panel tabs - right aligned */}
@@ -2220,7 +2363,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
           {viewMode === "changes" && (
             <>
               {/* Selection actions */}
-              {selectedFiles.size > 0 && (
+              {selectedFiles.size > 1 && (
                 <div className="-mx-2 mb-3 flex items-center gap-2 rounded-full bg-muted/50 px-3 py-1.5">
                   <button
                     onClick={clearSelection}
@@ -2335,20 +2478,16 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                         <ContextMenuTrigger asChild>
                           <div
                             className={cn(
-                              "group flex items-start gap-2 rounded-full px-2.5 py-2 hover:bg-muted/50 cursor-pointer overflow-hidden",
+                              "group flex items-start gap-2 rounded-full px-2.5 py-2 hover:bg-muted/50 cursor-pointer overflow-hidden -mx-2",
                               isExpanded && "bg-muted/30"
                             )}
                             onClick={() => toggleCommitExpand(commit.id)}
                           >
-                            <div className="pt-0.5 shrink-0">
-                              {isLoading ? (
+                            {isLoading && (
+                              <div className="pt-0.5 shrink-0">
                                 <Loader2 className="h-3 w-3 text-muted-foreground animate-spin" />
-                              ) : isExpanded ? (
-                                <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                              ) : (
-                                <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                              )}
-                            </div>
+                              </div>
+                            )}
                             <div className="flex flex-col gap-0.5 min-w-0">
                               <span className="text-xs font-medium leading-snug break-words">{commit.message.split('\n')[0]}</span>
                               <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
@@ -2383,33 +2522,39 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
 
                       {/* Expanded commit file list */}
                       {isExpanded && fileDiffs && (
-                        <div className="ml-5 mt-1 mb-2 min-w-0 space-y-0.5">
+                        <div className="mt-1 mb-2 min-w-0 space-y-0.5">
                           {fileDiffs.length === 0 ? (
                             <div className="text-[10px] text-muted-foreground px-2 py-1">No file changes</div>
                           ) : (
                             fileDiffs.map((diff) => {
-                              const fileKey = `${commit.id}:${diff.path}`;
-                              const isFileExpanded = expandedCommitFiles.has(fileKey);
-
                               const fileExists = diff.status !== "deleted";
+                              const isActive = diff.path === activeDiffPath;
 
                               return (
                                 <div key={diff.path} className="min-w-0">
                                   <ContextMenu>
                                     <ContextMenuTrigger asChild>
                                       <div
-                                        className="flex items-center gap-2 rounded-full px-2.5 py-1 hover:bg-muted/50 cursor-pointer"
-                                        onClick={() => toggleCommitFile(commit.id, diff.path)}
-                                      >
-                                        {diff.hunks.length > 0 ? (
-                                          isFileExpanded ? (
-                                            <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                          ) : (
-                                            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                          )
-                                        ) : (
-                                          <span className="h-3 w-3 shrink-0" />
+                                        className={cn(
+                                          "flex items-center gap-2 rounded-full px-2.5 py-1 hover:bg-muted/50 cursor-pointer -mx-2",
+                                          isActive && "bg-primary/10"
                                         )}
+                                        onClick={() => {
+                                          if (onShowDiff) {
+                                            if (activeDiffPath === diff.path) {
+                                              onShowDiff(null);
+                                            } else {
+                                              onShowDiff({
+                                                diff,
+                                                source: 'history',
+                                                commitId: commit.id,
+                                                commitMessage: commit.message.split('\n')[0],
+                                                projectPath: gitRepoPath,
+                                              });
+                                            }
+                                          }
+                                        }}
+                                      >
                                         <span className={cn(
                                           "h-2 w-2 shrink-0 rounded-full",
                                           getStatusColor(diff.status)
@@ -2449,39 +2594,6 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                                       </ContextMenuItem>
                                     </ContextMenuContent>
                                   </ContextMenu>
-
-                                  {/* Inline diff for expanded file */}
-                                  {isFileExpanded && diff.hunks.length > 0 && (
-                                    <div className="ml-5 mt-1 min-w-0 overflow-hidden rounded bg-[#0d0d0d]">
-                                      <div className="p-2 select-text">
-                                        <div className="font-mono text-[10px] leading-relaxed">
-                                          {diff.hunks.map((hunk, hi) => (
-                                            <div key={hi}>
-                                              <div className="text-muted-foreground">
-                                                @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
-                                              </div>
-                                              {hunk.lines.map((line, li) => (
-                                                <div
-                                                  key={li}
-                                                  className={cn(
-                                                    "whitespace-pre-wrap break-all select-text",
-                                                    line.type === "addition" && "bg-green-500/10 text-green-400",
-                                                    line.type === "deletion" && "bg-red-500/10 text-red-400",
-                                                    line.type === "context" && "text-muted-foreground"
-                                                  )}
-                                                >
-                                                  {line.type === "addition" && "+"}
-                                                  {line.type === "deletion" && "-"}
-                                                  {line.type === "context" && " "}
-                                                  {line.content}
-                                                </div>
-                                              ))}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
                                 </div>
                               );
                             })
@@ -2902,6 +3014,10 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                             <FilePlus className="mr-2 h-4 w-4" />
                             New File
                           </ContextMenuItem>
+                          <ContextMenuItem onClick={() => { setActiveFolderId(folder.id); setExpandedFolders(prev => new Set([...prev, folder.id])); handleStartCreateFolder(""); }}>
+                            <FolderPlus className="mr-2 h-4 w-4" />
+                            New Folder
+                          </ContextMenuItem>
                           {onRemoveFolder && folders && folders.length > 1 && (
                             <>
                               <ContextMenuSeparator />
@@ -2933,6 +3049,25 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                                 }}
                                 autoFocus
                                 placeholder="filename"
+                                className="text-xs bg-muted border border-border rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary w-full"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                          )}
+                          {creatingFolderInDir === "" && activeFolderId === folder.id && (
+                            <div className="flex items-center gap-1.5 py-1 px-1 pl-5">
+                              <Folder className="h-3.5 w-3.5 text-primary shrink-0" />
+                              <input
+                                type="text"
+                                value={newFolderValue}
+                                onChange={(e) => setNewFolderValue(e.target.value)}
+                                onBlur={() => handleFinishCreateFolder("", newFolderValue, folder.path)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleFinishCreateFolder("", newFolderValue, folder.path);
+                                  if (e.key === "Escape") setCreatingFolderInDir(null);
+                                }}
+                                autoFocus
+                                placeholder="folder name"
                                 className="text-xs bg-muted border border-border rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary w-full"
                                 onClick={(e) => e.stopPropagation()}
                               />
@@ -2996,6 +3131,25 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                           />
                         </div>
                       )}
+                      {creatingFolderInDir === "" && (
+                        <div className="flex items-center gap-1.5 py-1 px-1 pl-5">
+                          <Folder className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <input
+                            type="text"
+                            value={newFolderValue}
+                            onChange={(e) => setNewFolderValue(e.target.value)}
+                            onBlur={() => handleFinishCreateFolder("", newFolderValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleFinishCreateFolder("", newFolderValue);
+                              if (e.key === "Escape") setCreatingFolderInDir(null);
+                            }}
+                            autoFocus
+                            placeholder="folder name"
+                            className="text-xs bg-muted border border-border rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary w-full"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      )}
                       <FileTreeView
                         nodes={fileTree}
                         expandedDirs={expandedDirs}
@@ -3021,6 +3175,10 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                       <FilePlus className="mr-2 h-4 w-4" />
                       New File
                     </ContextMenuItem>
+                    <ContextMenuItem onClick={() => handleStartCreateFolder("")}>
+                      <FolderPlus className="mr-2 h-4 w-4" />
+                      New Folder
+                    </ContextMenuItem>
                   </ContextMenuContent>
                 </ContextMenu>
               ) : (
@@ -3044,6 +3202,25 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                       />
                     </div>
                   )}
+                  {creatingFolderInDir === "" && (
+                    <div className="flex items-center gap-1.5 py-1 px-1 pl-5 w-full">
+                      <Folder className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <input
+                        type="text"
+                        value={newFolderValue}
+                        onChange={(e) => setNewFolderValue(e.target.value)}
+                        onBlur={() => handleFinishCreateFolder("", newFolderValue)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleFinishCreateFolder("", newFolderValue);
+                          if (e.key === "Escape") setCreatingFolderInDir(null);
+                        }}
+                        autoFocus
+                        placeholder="folder name"
+                        className="text-xs bg-muted border border-border rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary w-full"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  )}
                   <FolderTree className="mb-2 h-8 w-8 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">No files found</p>
                 </div>
@@ -3057,6 +3234,8 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
               worktrees={worktrees}
               repoPath={gitRepoPath}
               onRefresh={() => onRefresh(gitRepoPath)}
+              showCreateDialog={showCreateWorktreeDialog}
+              setShowCreateDialog={setShowCreateWorktreeDialog}
             />
           )}
         </div>
@@ -3066,6 +3245,10 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
         <ContextMenuItem onClick={() => handleStartCreateFile("")}>
           <FilePlus className="mr-2 h-4 w-4" />
           New File
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => handleStartCreateFolder("")}>
+          <FolderPlus className="mr-2 h-4 w-4" />
+          New Folder
         </ContextMenuItem>
       </ContextMenuContent>
       </ContextMenu>

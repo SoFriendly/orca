@@ -79,6 +79,14 @@ export interface WorktreeInfo {
   isPrunable: boolean;
 }
 
+export interface DiffPanelSelection {
+  diff: FileDiff;
+  source: 'changes' | 'history';
+  commitId?: string;
+  commitMessage?: string;
+  projectPath: string;
+}
+
 // Terminal types
 export interface Terminal {
   id: string;
