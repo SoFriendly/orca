@@ -2,7 +2,7 @@
 
 All notable changes to Orca will be documented in this file.
 
-## [0.1.95]
+## [0.1.96]
 
 ### Rebrand: Chell → Orca
 
@@ -14,6 +14,10 @@ All notable changes to Orca will be documented in this file.
 - Disable Remote Portal feature (hidden from settings)
 - Disable system tray icon
 - Home page UI refresh: cleaner action buttons, updated logo and layout
+
+### UI
+- Show recent projects section on home page even when no projects exist, with empty state message
+- Previously the entire section was hidden if there were no recent projects
 
 ## [0.1.94]
 
