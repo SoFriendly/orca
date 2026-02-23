@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { X, ImageIcon, FileIcon, Undo2 } from "lucide-react";
 import { toast } from "sonner";
@@ -36,6 +36,7 @@ export default function DiffPanel({ selection, onClose, onRefresh }: DiffPanelPr
   const { diff, source, commitMessage, projectPath } = selection;
   const isImage = imageExtensions.some(ext => diff.path.toLowerCase().endsWith(ext));
   const hasDiff = diff.hunks.length > 0;
+  const [deletedLines, setDeletedLines] = useState<Set<string>>(new Set());
 
   const handleClose = useCallback(() => {
     onClose();
@@ -66,13 +67,14 @@ export default function DiffPanel({ selection, onClose, onRefresh }: DiffPanelPr
     }
   };
 
-  const handleEditLine = async (filePath: string, lineNo: number, newContent: string) => {
+  const handleEditLine = async (filePath: string, lineNo: number, newContent: string, deleteLine = false) => {
     try {
       const fullPath = `${projectPath}/${filePath}`;
       await invoke("edit_file_line", {
         filePath: fullPath,
         lineNumber: lineNo,
         newContent,
+        delete: deleteLine,
       });
       onRefresh();
     } catch (error) {
@@ -144,6 +146,8 @@ export default function DiffPanel({ selection, onClose, onRefresh }: DiffPanelPr
                   <div key={hi} className="mb-3 rounded">
                     {hunk.lines.map((line, li) => {
                       const isEditable = source === 'changes' && line.type !== "deletion" && line.newLineNo;
+                      const lineKey = `${hi}-${li}`;
+                      if (deletedLines.has(lineKey)) return null;
 
                       return (
                         <div
@@ -173,6 +177,14 @@ export default function DiffPanel({ selection, onClose, onRefresh }: DiffPanelPr
                               e.stopPropagation();
                               e.currentTarget.textContent = line.content;
                               e.currentTarget.blur();
+                            } else if (
+                              (e.key === "Backspace" || e.key === "Delete") &&
+                              isEditable && line.newLineNo &&
+                              !e.currentTarget.textContent
+                            ) {
+                              e.preventDefault();
+                              setDeletedLines(prev => new Set(prev).add(lineKey));
+                              handleEditLine(diff.path, line.newLineNo, "", true);
                             }
                           }}
                         >

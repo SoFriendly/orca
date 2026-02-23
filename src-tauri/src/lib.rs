@@ -1156,7 +1156,7 @@ fn rename_file(old_path: String, new_path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn edit_file_line(file_path: String, line_number: usize, new_content: String) -> Result<(), String> {
+fn edit_file_line(file_path: String, line_number: usize, new_content: String, delete: Option<bool>) -> Result<(), String> {
     use std::fs;
     use std::path::Path;
 
@@ -1174,8 +1174,8 @@ fn edit_file_line(file_path: String, line_number: usize, new_content: String) ->
     // Create a new vector with the updated line
     let mut new_lines: Vec<String> = lines.iter().map(|s| s.to_string()).collect();
 
-    // If new content is empty, delete the line entirely
-    if new_content.is_empty() {
+    // Only delete the line when explicitly requested
+    if delete.unwrap_or(false) {
         new_lines.remove(idx);
     } else {
         new_lines[idx] = new_content;

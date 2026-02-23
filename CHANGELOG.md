@@ -2,6 +2,20 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.1.97]
+
+### Features
+- Add support for multiple AI providers: Groq, OpenAI, and Claude (Anthropic)
+- New provider dropdown in Settings > AI to switch between providers
+- Dynamic model selector per provider (Llama, GPT, Claude models)
+
+### Bug Fixes
+- Fix diff editor deleting the wrong line when clearing a line's content
+  - Clearing a line via editing now sets it to blank instead of removing it
+  - Only Backspace/Delete on an already-empty line removes it from the file
+- Fix blank lines in diff editor not being deletable
+  - Pressing Backspace or Delete on an empty line now removes it and visually hides it immediately
+
 ## [0.1.96]
 
 ### Rebrand: Chell → Orca
