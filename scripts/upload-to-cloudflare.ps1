@@ -127,7 +127,8 @@ try {
     Write-Host "Note: Could not fetch existing latest.json, creating new one" -ForegroundColor Yellow
 }
 
-$latestJson | ConvertTo-Json -Depth 10 | Set-Content $latestJsonPath -Encoding UTF8
+$jsonContent = $latestJson | ConvertTo-Json -Depth 10
+[System.IO.File]::WriteAllText($latestJsonPath, $jsonContent, [System.Text.UTF8Encoding]::new($false))
 
 Upload-File $latestJsonPath "latest.json"
 
