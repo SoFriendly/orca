@@ -2233,7 +2233,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                       <ArrowDownToLine className="h-3.5 w-3.5" />
                     )}
                     {!isPulling && status && status.behind > 0 && (
-                      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500 px-1 text-[9px] font-medium text-white">
+                      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-medium text-accent-foreground">
                         {status.behind}<span className="sr-only"> commits behind</span>
                       </span>
                     )}
@@ -2260,7 +2260,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                       <ArrowUpFromLine className="h-3.5 w-3.5" />
                     )}
                     {!isPushing && status && status.ahead > 0 && (
-                      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-medium text-primary-foreground">
+                      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-medium text-accent-foreground">
                         {status.ahead}<span className="sr-only"> commits ahead</span>
                       </span>
                     )}
