@@ -1,10 +1,10 @@
-import { useEffect, useState, useRef, useCallback, type WheelEvent } from "react";
+import { useEffect, useLayoutEffect, useState, useRef, useCallback, type WheelEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -515,7 +515,7 @@ export default function ProjectPage() {
     }
   };
 
-  // Toggle handlers - redistribute space among visible panels (window size stays fixed)
+  // Toggle handlers - redistribute space among visible panels
   const redistributePanelSpace = (
     freedOrNeeded: number,
     hiding: boolean,
@@ -996,6 +996,50 @@ export default function ProjectPage() {
     window.addEventListener('resize', handleWindowResize);
     return () => window.removeEventListener('resize', handleWindowResize);
   }, []);
+
+  // Grow window when panels overflow the container
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Sum all visible panel widths + resize handles (6px each)
+    const sidebarWidth = 56; // w-14
+    const padding = 16; // pl-1.5 + pr-2
+    let totalNeeded = 0;
+    const panels = [
+      { show: showGitPanel, width: gitPanelWidth },
+      { show: showDiffPanel, width: diffPanelWidth },
+      { show: showAssistantPanel, width: assistantPanelWidth },
+      { show: showShellPanel, width: shellPanelWidth },
+      { show: showNotesPanel, width: notesPanelWidth },
+      { show: showMarkdownPanel, width: markdownPanelWidth },
+    ];
+    let visibleCount = 0;
+    for (const p of panels) {
+      if (p.show) {
+        totalNeeded += p.width;
+        visibleCount++;
+      }
+    }
+    // Resize handles between panels
+    totalNeeded += Math.max(0, visibleCount - 1) * 6;
+
+    const availableWidth = container.clientWidth;
+    const overflow = totalNeeded - availableWidth;
+
+    if (overflow > 0) {
+      const win = getCurrentWindow();
+      win.outerSize().then(size => {
+        win.scaleFactor().then(scale => {
+          const logicalWidth = size.width / scale;
+          const logicalHeight = size.height / scale;
+          win.setSize(new LogicalSize(Math.round(logicalWidth + overflow + 8), Math.round(logicalHeight)));
+          lastContainerWidth.current = availableWidth + overflow + 8;
+        });
+      });
+    }
+  }, [showGitPanel, showAssistantPanel, showShellPanel, showNotesPanel, showMarkdownPanel, showDiffPanel,
+      gitPanelWidth, assistantPanelWidth, shellPanelWidth, notesPanelWidth, markdownPanelWidth, diffPanelWidth]);
 
   // Diff panel handler
   const handleShowDiff = useCallback((selection: DiffPanelSelection | null) => {
