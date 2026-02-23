@@ -3,6 +3,6 @@
 <plist version="1.0">
 <dict>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Chell needs microphone access for audio capture in the terminal</string>
+    <string>Orca needs microphone access for audio capture in the terminal</string>
 </dict>
 </plist>
