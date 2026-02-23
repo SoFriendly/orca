@@ -43,10 +43,30 @@ export default {
           const arch = latestFileMatch[1]; // arm64, amd64, or undefined
           const ext = latestFileMatch[2];
 
-          // Always construct URL from version directly.
-          // latest.json platform URLs are for Tauri auto-updates (AppImage), not for direct downloads.
-          const version = latest.version;
+          // Extract version from a platform URL (e.g. ".../v0.1.95/Orca_0.1.95_..." -> "0.1.95")
+          const extractVersion = (platformKey: string): string | null => {
+            const platformUrl = latest.platforms[platformKey]?.url;
+            if (!platformUrl) return null;
+            const match = platformUrl.match(/Orca_([\d.]+)/);
+            return match ? match[1] : null;
+          };
+
           const archSuffix = arch === "arm64" ? "arm64" : "amd64";
+
+          // Map each extension to its platform key so we derive the version
+          // from the actual platform entry rather than using a single global version.
+          // This prevents redirecting to a version that was never built for that platform.
+          const platformForExt: Record<string, string> = {
+            dmg: "darwin-aarch64",
+            AppImage: `linux-${arch === "arm64" ? "aarch64" : "x86_64"}`,
+            deb: `linux-${arch === "arm64" ? "aarch64" : "x86_64"}`,
+            msi: "windows-x86_64",
+            exe: "windows-x86_64",
+          };
+
+          const platformKey = platformForExt[ext];
+          const version = (platformKey && extractVersion(platformKey)) || latest.version;
+
           const fileMap: Record<string, string> = {
             dmg: `v${version}/Orca_${version}_aarch64.dmg`,
             AppImage: `v${version}/Orca_${version}_${archSuffix}.AppImage`,
