@@ -239,15 +239,17 @@ async function handleCommand(message: Record<string, unknown>) {
 
   console.log("[Portal] Received command from mobile:", command, "id:", id);
 
-  // Inject API key for AI commands from settings
+  // Inject API key and provider for AI commands from settings
   let finalParams = { ...params };
   if (command === "generate_commit_message" || command === "ai_shell_command") {
-    const groqApiKey = useSettingsStore.getState().groqApiKey;
-    if (groqApiKey) {
-      finalParams.apiKey = groqApiKey;
-      console.log("[Portal] Injected API key for", command);
+    const { aiApiKey, aiProviderType, aiModel } = useSettingsStore.getState();
+    if (aiApiKey) {
+      finalParams.apiKey = aiApiKey;
+      finalParams.provider = aiProviderType;
+      finalParams.model = aiModel;
+      console.log("[Portal] Injected API key and provider for", command);
     } else {
-      console.warn("[Portal] No Groq API key configured in settings");
+      console.warn("[Portal] No AI API key configured in settings");
     }
   }
 

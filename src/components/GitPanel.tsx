@@ -400,7 +400,7 @@ function WorktreeView({ worktrees, repoPath, onRefresh, showCreateDialog, setSho
 
 export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo, onOpenMarkdown, shellCwd, folders, onAddFolder, onRemoveFolder, workspaceName, onRenameWorkspace, onSaveWorkspace, onShowDiff, activeDiffPath }: GitPanelProps) {
   const { diffs, branches, loading, status, history, worktrees } = useGitStore();
-  const { autoCommitMessage, groqApiKey, preferredEditor, showHiddenFiles } = useSettingsStore();
+  const { autoCommitMessage, aiApiKey, aiProviderType, aiModel, preferredEditor, showHiddenFiles } = useSettingsStore();
   // Track the current root path for the file tree (can be changed by cd command)
   const [fileTreeRoot, setFileTreeRoot] = useState(projectPath);
   // Workspace name editing state (Issue #6)
@@ -1244,8 +1244,8 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     const selectedDiffs = diffs.filter(d => filesToCommit.has(d.path));
     if (selectedDiffs.length === 0) return;
 
-    if (!groqApiKey) {
-      toast.error("Please set your Groq API key in Settings to generate AI commit messages.");
+    if (!aiApiKey) {
+      toast.error("Please set your API key in Settings to generate AI commit messages.");
       // Fallback to a simple message
       const fileNames = selectedDiffs.map(d => d.path.split('/').pop()).join(', ');
       setCommitSubject(`Update ${fileNames}`);
@@ -1256,7 +1256,9 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     try {
       const suggestion = await invoke<CommitSuggestion>("generate_commit_message", {
         diffs: selectedDiffs,
-        apiKey: groqApiKey,
+        apiKey: aiApiKey,
+        provider: aiProviderType,
+        model: aiModel,
       });
       setCommitSubject(suggestion.subject);
       setCommitDescription(suggestion.description);

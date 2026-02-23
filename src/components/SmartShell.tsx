@@ -80,7 +80,7 @@ export default function SmartShell({
     }, 15000);
     return () => clearInterval(interval);
   }, []);
-  const { groqApiKey } = useSettingsStore();
+  const { aiApiKey, aiProviderType, aiModel } = useSettingsStore();
 
   // Listen for NLT progress events (filtered by request ID to avoid cross-window interference)
   useEffect(() => {
@@ -131,8 +131,8 @@ export default function SmartShell({
   const handleSubmit = async () => {
     if (!aiInput.trim() || isLoading) return;
 
-    if (!groqApiKey) {
-      setError("Please set your Groq API key in Settings to use AI commands.");
+    if (!aiApiKey) {
+      setError("Please set your API key in Settings to use AI commands.");
       return;
     }
 
@@ -154,7 +154,9 @@ export default function SmartShell({
         request: aiInput.trim(),
         context: projectContext,
         cwd,
-        apiKey: groqApiKey,
+        apiKey: aiApiKey,
+        provider: aiProviderType,
+        model: aiModel,
         requestId,
       });
 

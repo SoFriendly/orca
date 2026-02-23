@@ -35,9 +35,16 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useUpdateStore } from "@/stores/updateStore";
 import { cn } from "@/lib/utils";
 import { CustomThemeEditor } from "@/components/CustomThemeEditor";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 // import { RemotePortalSettings } from "@/components/RemotePortalSettings";
 import { getAllAssistants, getAllAssistantCommands } from "@/lib/assistants";
-import type { ThemeOption, AssistantDefinition } from "@/types";
+import type { ThemeOption, AssistantDefinition, AiProviderType } from "@/types";
 
 interface SettingsSheetProps {
   open: boolean;
@@ -69,6 +76,21 @@ const THEMES: ThemeInfo[] = [
   { id: "custom", name: "Custom", gradient: "from-purple-500/60 via-pink-500/60 to-orange-500/60" },
 ];
 
+const AI_MODELS: Record<AiProviderType, { value: string; label: string }[]> = {
+  groq: [
+    { value: "llama-3.3-70b-versatile", label: "Llama 3.3 70B" },
+    { value: "llama-3.1-8b-instant", label: "Llama 3.1 8B" },
+  ],
+  openai: [
+    { value: "gpt-5.2-2025-12-11", label: "GPT-5.2" },
+    { value: "gpt-5-mini-2025-08-07", label: "GPT-5 Mini" },
+  ],
+  claude: [
+    { value: "claude-sonnet-4-5-20250929", label: "Claude Sonnet" },
+    { value: "claude-haiku-4-5-20251001", label: "Claude Haiku" },
+  ],
+};
+
 
 export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
   const {
@@ -86,8 +108,12 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
     setAutoCommitMessage,
     autoFetchRemote,
     setAutoFetchRemote,
-    groqApiKey,
-    setGroqApiKey,
+    aiApiKey,
+    setAiApiKey,
+    aiProviderType,
+    setAiProviderType,
+    aiModel,
+    setAiModel,
     preferredEditor,
     setPreferredEditor,
     showHiddenFiles,
@@ -797,37 +823,91 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
               {activeTab === "ai" && (
                 <div className="space-y-8">
                   <section>
-                    <h3 className="text-lg font-semibold">AI Shell</h3>
+                    <h3 className="text-lg font-semibold">AI Provider</h3>
                     <p className="text-sm text-muted-foreground mb-6">
-                      Configure the AI-powered shell command assistant.
+                      Choose an AI provider for shell commands and commit message generation.
                     </p>
 
                     <div className="space-y-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium">Groq API Key</p>
+                          <p className="text-sm font-medium">Provider</p>
                           <p className="text-xs text-muted-foreground">
-                            Required for AI shell commands. Get a free key at{" "}
-                            <a
-                              href="https://console.groq.com/keys"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline"
-                            >
-                              console.groq.com
-                            </a>
+                            Select the AI service to use.
+                          </p>
+                        </div>
+                        <Select
+                          value={aiProviderType}
+                          onValueChange={(value: AiProviderType) => setAiProviderType(value)}
+                        >
+                          <SelectTrigger className="w-40 h-9 bg-muted/50">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="groq">Groq</SelectItem>
+                            <SelectItem value="openai">OpenAI</SelectItem>
+                            <SelectItem value="claude">Claude</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Model</p>
+                          <p className="text-xs text-muted-foreground">
+                            Choose the model for this provider.
+                          </p>
+                        </div>
+                        <Select
+                          value={aiModel || AI_MODELS[aiProviderType][0].value}
+                          onValueChange={(value: string) => setAiModel(value)}
+                        >
+                          <SelectTrigger className="w-40 h-9 bg-muted/50">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {AI_MODELS[aiProviderType].map((m) => (
+                              <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">API Key</p>
+                          <p className="text-xs text-muted-foreground">
+                            {aiProviderType === "groq" && (
+                              <>Get a free key at{" "}
+                                <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">console.groq.com</a>
+                              </>
+                            )}
+                            {aiProviderType === "openai" && (
+                              <>Get a key at{" "}
+                                <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">platform.openai.com</a>
+                              </>
+                            )}
+                            {aiProviderType === "claude" && (
+                              <>Get a key at{" "}
+                                <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">console.anthropic.com</a>
+                              </>
+                            )}
                           </p>
                         </div>
                         <Input
                           type="password"
-                          value={groqApiKey || ""}
-                          onChange={(e) => setGroqApiKey(e.target.value || undefined)}
+                          value={aiApiKey || ""}
+                          onChange={(e) => setAiApiKey(e.target.value || undefined)}
                           onBlur={(e) => {
                             if (e.target.value) {
                               toast.success("API key saved");
                             }
                           }}
-                          placeholder="gsk_..."
+                          placeholder={
+                            aiProviderType === "groq" ? "gsk_..." :
+                            aiProviderType === "openai" ? "sk-..." :
+                            "sk-ant-..."
+                          }
                           aria-label="API key"
                           className="w-56 h-9 bg-muted/50 font-mono text-xs"
                         />

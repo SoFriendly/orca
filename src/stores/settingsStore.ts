@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Settings, AIProvider, Snippet, ThemeOption, CustomThemeColors, CustomAssistantConfig } from '@/types';
+import type { Settings, AIProvider, Snippet, ThemeOption, CustomThemeColors, CustomAssistantConfig, AiProviderType } from '@/types';
 import { generateCustomThemeCSS, getThemeDefaultsAsHex } from '@/lib/colorUtils';
 
 interface SettingsState extends Settings {
@@ -18,7 +18,9 @@ interface SettingsState extends Settings {
   setAutoCommitMessage: (enabled: boolean) => void;
   setAutoFetchRemote: (enabled: boolean) => void;
   setHasSeenOnboarding: (seen: boolean) => void;
-  setGroqApiKey: (key: string | undefined) => void;
+  setAiApiKey: (key: string | undefined) => void;
+  setAiProviderType: (provider: AiProviderType) => void;
+  setAiModel: (model: string | undefined) => void;
   setPreferredEditor: (editor: string | undefined) => void;
   setShowHiddenFiles: (enabled: boolean) => void;
   // Custom assistant actions
@@ -71,7 +73,9 @@ export const useSettingsStore = create<SettingsState>()(
       autoCommitMessage: true,
       autoFetchRemote: false,
       hasSeenOnboarding: false,
-      groqApiKey: undefined,
+      aiApiKey: undefined,
+      aiProviderType: 'groq' as AiProviderType,
+      aiModel: undefined,
       preferredEditor: undefined,
       showHiddenFiles: false,
       customAssistants: [],
@@ -113,7 +117,11 @@ export const useSettingsStore = create<SettingsState>()(
 
       setHasSeenOnboarding: (seen) => set({ hasSeenOnboarding: seen }),
 
-      setGroqApiKey: (key) => set({ groqApiKey: key }),
+      setAiApiKey: (key) => set({ aiApiKey: key }),
+
+      setAiProviderType: (provider) => set({ aiProviderType: provider, aiModel: undefined }),
+
+      setAiModel: (model) => set({ aiModel: model }),
 
       setPreferredEditor: (editor) => set({ preferredEditor: editor }),
 

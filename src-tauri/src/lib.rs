@@ -2264,7 +2264,7 @@ fn install_assistant(command: String) -> Result<String, String> {
 
 // AI commands using Groq
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct GroqMessage {
+struct AiMessage {
     role: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     content: Option<String>,
@@ -2276,7 +2276,7 @@ struct GroqMessage {
     name: Option<String>,
 }
 
-impl GroqMessage {
+impl AiMessage {
     fn user(content: &str) -> Self {
         Self { role: "user".into(), content: Some(content.into()), tool_calls: None, tool_call_id: None, name: None }
     }
@@ -2317,11 +2317,15 @@ struct ToolFunction {
 }
 
 #[derive(Debug, Serialize)]
-struct GroqRequest {
+struct AiRequest {
     model: String,
-    messages: Vec<GroqMessage>,
-    temperature: f32,
-    max_tokens: u32,
+    messages: Vec<AiMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_completion_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     tools: Option<Vec<Tool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2329,14 +2333,183 @@ struct GroqRequest {
 }
 
 #[derive(Debug, Deserialize)]
-struct GroqChoice {
-    message: GroqMessage,
+struct AiChoice {
+    message: AiMessage,
     finish_reason: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
-struct GroqResponse {
-    choices: Vec<GroqChoice>,
+struct AiResponse {
+    choices: Vec<AiChoice>,
+}
+
+// --- Claude (Anthropic) API types ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ClaudeMessage {
+    role: String,
+    content: ClaudeContent,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+enum ClaudeContent {
+    Text(String),
+    Blocks(Vec<ClaudeContentBlock>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+enum ClaudeContentBlock {
+    #[serde(rename = "text")]
+    Text { text: String },
+    #[serde(rename = "tool_use")]
+    ToolUse {
+        id: String,
+        name: String,
+        input: serde_json::Value,
+    },
+    #[serde(rename = "tool_result")]
+    ToolResult {
+        tool_use_id: String,
+        content: String,
+    },
+}
+
+#[derive(Debug, Serialize)]
+struct ClaudeRequest {
+    model: String,
+    max_tokens: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    system: Option<String>,
+    messages: Vec<ClaudeMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<Vec<ClaudeTool>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ClaudeTool {
+    name: String,
+    description: String,
+    input_schema: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize)]
+struct ClaudeResponse {
+    content: Vec<ClaudeResponseBlock>,
+    stop_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "type")]
+enum ClaudeResponseBlock {
+    #[serde(rename = "text")]
+    Text { text: String },
+    #[serde(rename = "tool_use")]
+    ToolUse {
+        id: String,
+        name: String,
+        input: serde_json::Value,
+    },
+}
+
+// --- Provider configuration ---
+
+struct ProviderConfig {
+    endpoint: String,
+    commit_model: String,
+    nlt_model: String,
+    is_claude: bool,
+    use_max_completion_tokens: bool,
+    supports_temperature: bool,
+    commit_max_tokens: u32,
+    nlt_max_tokens: u32,
+}
+
+fn get_provider_config(provider: &str) -> ProviderConfig {
+    match provider {
+        "openai" => ProviderConfig {
+            endpoint: "https://api.openai.com/v1/chat/completions".into(),
+            commit_model: "gpt-5-mini-2025-08-07".into(),
+            nlt_model: "gpt-5.2-2025-12-11".into(),
+            is_claude: false,
+            use_max_completion_tokens: true,
+            supports_temperature: false,
+            commit_max_tokens: 2048,  // reasoning models need headroom for thinking
+            nlt_max_tokens: 4096,
+        },
+        "claude" => ProviderConfig {
+            endpoint: "https://api.anthropic.com/v1/messages".into(),
+            commit_model: "claude-sonnet-4-5-20250929".into(),
+            nlt_model: "claude-sonnet-4-5-20250929".into(),
+            is_claude: true,
+            use_max_completion_tokens: false,
+            supports_temperature: true,
+            commit_max_tokens: 200,
+            nlt_max_tokens: 1024,
+        },
+        _ => ProviderConfig { // "groq" default
+            endpoint: "https://api.groq.com/openai/v1/chat/completions".into(),
+            commit_model: "llama-3.1-8b-instant".into(),
+            nlt_model: "llama-3.3-70b-versatile".into(),
+            is_claude: false,
+            use_max_completion_tokens: false,
+            supports_temperature: true,
+            commit_max_tokens: 200,
+            nlt_max_tokens: 1024,
+        },
+    }
+}
+
+/// Send a simple (non-tool) request to Claude and return the text response.
+async fn claude_simple_request(
+    client: &reqwest::Client,
+    api_key: &str,
+    model: &str,
+    endpoint: &str,
+    system: Option<&str>,
+    user_message: &str,
+    temperature: f32,
+    max_tokens: u32,
+) -> Result<String, String> {
+    let request = ClaudeRequest {
+        model: model.to_string(),
+        max_tokens,
+        system: system.map(|s| s.to_string()),
+        messages: vec![ClaudeMessage {
+            role: "user".into(),
+            content: ClaudeContent::Text(user_message.into()),
+        }],
+        temperature: Some(temperature),
+        tools: None,
+    };
+
+    let response = client
+        .post(endpoint)
+        .header("x-api-key", api_key)
+        .header("anthropic-version", "2023-06-01")
+        .header("Content-Type", "application/json")
+        .json(&request)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !response.status().is_success() {
+        let error_text = response.text().await.unwrap_or_default();
+        return Err(format!("Claude API error: {}", error_text));
+    }
+
+    let claude_response: ClaudeResponse = response.json().await.map_err(|e| e.to_string())?;
+
+    // Extract text from response blocks
+    for block in &claude_response.content {
+        if let ClaudeResponseBlock::Text { text } = block {
+            return Ok(text.clone());
+        }
+    }
+    Err("No text response from Claude".to_string())
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -2571,9 +2744,20 @@ pub struct ProjectContext {
 async fn generate_commit_message(
     diffs: Vec<FileDiff>,
     api_key: String,
+    provider: Option<String>,
+    model: Option<String>,
 ) -> Result<CommitSuggestion, String> {
     if api_key.is_empty() {
         return Err("No API key provided".to_string());
+    }
+
+    let provider_str = provider.as_deref().unwrap_or("groq");
+    let mut config = get_provider_config(provider_str);
+    if let Some(m) = model {
+        if !m.is_empty() {
+            config.commit_model = m.clone();
+            config.nlt_model = m;
+        }
     }
 
     // Metadata/config files that should be summarized briefly
@@ -2676,52 +2860,60 @@ Keep the description brief or empty if the subject is self-explanatory."#,
     );
 
     let client = reqwest::Client::new();
-    let request = GroqRequest {
-        model: "llama-3.1-8b-instant".to_string(),
-        messages: vec![GroqMessage::user(&prompt)],
-        temperature: 0.3,
-        max_tokens: 200,
-        tools: None,
-        tool_choice: None,
+
+    let content = if config.is_claude {
+        claude_simple_request(
+            &client, &api_key, &config.commit_model, &config.endpoint,
+            None, &prompt, 0.3, 200,
+        ).await?
+    } else {
+        // OpenAI-compatible path (Groq, OpenAI)
+        let request = AiRequest {
+            model: config.commit_model.clone(),
+            messages: vec![AiMessage::user(&prompt)],
+            temperature: if config.supports_temperature { Some(0.3) } else { None },
+            max_tokens: if config.use_max_completion_tokens { None } else { Some(config.commit_max_tokens) },
+            max_completion_tokens: if config.use_max_completion_tokens { Some(config.commit_max_tokens) } else { None },
+            tools: None,
+            tool_choice: None,
+        };
+
+        let response = client
+            .post(&config.endpoint)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(format!("API error: {}", error_text));
+        }
+
+        let ai_response: AiResponse = response.json().await.map_err(|e| e.to_string())?;
+
+        ai_response.choices.first()
+            .and_then(|c| c.message.content.clone())
+            .ok_or_else(|| "No response from AI".to_string())?
     };
 
-    let response = client
-        .post("https://api.groq.com/openai/v1/chat/completions")
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("Content-Type", "application/json")
-        .json(&request)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
+    // Strip markdown code fences if present (e.g., ```json ... ```)
+    let json_content = content
+        .trim()
+        .strip_prefix("```json")
+        .or_else(|| content.trim().strip_prefix("```"))
+        .unwrap_or(content.trim())
+        .trim()
+        .strip_suffix("```")
+        .unwrap_or(content.trim())
+        .trim();
 
-    if !response.status().is_success() {
-        let error_text = response.text().await.unwrap_or_default();
-        return Err(format!("Groq API error: {}", error_text));
-    }
-
-    let groq_response: GroqResponse = response.json().await.map_err(|e| e.to_string())?;
-
-    if let Some(choice) = groq_response.choices.first() {
-        let content = choice.message.content.as_deref().unwrap_or("");
-
-        // Strip markdown code fences if present (e.g., ```json ... ```)
-        let json_content = content
-            .trim()
-            .strip_prefix("```json")
-            .or_else(|| content.trim().strip_prefix("```"))
-            .unwrap_or(content)
-            .trim()
-            .strip_suffix("```")
-            .unwrap_or(content)
-            .trim();
-
-        // Parse the JSON response
-        let suggestion: CommitSuggestion = serde_json::from_str(json_content)
-            .map_err(|e| format!("Failed to parse AI response: {} - Content: {}", e, json_content))?;
-        Ok(suggestion)
-    } else {
-        Err("No response from AI".to_string())
-    }
+    // Parse the JSON response
+    let suggestion: CommitSuggestion = serde_json::from_str(json_content)
+        .map_err(|e| format!("Failed to parse AI response: {} - Content: {}", e, json_content))?;
+    Ok(suggestion)
 }
 
 #[tauri::command]
@@ -3095,18 +3287,41 @@ You have tools to gather context about the project before suggesting a command. 
 {folder_info}
 {config_info}
 
-## Response Format
-When you have the answer, respond with JSON:
-{{"command": "the shell command", "explanation": "brief optional explanation of what the command does"}}
+## Critical Rules
+- NEVER ask clarifying questions. NEVER present multiple options to the user. NEVER be conversational.
+- You MUST always pick the single most likely command and return it.
+- If the request is ambiguous (e.g., "run this"), use your tools to inspect the project and choose the best command (e.g., for a Tauri app, choose `npm run tauri dev`).
+- Do NOT explain your reasoning. Do NOT describe what you found. Do NOT narrate your thought process.
+- Your ENTIRE response must be a single JSON object. No prose before or after it. No markdown fences.
 
-The "explanation" field is optional - include it when the command is complex or non-obvious.
-If the command has potential side effects, include a warning in the explanation.
-Always respond with valid JSON. No markdown fences."#,
+## Response Format
+Respond with ONLY this JSON (nothing else):
+{{"command": "the shell command", "explanation": "brief optional explanation"}}"#,
         os_name = os_name,
         shell_name = shell_name,
         folder_info = folder_info,
         config_info = config_info
     )
+}
+
+/// Try to extract a JSON object containing "command" from a string that may have prose around it.
+fn extract_json_object(text: &str) -> Option<NltResponse> {
+    // Find the first '{' and try progressively larger substrings ending at each '}'
+    let start = text.find('{')?;
+    for (i, c) in text[start..].char_indices() {
+        if c == '}' {
+            let candidate = &text[start..start + i + 1];
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(candidate) {
+                if let Some(cmd) = val.get("command").and_then(|v| v.as_str()) {
+                    return Some(NltResponse {
+                        command: cmd.to_string(),
+                        explanation: val.get("explanation").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                    });
+                }
+            }
+        }
+    }
+    None
 }
 
 /// Parse the LLM's final response into an NltResponse, with fallback for plain text.
@@ -3121,12 +3336,12 @@ fn parse_final_response(content: &str) -> NltResponse {
         .unwrap_or(trimmed)
         .trim();
 
-    // Try parsing as JSON NltResponse
+    // Try parsing as JSON NltResponse directly
     if let Ok(resp) = serde_json::from_str::<NltResponse>(json_str) {
         return resp;
     }
 
-    // Try parsing as a JSON object with just "command"
+    // Try parsing as a JSON object with "command"
     if let Ok(val) = serde_json::from_str::<serde_json::Value>(json_str) {
         if let Some(cmd) = val.get("command").and_then(|v| v.as_str()) {
             return NltResponse {
@@ -3134,6 +3349,11 @@ fn parse_final_response(content: &str) -> NltResponse {
                 explanation: val.get("explanation").and_then(|v| v.as_str()).map(|s| s.to_string()),
             };
         }
+    }
+
+    // Try extracting JSON from surrounding prose (models often add reasoning text)
+    if let Some(resp) = extract_json_object(trimmed) {
+        return resp;
     }
 
     // Fallback: treat entire content as a raw command
@@ -3152,11 +3372,22 @@ async fn ai_shell_command(
     context: ProjectContext,
     cwd: String,
     api_key: String,
+    provider: Option<String>,
+    model: Option<String>,
     request_id: String,
     app_handle: tauri::AppHandle,
 ) -> Result<NltResponse, String> {
     if api_key.is_empty() {
-        return Err("No API key provided. Set your Groq API key in Settings.".to_string());
+        return Err("No API key provided. Set your API key in Settings.".to_string());
+    }
+
+    let provider_str = provider.as_deref().unwrap_or("groq");
+    let mut prov_config = get_provider_config(provider_str);
+    if let Some(m) = model {
+        if !m.is_empty() {
+            prov_config.commit_model = m.clone();
+            prov_config.nlt_model = m;
+        }
     }
 
     // Detect the user's default shell
@@ -3180,17 +3411,10 @@ async fn ai_shell_command(
     let system_prompt = build_nlt_system_prompt(shell_name, &folder_info, &config_info);
     let user_msg = format!("User request: {}", request);
 
-    let mut messages = vec![
-        GroqMessage::system(&system_prompt),
-        GroqMessage::user(&user_msg),
-    ];
-
-    let tools = build_nlt_tools();
     let client = reqwest::Client::new();
     let max_iterations = 8;
     let started = std::time::Instant::now();
     let timeout = Duration::from_secs(30);
-    let mut use_tools = true;
 
     // Emit initial progress
     let _ = app_handle.emit("nlt-progress", NltProgressEvent {
@@ -3201,119 +3425,264 @@ async fn ai_shell_command(
         iteration: 0,
     });
 
-    for iteration in 0..max_iterations {
-        if started.elapsed() > timeout {
-            let _ = app_handle.emit("nlt-progress", NltProgressEvent {
-                request_id: request_id.clone(),
-                status: "error".into(),
-                message: "Request timed out after 30 seconds".into(),
-                tool_name: None,
-                iteration,
-            });
-            return Err("Request timed out after 30 seconds".to_string());
-        }
+    if prov_config.is_claude {
+        // --- Claude tool-calling path ---
+        let claude_tools: Vec<ClaudeTool> = build_nlt_tools().into_iter().map(|t| ClaudeTool {
+            name: t.function.name,
+            description: t.function.description,
+            input_schema: t.function.parameters,
+        }).collect();
 
-        let groq_request = GroqRequest {
-            model: "llama-3.3-70b-versatile".to_string(),
-            messages: messages.clone(),
-            temperature: 0.1,
-            max_tokens: 1024,
-            tools: if use_tools { Some(tools.clone()) } else { None },
-            tool_choice: None,
-        };
+        let mut claude_messages: Vec<ClaudeMessage> = vec![
+            ClaudeMessage { role: "user".into(), content: ClaudeContent::Text(user_msg.clone()) },
+        ];
 
-        let response = client
-            .post("https://api.groq.com/openai/v1/chat/completions")
-            .header("Authorization", format!("Bearer {}", api_key))
-            .header("Content-Type", "application/json")
-            .json(&groq_request)
-            .send()
-            .await
-            .map_err(|e| e.to_string())?;
-
-        if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-
-            // If tool calling failed, retry without tools
-            if use_tools && (error_text.contains("tool_use_failed") || error_text.contains("tool call validation")) {
-                println!("[NLT] Tool call validation failed, retrying without tools");
+        for iteration in 0..max_iterations {
+            if started.elapsed() > timeout {
                 let _ = app_handle.emit("nlt-progress", NltProgressEvent {
                     request_id: request_id.clone(),
-                    status: "thinking".into(),
-                    message: "Retrying without tools...".into(),
+                    status: "error".into(),
+                    message: "Request timed out after 30 seconds".into(),
                     tool_name: None,
-                    iteration: iteration + 1,
+                    iteration,
                 });
-                use_tools = false;
-                // Reset to just system + user messages for clean retry
-                messages.truncate(2);
-                continue;
+                return Err("Request timed out after 30 seconds".to_string());
             }
 
-            return Err(format!("Groq API error: {}", error_text));
-        }
+            let claude_request = ClaudeRequest {
+                model: prov_config.nlt_model.clone(),
+                max_tokens: 1024,
+                system: Some(system_prompt.clone()),
+                messages: claude_messages.clone(),
+                temperature: Some(0.1),
+                tools: Some(claude_tools.clone()),
+            };
 
-        let groq_response: GroqResponse = response.json().await.map_err(|e| e.to_string())?;
-        let choice = groq_response.choices.into_iter().next()
-            .ok_or("No response from AI")?;
+            let response = client
+                .post(&prov_config.endpoint)
+                .header("x-api-key", &api_key)
+                .header("anthropic-version", "2023-06-01")
+                .header("Content-Type", "application/json")
+                .json(&claude_request)
+                .send()
+                .await
+                .map_err(|e| e.to_string())?;
 
-        let finish_reason = choice.finish_reason.as_deref().unwrap_or("stop");
+            if !response.status().is_success() {
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(format!("API error: {}", error_text));
+            }
 
-        if finish_reason == "tool_calls" {
-            if let Some(tool_calls) = &choice.message.tool_calls {
-                // Append the assistant message (with tool_calls) to conversation
-                messages.push(choice.message.clone());
+            let claude_response: ClaudeResponse = response.json().await.map_err(|e| e.to_string())?;
+            let stop_reason = claude_response.stop_reason.as_deref().unwrap_or("end_turn");
 
-                for tc in tool_calls {
-                    let tool_name = &tc.function.name;
-                    println!("[NLT] Tool call: {}({})", tool_name, &tc.function.arguments);
+            // Check if we have tool_use blocks
+            let tool_uses: Vec<&ClaudeResponseBlock> = claude_response.content.iter()
+                .filter(|b| matches!(b, ClaudeResponseBlock::ToolUse { .. }))
+                .collect();
 
-                    let _ = app_handle.emit("nlt-progress", NltProgressEvent {
-                        request_id: request_id.clone(),
-                        status: "tool_call".into(),
-                        message: format!("Calling {}...", tool_name),
-                        tool_name: Some(tool_name.clone()),
-                        iteration: iteration + 1,
-                    });
+            if stop_reason == "tool_use" && !tool_uses.is_empty() {
+                // Build assistant message with all response blocks
+                let assistant_blocks: Vec<ClaudeContentBlock> = claude_response.content.iter().map(|b| {
+                    match b {
+                        ClaudeResponseBlock::Text { text } => ClaudeContentBlock::Text { text: text.clone() },
+                        ClaudeResponseBlock::ToolUse { id, name, input } => ClaudeContentBlock::ToolUse {
+                            id: id.clone(), name: name.clone(), input: input.clone(),
+                        },
+                    }
+                }).collect();
 
-                    let result = execute_tool_call(tool_name, &tc.function.arguments, &cwd);
-                    // Truncate very large tool results
-                    let result = if result.len() > 30_000 {
-                        format!("{}\n... (output truncated)", &result[..30_000])
-                    } else {
-                        result
-                    };
+                claude_messages.push(ClaudeMessage {
+                    role: "assistant".into(),
+                    content: ClaudeContent::Blocks(assistant_blocks),
+                });
 
-                    messages.push(GroqMessage::tool_result(&tc.id, tool_name, &result));
+                // Execute each tool call and build tool_result blocks
+                let mut result_blocks: Vec<ClaudeContentBlock> = Vec::new();
+                for tu in &tool_uses {
+                    if let ClaudeResponseBlock::ToolUse { id, name, input } = tu {
+                        println!("[NLT] Claude tool call: {}({})", name, input);
+
+                        let _ = app_handle.emit("nlt-progress", NltProgressEvent {
+                            request_id: request_id.clone(),
+                            status: "tool_call".into(),
+                            message: format!("Calling {}...", name),
+                            tool_name: Some(name.clone()),
+                            iteration: iteration + 1,
+                        });
+
+                        let args_str = serde_json::to_string(input).unwrap_or_default();
+                        let result = execute_tool_call(name, &args_str, &cwd);
+                        let result = if result.len() > 30_000 {
+                            format!("{}\n... (output truncated)", &result[..30_000])
+                        } else {
+                            result
+                        };
+
+                        result_blocks.push(ClaudeContentBlock::ToolResult {
+                            tool_use_id: id.clone(),
+                            content: result,
+                        });
+                    }
                 }
+
+                claude_messages.push(ClaudeMessage {
+                    role: "user".into(),
+                    content: ClaudeContent::Blocks(result_blocks),
+                });
                 continue;
             }
-        }
 
-        // finish_reason == "stop" or no tool calls - parse final response
-        let content = choice.message.content.as_deref().unwrap_or("");
-        let nlt_response = parse_final_response(content);
+            // Final text response
+            let text = claude_response.content.iter()
+                .filter_map(|b| if let ClaudeResponseBlock::Text { text } = b { Some(text.as_str()) } else { None })
+                .collect::<Vec<_>>()
+                .join("");
+
+            let nlt_response = parse_final_response(&text);
+
+            let _ = app_handle.emit("nlt-progress", NltProgressEvent {
+                request_id: request_id.clone(),
+                status: "done".into(),
+                message: "Command ready".into(),
+                tool_name: None,
+                iteration: iteration + 1,
+            });
+
+            println!("[NLT] Final response: {:?}", nlt_response);
+            return Ok(nlt_response);
+        }
 
         let _ = app_handle.emit("nlt-progress", NltProgressEvent {
             request_id: request_id.clone(),
-            status: "done".into(),
-            message: "Command ready".into(),
+            status: "error".into(),
+            message: "Too many tool-calling iterations".into(),
             tool_name: None,
-            iteration: iteration + 1,
+            iteration: max_iterations,
         });
+        Err("AI used too many tool calls without producing a final answer".to_string())
+    } else {
+        // --- OpenAI-compatible path (Groq, OpenAI) ---
+        let mut messages = vec![
+            AiMessage::system(&system_prompt),
+            AiMessage::user(&user_msg),
+        ];
 
-        println!("[NLT] Final response: {:?}", nlt_response);
-        return Ok(nlt_response);
+        let tools = build_nlt_tools();
+        let mut use_tools = true;
+
+        for iteration in 0..max_iterations {
+            if started.elapsed() > timeout {
+                let _ = app_handle.emit("nlt-progress", NltProgressEvent {
+                    request_id: request_id.clone(),
+                    status: "error".into(),
+                    message: "Request timed out after 30 seconds".into(),
+                    tool_name: None,
+                    iteration,
+                });
+                return Err("Request timed out after 30 seconds".to_string());
+            }
+
+            let ai_request = AiRequest {
+                model: prov_config.nlt_model.clone(),
+                messages: messages.clone(),
+                temperature: if prov_config.supports_temperature { Some(0.1) } else { None },
+                max_tokens: if prov_config.use_max_completion_tokens { None } else { Some(prov_config.nlt_max_tokens) },
+                max_completion_tokens: if prov_config.use_max_completion_tokens { Some(prov_config.nlt_max_tokens) } else { None },
+                tools: if use_tools { Some(tools.clone()) } else { None },
+                tool_choice: None,
+            };
+
+            let response = client
+                .post(&prov_config.endpoint)
+                .header("Authorization", format!("Bearer {}", api_key))
+                .header("Content-Type", "application/json")
+                .json(&ai_request)
+                .send()
+                .await
+                .map_err(|e| e.to_string())?;
+
+            if !response.status().is_success() {
+                let error_text = response.text().await.unwrap_or_default();
+
+                // If tool calling failed, retry without tools
+                if use_tools && (error_text.contains("tool_use_failed") || error_text.contains("tool call validation")) {
+                    println!("[NLT] Tool call validation failed, retrying without tools");
+                    let _ = app_handle.emit("nlt-progress", NltProgressEvent {
+                        request_id: request_id.clone(),
+                        status: "thinking".into(),
+                        message: "Retrying without tools...".into(),
+                        tool_name: None,
+                        iteration: iteration + 1,
+                    });
+                    use_tools = false;
+                    messages.truncate(2);
+                    continue;
+                }
+
+                return Err(format!("API error: {}", error_text));
+            }
+
+            let ai_response: AiResponse = response.json().await.map_err(|e| e.to_string())?;
+            let choice = ai_response.choices.into_iter().next()
+                .ok_or("No response from AI")?;
+
+            let finish_reason = choice.finish_reason.as_deref().unwrap_or("stop");
+
+            if finish_reason == "tool_calls" {
+                if let Some(tool_calls) = &choice.message.tool_calls {
+                    messages.push(choice.message.clone());
+
+                    for tc in tool_calls {
+                        let tool_name = &tc.function.name;
+                        println!("[NLT] Tool call: {}({})", tool_name, &tc.function.arguments);
+
+                        let _ = app_handle.emit("nlt-progress", NltProgressEvent {
+                            request_id: request_id.clone(),
+                            status: "tool_call".into(),
+                            message: format!("Calling {}...", tool_name),
+                            tool_name: Some(tool_name.clone()),
+                            iteration: iteration + 1,
+                        });
+
+                        let result = execute_tool_call(tool_name, &tc.function.arguments, &cwd);
+                        let result = if result.len() > 30_000 {
+                            format!("{}\n... (output truncated)", &result[..30_000])
+                        } else {
+                            result
+                        };
+
+                        messages.push(AiMessage::tool_result(&tc.id, tool_name, &result));
+                    }
+                    continue;
+                }
+            }
+
+            // finish_reason == "stop" or no tool calls - parse final response
+            let content = choice.message.content.as_deref().unwrap_or("");
+            let nlt_response = parse_final_response(content);
+
+            let _ = app_handle.emit("nlt-progress", NltProgressEvent {
+                request_id: request_id.clone(),
+                status: "done".into(),
+                message: "Command ready".into(),
+                tool_name: None,
+                iteration: iteration + 1,
+            });
+
+            println!("[NLT] Final response: {:?}", nlt_response);
+            return Ok(nlt_response);
+        }
+
+        let _ = app_handle.emit("nlt-progress", NltProgressEvent {
+            request_id: request_id.clone(),
+            status: "error".into(),
+            message: "Too many tool-calling iterations".into(),
+            tool_name: None,
+            iteration: max_iterations,
+        });
+        Err("AI used too many tool calls without producing a final answer".to_string())
     }
-
-    let _ = app_handle.emit("nlt-progress", NltProgressEvent {
-        request_id: request_id.clone(),
-        status: "error".into(),
-        message: "Too many tool-calling iterations".into(),
-        tool_name: None,
-        iteration: max_iterations,
-    });
-    Err("AI used too many tool calls without producing a final answer".to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

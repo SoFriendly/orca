@@ -96,6 +96,8 @@ export interface Terminal {
 }
 
 // AI types
+export type AiProviderType = "groq" | "openai" | "claude";
+
 export interface AISummary {
   summary: string;
   changes: string[];
@@ -192,7 +194,9 @@ export interface Settings {
   defaultClonePath?: string;
   autoCommitMessage: boolean;
   autoFetchRemote: boolean;
-  groqApiKey?: string;
+  aiApiKey?: string;
+  aiProviderType: AiProviderType;
+  aiModel?: string;
   preferredEditor?: string;
   showHiddenFiles: boolean;
   customAssistants: CustomAssistantConfig[];
