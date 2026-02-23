@@ -1809,9 +1809,9 @@ export default function ProjectPage() {
 
   const assistantOptions = getAssistantOptions();
   const navButtonBase =
-    "flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors";
+    "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/50 transition-all duration-200";
   const panelShellClass =
-    "rounded-2xl border border-border bg-card transition-opacity duration-150";
+    "rounded-2xl bg-card border border-border/30 transition-opacity duration-150";
 
   return (
     <div
@@ -1834,7 +1834,7 @@ export default function ProjectPage() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0 mr-1 text-muted-foreground hover:text-foreground"
+              className="h-7 w-7 p-0 mr-1 text-muted-foreground hover:text-foreground"
               onClick={() => {
                 loadFileTree();
                 setShowFileSearch(true);
@@ -1855,7 +1855,7 @@ export default function ProjectPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 gap-1 px-2 text-sm font-medium hover:bg-muted/50"
+                      className="h-6 gap-1 px-2.5 rounded-full text-sm font-medium hover:bg-muted/50"
                     >
                       <span className="truncate max-w-[150px]">{activeFolder?.name || currentProject.name}</span>
                       <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -1865,18 +1865,19 @@ export default function ProjectPage() {
                     <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
                       Folders
                     </div>
-                    {currentProject.folders.map((folder) => (
-                      <DropdownMenuItem
-                        key={folder.id}
-                        onClick={() => setActiveFolderId(folder.id)}
-                        className="flex items-center justify-between"
-                      >
-                        <span className="truncate">{folder.name}</span>
-                        {folder.id === (activeFolderId || currentProject.folders?.[0]?.id) && (
-                          <Check className="h-3 w-3 text-primary" />
-                        )}
-                      </DropdownMenuItem>
-                    ))}
+                    {currentProject.folders.map((folder) => {
+                      const isActive = folder.id === (activeFolderId || currentProject.folders?.[0]?.id);
+                      return (
+                        <DropdownMenuItem
+                          key={folder.id}
+                          onClick={() => setActiveFolderId(folder.id)}
+                          className={cn("flex items-center justify-between", isActive && "bg-muted/50 text-foreground")}
+                        >
+                          <span className="truncate">{folder.name}</span>
+                          {isActive && <Check className="h-3 w-3 text-primary" />}
+                        </DropdownMenuItem>
+                      );
+                    })}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleAddFolder}>
                       <Plus className="mr-2 h-3 w-3" />
@@ -1922,7 +1923,7 @@ export default function ProjectPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 gap-1 px-2 text-sm font-normal text-muted-foreground hover:text-foreground translate-y-px"
+                        className="h-6 gap-1 px-2.5 rounded-full text-sm font-normal text-muted-foreground hover:text-foreground translate-y-px"
                         disabled={isSwitchingBranch}
                       >
                         <GitBranch className="h-3.5 w-3.5" />
@@ -1949,7 +1950,7 @@ export default function ProjectPage() {
                         <DropdownMenuItem
                           key={branch.name}
                           onClick={() => handleSwitchBranch(branch.name)}
-                          className="flex items-center justify-between"
+                          className={cn("flex items-center justify-between", branch.isHead && "bg-muted/50 text-foreground")}
                         >
                           <span className="truncate">{branch.name}</span>
                           {branch.isHead && <Check className="h-3 w-3 text-primary" />}
@@ -2023,16 +2024,16 @@ export default function ProjectPage() {
       <nav
         ref={sidebarNavRef}
         aria-label="Sidebar"
-        className="relative z-20 flex w-14 flex-col pl-2 pb-2 pt-12"
+        className="relative z-20 flex w-14 flex-col pl-2 pb-2 pt-12 backdrop-blur-sm"
       >
         {/* Top icon container */}
-        <div className="flex flex-col items-center gap-1 px-3 py-1">
+        <div className="flex flex-col items-center gap-1.5 px-3 py-1">
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
               <button
                 onClick={handleNewWindow}
                 aria-label="New window"
-                className={cn(navButtonBase, "hover:text-foreground")}
+                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
               >
                 <Plus className="h-5 w-5" />
               </button>
@@ -2063,7 +2064,7 @@ export default function ProjectPage() {
                   }
                 }}
                 aria-label="Open folder"
-                className={cn(navButtonBase, "hover:text-foreground")}
+                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
               >
                 <FolderOpen className="h-5 w-5" />
               </button>
@@ -2097,9 +2098,9 @@ export default function ProjectPage() {
         <div className="flex-1" />
 
         {/* Bottom icon container */}
-        <div className="flex flex-col items-center gap-1 px-3 py-2">
+        <div className="flex flex-col items-center gap-1.5 px-3 py-2">
           {/* Panel toggle icons */}
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-col items-center gap-1.5">
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
                 <button
@@ -2109,7 +2110,7 @@ export default function ProjectPage() {
                   navButtonBase,
                   showGitPanel
                     ? "text-primary"
-                    : "hover:text-foreground",
+                    : "hover:text-foreground/70 hover:bg-muted/20",
                   showGitPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2132,7 +2133,7 @@ export default function ProjectPage() {
                   navButtonBase,
                   showAssistantPanel
                     ? "text-primary"
-                    : "hover:text-foreground",
+                    : "hover:text-foreground/70 hover:bg-muted/20",
                   showAssistantPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2155,7 +2156,7 @@ export default function ProjectPage() {
                   navButtonBase,
                   showShellPanel
                     ? "text-primary"
-                    : "hover:text-foreground",
+                    : "hover:text-foreground/70 hover:bg-muted/20",
                   showShellPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2178,7 +2179,7 @@ export default function ProjectPage() {
                   navButtonBase,
                   showNotesPanel
                     ? "text-primary"
-                    : "hover:text-foreground",
+                    : "hover:text-foreground/70 hover:bg-muted/20",
                   showNotesPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2193,16 +2194,16 @@ export default function ProjectPage() {
             </Tooltip>
           </div>
 
-          <div className="my-1 h-px w-7 bg-border/65" />
+          <div className="my-1.5" />
 
           {/* Bottom icons */}
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-col items-center gap-1.5">
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
                 <button
                   aria-label="Help"
                   onClick={() => setHasSeenOnboarding(false)}
-                  className={cn(navButtonBase, "hover:text-foreground")}
+                  className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
                 >
                   <HelpCircle className="h-5 w-5" />
                 </button>
@@ -2216,7 +2217,7 @@ export default function ProjectPage() {
       {/* Main content area */}
       <main
         ref={containerRef}
-        className="relative z-10 flex flex-1 overflow-hidden px-2 pb-2 pt-12"
+        className="relative z-10 flex flex-1 overflow-hidden p-1.5 pt-12"
       >
         <h1 className="sr-only">{currentProject.name} - Orca</h1>
         {/* Left sidebar - Git panel */}
@@ -2244,7 +2245,7 @@ export default function ProjectPage() {
         {/* Resize handle for git panel */}
         {showGitPanel && (
           <div
-            className="w-2 shrink-0 cursor-col-resize"
+            className="w-1.5 shrink-0 cursor-col-resize"
             onMouseDown={(e) => handleResizeStart(e, 'git')}
           />
         )}
@@ -2265,7 +2266,7 @@ export default function ProjectPage() {
         >
           <div className="flex h-full flex-col select-none overflow-hidden">
           {/* Tab bar */}
-          <div className="flex h-10 items-center border-b border-border">
+          <div className="flex h-10 items-center px-1.5 pt-1">
             <div
               ref={tabListRef}
               role="tablist"
@@ -2274,7 +2275,7 @@ export default function ProjectPage() {
               onWheel={handleTabWheel}
             >
               <div className="flex min-w-max items-center">
-                {terminalTabs.map((tab, index) => (
+                {terminalTabs.map((tab) => (
                   <div
                     key={tab.id}
                     data-tab-item
@@ -2285,15 +2286,13 @@ export default function ProjectPage() {
                       else tabRefs.current.delete(tab.id);
                     }}
                     className={cn(
-                      "group relative flex h-10 shrink-0 cursor-grab items-center gap-1.5 px-3 text-sm font-medium transition-colors",
+                      "group flex h-7 shrink-0 cursor-grab items-center gap-1.5 pl-3 pr-3 group-hover:pr-2 my-1.5 mx-0.5 rounded-full text-sm font-medium transition-all duration-200",
                       activeTabId === tab.id
-                        ? "text-foreground border-r border-border/70"
-                        : "text-muted-foreground hover:bg-card/50 hover:text-foreground",
-                      index > 0 && "border-l border-border/70",
+                        ? "text-foreground bg-muted/50"
+                        : "text-muted-foreground/60 hover:text-foreground hover:bg-muted/20",
                       draggingTabId === tab.id && "opacity-60 cursor-grabbing",
-                      dragOverTabId === tab.id && draggingTabId !== tab.id && "bg-card/30"
+                      dragOverTabId === tab.id && draggingTabId !== tab.id && "bg-muted/25"
                     )}
-                    style={activeTabId === tab.id ? { backgroundColor: terminalBg } : undefined}
                     onClick={() => !draggingTabId && setActiveTabId(tab.id)}
                     onMouseDown={(event) => handleTabMouseDown(event, tab.id)}
                   >
@@ -2329,8 +2328,7 @@ export default function ProjectPage() {
                       closeTab(tab.id);
                     }}
                     aria-label={`Close ${tab.name} tab`}
-                    className="absolute right-1 rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity"
-                    style={{ backgroundColor: terminalBg }}
+                    className="ml-1 shrink-0 rounded-full p-0.5 hidden group-hover:flex hover:bg-muted/50 transition-opacity"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -2342,7 +2340,7 @@ export default function ProjectPage() {
               <DropdownMenuTrigger asChild>
                 <button
                   aria-label="New tab"
-                  className="flex h-10 items-center px-3 text-muted-foreground transition-colors hover:bg-card/50 hover:text-foreground"
+                  className="flex h-7 w-7 items-center justify-center my-1.5 mx-0.5 rounded-full text-muted-foreground/70 transition-all duration-200 hover:bg-muted/25 hover:text-foreground"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -2549,7 +2547,7 @@ export default function ProjectPage() {
         {/* Resize handle for shell panel - only show when assistant is visible */}
         {showShellPanel && showAssistantPanel && (
           <div
-            className="w-2 shrink-0 cursor-col-resize"
+            className="w-1.5 shrink-0 cursor-col-resize"
             onMouseDown={(e) => handleResizeStart(e, 'shell')}
           />
         )}
@@ -2570,7 +2568,7 @@ export default function ProjectPage() {
           onDrop={handleShellPanelDrop}
         >
           {/* Header */}
-          <div className="flex h-10 items-center justify-between border-b border-border/70 bg-card/45 px-2">
+          <div className="flex h-10 items-center justify-between px-3 text-muted-foreground/60">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {shellCwd && (
                 <DropdownMenu onOpenChange={(open) => open && loadShellDirectories(shellCwd)}>
@@ -2578,7 +2576,7 @@ export default function ProjectPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 gap-1 px-1.5 text-xs font-normal text-muted-foreground hover:text-foreground min-w-0"
+                      className="h-6 gap-1 px-2.5 rounded-full text-xs font-normal text-inherit hover:text-foreground min-w-0"
                     >
                       <Folder className="h-3 w-3 shrink-0" />
                       <span className="truncate max-w-[120px]">
@@ -2615,8 +2613,8 @@ export default function ProjectPage() {
                         size="icon"
                         aria-label="Natural language terminal"
                         className={cn(
-                          "h-6 w-6 shrink-0",
-                          showNlt && "text-primary"
+                          "h-7 w-7 shrink-0 text-inherit hover:text-foreground",
+                          showNlt && "!text-primary"
                         )}
                         onClick={() => setShowNlt(!showNlt)}
                       >
@@ -2631,7 +2629,7 @@ export default function ProjectPage() {
                         variant="ghost"
                         size="icon"
                         aria-label="Search history"
-                        className="h-6 w-6 shrink-0"
+                        className="h-7 w-7 shrink-0 text-inherit hover:text-foreground"
                         onClick={() => {
                           loadShellHistory();
                           setShowHistorySearch(true);
@@ -2649,7 +2647,7 @@ export default function ProjectPage() {
                   variant="ghost"
                   size="icon"
                   aria-label="Kill shell"
-                  className="h-6 w-6 shrink-0"
+                  className="h-7 w-7 shrink-0"
                   onClick={() => {
                     if (utilityTerminalId) {
                       invoke("kill_terminal", { id: utilityTerminalId });
@@ -2800,7 +2798,7 @@ export default function ProjectPage() {
         {/* Resize handle for notes panel */}
         {showNotesPanel && (
           <div
-            className="w-2 shrink-0 cursor-col-resize"
+            className="w-1.5 shrink-0 cursor-col-resize"
             onMouseDown={(e) => handleResizeStart(e, 'notes')}
           />
         )}
@@ -2822,7 +2820,7 @@ export default function ProjectPage() {
         {/* Resize handle for markdown panel */}
         {showMarkdownPanel && (
           <div
-            className="w-2 shrink-0 cursor-col-resize"
+            className="w-1.5 shrink-0 cursor-col-resize"
             onMouseDown={(e) => handleResizeStart(e, 'markdown')}
           />
         )}
@@ -2838,7 +2836,7 @@ export default function ProjectPage() {
           style={showAssistantPanel || showShellPanel ? { width: markdownPanelWidth, minWidth: 300 } : undefined}
         >
           {/* Header */}
-          <div className="relative flex h-10 items-center justify-between border-b border-border/70 bg-card/45 px-2">
+          <div className="relative flex h-10 items-center justify-between px-3 text-muted-foreground/60">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <FileText className="h-4 w-4 shrink-0 text-primary" />
               <span className="text-xs truncate">
@@ -2854,7 +2852,7 @@ export default function ProjectPage() {
                         variant="ghost"
                         size="icon"
                         aria-label={markdownEditMode ? "Preview" : "Edit"}
-                        className={cn("h-6 w-6", markdownEditMode && "text-primary hover:text-primary")}
+                        className={cn("h-7 w-7 text-inherit hover:text-foreground", markdownEditMode && "!text-primary")}
                         onClick={() => setMarkdownEditMode(!markdownEditMode)}
                       >
                         {markdownEditMode ? <Eye className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
@@ -2869,7 +2867,7 @@ export default function ProjectPage() {
                           variant="ghost"
                           size="icon"
                           aria-label="Save"
-                          className="h-6 w-6"
+                          className="h-7 w-7 text-inherit hover:text-foreground"
                           onClick={handleSaveMarkdown}
                         >
                           <Save className="h-3 w-3" />
@@ -2888,7 +2886,7 @@ export default function ProjectPage() {
                       variant="ghost"
                       size="icon"
                       aria-label="Save"
-                      className="h-6 w-6"
+                      className="h-7 w-7 text-inherit hover:text-foreground"
                       onClick={handleSaveMarkdown}
                     >
                       <Save className="h-3 w-3" />
@@ -2905,7 +2903,7 @@ export default function ProjectPage() {
                       variant="ghost"
                       size="icon"
                       aria-label="Find"
-                      className="h-6 w-6"
+                      className="h-7 w-7 text-inherit hover:text-foreground"
                       onClick={handleEditorFind}
                     >
                       <Search className="h-3 w-3" />
@@ -2918,7 +2916,7 @@ export default function ProjectPage() {
                 variant="ghost"
                 size="icon"
                 aria-label="Close file panel"
-                className="h-6 w-6"
+                className="h-7 w-7 text-inherit hover:text-foreground"
                 onClick={handleCloseMarkdownPanel}
               >
                 <X className="h-3 w-3" />

@@ -303,11 +303,11 @@ export default function NotesPanel({ projectPath, onNoteDropAtPosition }: NotesP
     return (
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="flex h-10 items-center justify-between px-2 border-b border-border">
+        <div className="flex h-10 items-center justify-between px-3 text-muted-foreground/60">
           <div className="flex items-center gap-1 min-w-0 flex-1">
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={handleBack} aria-label="Back to notes list">
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-inherit hover:text-foreground" onClick={handleBack} aria-label="Back to notes list">
                   <ArrowLeft className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
@@ -321,7 +321,7 @@ export default function NotesPanel({ projectPath, onNoteDropAtPosition }: NotesP
             {editing ? (
               <Tooltip delayDuration={0}>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleSaveNote} aria-label="Save note">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-inherit hover:text-foreground" onClick={handleSaveNote} aria-label="Save note">
                     <Save className="h-3 w-3" />
                   </Button>
                 </TooltipTrigger>
@@ -333,7 +333,7 @@ export default function NotesPanel({ projectPath, onNoteDropAtPosition }: NotesP
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6"
+                    className="h-7 w-7 text-inherit hover:text-foreground"
                     onClick={() => setEditing(true)}
                     aria-label="Edit note"
                   >
@@ -347,7 +347,7 @@ export default function NotesPanel({ projectPath, onNoteDropAtPosition }: NotesP
               <Tooltip delayDuration={0}>
                 <TooltipTrigger asChild>
                   <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" aria-label="Delete note">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/60 hover:text-destructive" aria-label="Delete note">
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </AlertDialogTrigger>
@@ -406,11 +406,11 @@ export default function NotesPanel({ projectPath, onNoteDropAtPosition }: NotesP
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex h-10 items-center justify-between px-2 border-b border-border">
-        <span className="text-xs font-medium">Notes</span>
+      <div className="flex h-10 items-center justify-between px-3 text-muted-foreground/60">
+        <span className="text-xs font-medium text-inherit">Notes</span>
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCreateNote} aria-label="Create new note">
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-inherit hover:text-foreground" onClick={handleCreateNote} aria-label="Create new note">
               <Plus className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -423,7 +423,7 @@ export default function NotesPanel({ projectPath, onNoteDropAtPosition }: NotesP
         {notes.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-8 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50 mb-4">
-              <StickyNote className="h-6 w-6 text-muted-foreground" />
+              <StickyNote className="h-7 w-7 text-muted-foreground" />
             </div>
             <p className="text-sm font-medium text-muted-foreground mb-1">No notes yet</p>
             <p className="text-xs text-muted-foreground/70 mb-4">

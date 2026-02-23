@@ -321,9 +321,9 @@ export default function HomePage() {
   };
 
   const navButtonBase =
-    "flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors";
+    "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/50 transition-all duration-200";
   const panelShellClass =
-    "rounded-2xl border border-border bg-card";
+    "rounded-2xl bg-card border border-border/30";
 
   return (
     <div
@@ -342,17 +342,17 @@ export default function HomePage() {
       <nav
         ref={sidebarNavRef}
         aria-label="Main navigation"
-        className="relative z-20 flex w-14 flex-col pl-2 pb-2 pt-9"
+        className="relative z-20 flex w-14 flex-col pl-2 pb-2 pt-9 backdrop-blur-sm"
       >
         {/* Top icon container */}
-        <div className="flex flex-col items-center gap-1 px-3 py-1">
-          <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-1.5 px-3 py-1">
+          <div className="flex flex-col items-center gap-1.5">
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
               <button
                 onClick={handleNewWindow}
                 aria-label="New window"
-                className={cn(navButtonBase, "hover:text-foreground")}
+                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
               >
                 <Plus className="h-5 w-5" />
               </button>
@@ -365,7 +365,7 @@ export default function HomePage() {
               <button
                 onClick={handleOpenProject}
                 aria-label="Open folder"
-                className={cn(navButtonBase, "hover:text-foreground")}
+                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
               >
                 <FolderOpen className="h-5 w-5" />
               </button>
@@ -385,7 +385,7 @@ export default function HomePage() {
                   navButtonBase,
                   activeSidebarItem === "settings"
                     ? "text-primary"
-                    : "hover:text-foreground"
+                    : "hover:text-foreground/70 hover:bg-muted/20"
                 )}
               >
                 <Settings className="h-5 w-5" />
@@ -400,14 +400,14 @@ export default function HomePage() {
         <div className="flex-1" />
 
         {/* Bottom icon container */}
-        <div className="flex flex-col items-center gap-1 px-3 py-2">
-          <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-1.5 px-3 py-2">
+          <div className="flex flex-col items-center gap-1.5">
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
                 <button
                   onClick={() => setHasSeenOnboarding(false)}
                   aria-label="Show tour"
-                  className={cn(navButtonBase, "hover:text-foreground")}
+                  className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
                 >
                   <HelpCircle className="h-5 w-5" />
                 </button>
@@ -419,7 +419,7 @@ export default function HomePage() {
       </nav>
 
       {/* Main content */}
-      <main className="relative z-10 flex flex-1 flex-col overflow-hidden px-2 pb-2 pt-9">
+      <main className="relative z-10 flex flex-1 flex-col overflow-hidden px-3 pb-3 pt-9">
         <div className={cn("flex flex-1 flex-col overflow-hidden", panelShellClass)}>
         <div className="flex flex-1 flex-col overflow-hidden px-6 py-8">
           <div className="mx-auto w-full max-w-md flex flex-col flex-1 overflow-hidden">
@@ -535,7 +535,7 @@ export default function HomePage() {
                     <ContextMenu key={project.id}>
                       <ContextMenuTrigger>
                         <button
-                          className="group flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:border-border/55 hover:bg-muted/40"
+                          className="group flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:border-border/55 hover:bg-muted/25"
                           onClick={() => handleProjectClick(project)}
                         >
                           <FolderGit2 className="h-4 w-4 shrink-0 text-primary" />

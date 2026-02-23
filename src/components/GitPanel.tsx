@@ -264,7 +264,7 @@ function WorktreeView({ worktrees, repoPath, onRefresh }: { worktrees: WorktreeI
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handlePrune}>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handlePrune}>
                 <Trash2 className="h-3 w-3" />
               </Button>
             </TooltipTrigger>
@@ -272,7 +272,7 @@ function WorktreeView({ worktrees, repoPath, onRefresh }: { worktrees: WorktreeI
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowCreateDialog(true)}>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowCreateDialog(true)}>
                 <FolderPlus className="h-3 w-3" />
               </Button>
             </TooltipTrigger>
@@ -292,7 +292,7 @@ function WorktreeView({ worktrees, repoPath, onRefresh }: { worktrees: WorktreeI
             <ContextMenu key={wt.path}>
               <ContextMenuTrigger asChild>
                 <div
-                  className="group flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50 cursor-pointer"
+                  className="group flex items-center gap-2 rounded-full px-2.5 py-1.5 hover:bg-muted/50 cursor-pointer"
                   onClick={() => !wt.isMain && handleOpen(wt)}
                 >
                   <GitFork className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -1658,7 +1658,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
               tabIndex={0}
               role="button"
               className={cn(
-                "relative flex items-center gap-2 rounded pr-8 py-1.5 transition-colors cursor-grab active:cursor-grabbing",
+                "relative flex items-center gap-2 rounded-full pl-2 pr-8 py-1.5 transition-colors cursor-grab active:cursor-grabbing",
                 isSelected ? "bg-primary/20" : "hover:bg-muted/50"
               )}
               onClick={(e) => handleFileClick(diff.path, index, e)}
@@ -1907,7 +1907,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
               <ContextMenu>
                 <ContextMenuTrigger asChild>
                   <div
-                    className="flex items-center gap-1.5 py-1 px-1 rounded hover:bg-muted/50 cursor-grab active:cursor-grabbing"
+                    className="flex items-center gap-1.5 py-1 px-1 rounded-full hover:bg-muted/50 cursor-grab active:cursor-grabbing"
                     onMouseDown={(e) => handleFileDragStart(e, node.path, true, projectPath)}
                     onClick={() => { if (!justDraggedRef.current) onToggleDir(node.path); }}
                   >
@@ -1978,7 +1978,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
             <ContextMenu>
               <ContextMenuTrigger asChild>
                 <div
-                  className="flex items-center gap-1.5 py-1 px-1 pl-5 rounded hover:bg-muted/50 cursor-grab active:cursor-grabbing"
+                  className="flex items-center gap-1.5 py-1 px-1 pl-5 rounded-full hover:bg-muted/50 cursor-grab active:cursor-grabbing"
                   onMouseDown={(e) => renamingFile !== node.path && handleFileDragStart(e, node.path, false, projectPath)}
                   onDoubleClick={() => {
                     if (isPreviewable(node.path) && onOpenMarkdown) {
@@ -2087,7 +2087,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
       )}
 
       {/* Header with actions only */}
-      <div className="flex h-10 items-center justify-between px-4">
+      <div className="flex h-10 items-center justify-between px-3 text-muted-foreground/60">
         {/* Git operations - left aligned */}
         <div className="flex items-center gap-1">
           <Tooltip>
@@ -2096,7 +2096,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label={isPulling ? "Pulling..." : status && status.behind > 0 ? `Pull (${status.behind} behind)` : "Pull"}
-                className={cn("h-7 w-7 relative", isPulling && "text-primary")}
+                className={cn("h-7 w-7 relative text-inherit hover:text-foreground", isPulling && "text-primary")}
                 onClick={handlePull}
                 disabled={isPulling}
               >
@@ -2123,7 +2123,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label={isPushing ? "Pushing..." : status && status.ahead > 0 ? `Push (${status.ahead} ahead)` : "Push"}
-                className={cn("h-7 w-7 relative", isPushing && "text-primary")}
+                className={cn("h-7 w-7 relative text-inherit hover:text-foreground", isPushing && "text-primary")}
                 onClick={handlePush}
                 disabled={isPushing}
               >
@@ -2150,7 +2150,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Refresh"
-                className="h-7 w-7"
+                className="h-7 w-7 text-inherit hover:text-foreground"
                 onClick={() => onRefresh(gitRepoPath)}
                 disabled={loading}
               >
@@ -2169,7 +2169,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Show changes"
-                className={cn("h-7 w-7", viewMode === "changes" && "text-primary")}
+                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "changes" && "!text-primary")}
                 onClick={() => setViewMode("changes")}
               >
                 <GitBranch className="h-3.5 w-3.5" />
@@ -2184,7 +2184,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Show history"
-                className={cn("h-7 w-7", viewMode === "history" && "text-primary")}
+                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "history" && "!text-primary")}
                 onClick={() => setViewMode("history")}
               >
                 <History className="h-3.5 w-3.5" />
@@ -2199,7 +2199,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Browse files"
-                className={cn("h-7 w-7", viewMode === "files" && "text-primary")}
+                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "files" && "!text-primary")}
                 onClick={() => setViewMode("files")}
               >
                 <FolderTree className="h-3.5 w-3.5" />
@@ -2214,7 +2214,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Worktrees"
-                className={cn("h-7 w-7", viewMode === "worktrees" && "text-primary")}
+                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "worktrees" && "!text-primary")}
                 onClick={() => setViewMode("worktrees")}
               >
                 <GitFork className="h-3.5 w-3.5" />
@@ -2238,7 +2238,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 <div className="mb-3 flex items-center gap-2 rounded-lg bg-muted/50 px-2 py-2">
                   <button
                     onClick={clearSelection}
-                    className="flex h-5 w-5 items-center justify-center rounded hover:bg-muted"
+                    className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-muted"
                   >
                     <X className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
@@ -2290,7 +2290,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 <div className="flex h-full flex-col items-center justify-center p-6">
                   <div className="flex flex-col items-center text-center max-w-[200px]">
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50 mb-4">
-                      <GitCommit className="h-6 w-6 text-muted-foreground" />
+                      <GitCommit className="h-7 w-7 text-muted-foreground" />
                     </div>
                     {isGitRepo ? (
                       <>
@@ -2349,7 +2349,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                         <ContextMenuTrigger asChild>
                           <div
                             className={cn(
-                              "group flex items-start gap-2 rounded px-2 py-2 hover:bg-muted/50 cursor-pointer overflow-hidden",
+                              "group flex items-start gap-2 rounded-full px-2.5 py-2 hover:bg-muted/50 cursor-pointer overflow-hidden",
                               isExpanded && "bg-muted/30"
                             )}
                             onClick={() => toggleCommitExpand(commit.id)}
@@ -2412,7 +2412,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                                   <ContextMenu>
                                     <ContextMenuTrigger asChild>
                                       <div
-                                        className="flex items-center gap-2 rounded px-2 py-1 hover:bg-muted/50 cursor-pointer"
+                                        className="flex items-center gap-2 rounded-full px-2.5 py-1 hover:bg-muted/50 cursor-pointer"
                                         onClick={() => toggleCommitFile(commit.id, diff.path)}
                                       >
                                         {diff.hunks.length > 0 ? (
@@ -2509,7 +2509,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 <div className="flex h-full flex-col items-center justify-center p-6">
                   <div className="flex flex-col items-center text-center max-w-[200px]">
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50 mb-4">
-                      <History className="h-6 w-6 text-muted-foreground" />
+                      <History className="h-7 w-7 text-muted-foreground" />
                     </div>
                     {isGitRepo ? (
                       <>
@@ -2702,7 +2702,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                           <ContextMenu key={`fn-${i}`}>
                             <ContextMenuTrigger asChild>
                               <div
-                                className="flex items-center gap-1.5 py-1 px-1 rounded hover:bg-muted/50 cursor-pointer"
+                                className="flex items-center gap-1.5 py-1 px-1 rounded-full hover:bg-muted/50 cursor-pointer"
                                 onClick={(e) => {
                                   if (e.detail > 1) return;
                                   handleSearchResultClick(match);
@@ -2799,7 +2799,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                           <ContextMenu key={`cm-${i}`}>
                             <ContextMenuTrigger asChild>
                               <div
-                                className="flex flex-col gap-0.5 py-1 px-1 rounded hover:bg-muted/50 cursor-pointer"
+                                className="flex flex-col gap-0.5 py-1 px-1 rounded-full hover:bg-muted/50 cursor-pointer"
                                 onClick={(e) => {
                                   if (e.detail > 1) return;
                                   handleContentMatchClick(match);
@@ -2872,14 +2872,14 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                   {/* Empty state */}
                   {fileNameMatches.length === 0 && contentSearchResults.length === 0 && !isSearchingContent && (
                     <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <Search className="mb-2 h-6 w-6 text-muted-foreground" />
+                      <Search className="mb-2 h-7 w-7 text-muted-foreground" />
                       <p className="text-sm text-muted-foreground">No results found</p>
                     </div>
                   )}
                 </div>
               ) : isLoadingFiles ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
                 </div>
               ) : folders && folders.length > 0 ? (
                 /* Multi-folder view - show all folders as collapsible roots (Issue #6) */
@@ -2890,7 +2890,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                       <ContextMenu>
                         <ContextMenuTrigger asChild>
                           <div
-                            className="flex items-center gap-1.5 py-1 px-1 rounded hover:bg-muted/50 cursor-grab active:cursor-grabbing"
+                            className="flex items-center gap-1.5 py-1 px-1 rounded-full hover:bg-muted/50 cursor-grab active:cursor-grabbing"
                             onMouseDown={(e) => handleFileDragStart(e, '', true, folder.path)}
                             onClick={() => { if (!justDraggedRef.current) toggleFolderExpanded(folder.id); }}
                           >
