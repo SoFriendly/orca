@@ -1,4 +1,4 @@
-name = "orca-releases"
+name = "chell-releases"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 account_id = "73f82799694e2fad048f544e0be28c1c"

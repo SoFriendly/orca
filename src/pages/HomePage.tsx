@@ -493,88 +493,88 @@ export default function HomePage() {
             </div>
 
             {/* Recent projects */}
-            {projects.length > 0 && (
-              <div className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl p-2">
-                <div className="flex items-center justify-between px-1 mb-3 shrink-0">
-                  {showProjectSearch ? (
-                    <div className="flex items-center gap-2 flex-1">
-                      <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <input
-                        type="text"
-                        placeholder="Search projects..."
-                        value={projectSearch}
-                        onChange={(e) => setProjectSearch(e.target.value)}
-                        autoFocus
-                        data-no-focus-ring
-                        aria-label="Search projects"
-                        className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                      />
-                      <button
-                        onClick={() => {
-                          setShowProjectSearch(false);
-                          setProjectSearch("");
-                        }}
-                        aria-label="Close search"
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <h2 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                        Recent Projects
-                      </h2>
-                      <button
-                        onClick={() => setShowProjectSearch(true)}
-                        aria-label="Search projects"
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <Search className="h-3.5 w-3.5" />
-                      </button>
-                    </>
-                  )}
-                </div>
-                <div className="flex-1 overflow-y-auto scrollbar-none space-y-1">
-                  {sortedProjects.length === 0 && projectSearch ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">No projects match "{projectSearch}"</p>
-                  ) : sortedProjects.map((project) => (
-                    <ContextMenu key={project.id}>
-                      <ContextMenuTrigger>
-                        <button
-                          className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-primary/[0.08]"
-                          onClick={() => handleProjectClick(project)}
-                        >
-                          <FolderGit2 className="h-4 w-4 shrink-0 text-primary" />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">{project.name}</p>
-                            <p className="truncate text-[11px] text-muted-foreground font-mono">
-                              {project.path}
-                            </p>
-                          </div>
-                          <span className="shrink-0 text-[11px] text-muted-foreground">
-                            {getRelativeTime(project.lastOpened)}
-                          </span>
-                        </button>
-                      </ContextMenuTrigger>
-                      <ContextMenuContent>
-                        <ContextMenuItem onClick={() => handleRevealInFileManager(project.path)}>
-                          <FolderOpen className="mr-2 h-4 w-4" />
-                          {getRevealLabel()}
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          className="text-destructive"
-                          onClick={() => handleDeleteProject(project)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Remove from list
-                        </ContextMenuItem>
-                      </ContextMenuContent>
-                    </ContextMenu>
-                  ))}
-                </div>
+            <div className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl p-2">
+              <div className="flex items-center justify-between px-1 mb-3 shrink-0">
+                {showProjectSearch ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Search projects..."
+                      value={projectSearch}
+                      onChange={(e) => setProjectSearch(e.target.value)}
+                      autoFocus
+                      data-no-focus-ring
+                      aria-label="Search projects"
+                      className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                    />
+                    <button
+                      onClick={() => {
+                        setShowProjectSearch(false);
+                        setProjectSearch("");
+                      }}
+                      aria-label="Close search"
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <h2 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Recent Projects
+                    </h2>
+                    <button
+                      onClick={() => setShowProjectSearch(true)}
+                      aria-label="Search projects"
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <Search className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                )}
               </div>
-            )}
+              <div className="flex-1 overflow-y-auto scrollbar-none space-y-1">
+                {projects.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">No recent projects</p>
+                ) : sortedProjects.length === 0 && projectSearch ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">No projects match "{projectSearch}"</p>
+                ) : sortedProjects.map((project) => (
+                  <ContextMenu key={project.id}>
+                    <ContextMenuTrigger>
+                      <button
+                        className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-primary/[0.08]"
+                        onClick={() => handleProjectClick(project)}
+                      >
+                        <FolderGit2 className="h-4 w-4 shrink-0 text-primary" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{project.name}</p>
+                          <p className="truncate text-[11px] text-muted-foreground font-mono">
+                            {project.path}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-[11px] text-muted-foreground">
+                          {getRelativeTime(project.lastOpened)}
+                        </span>
+                      </button>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent>
+                      <ContextMenuItem onClick={() => handleRevealInFileManager(project.path)}>
+                        <FolderOpen className="mr-2 h-4 w-4" />
+                        {getRevealLabel()}
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        className="text-destructive"
+                        onClick={() => handleDeleteProject(project)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Remove from list
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
+                ))}
+              </div>
+            </div>
 
           </div>
         </div>
