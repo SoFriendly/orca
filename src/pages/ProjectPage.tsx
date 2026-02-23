@@ -2215,7 +2215,7 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   showGitPanel
-                    ? "bg-muted/30"
+                    ? "bg-accent text-accent-foreground"
                     : "hover:text-foreground/70 hover:bg-muted/20",
                   showGitPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
@@ -2238,7 +2238,7 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   showAssistantPanel
-                    ? "bg-muted/30"
+                    ? "bg-accent text-accent-foreground"
                     : "hover:text-foreground/70 hover:bg-muted/20",
                   showAssistantPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
@@ -2261,7 +2261,7 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   showShellPanel
-                    ? "bg-muted/30"
+                    ? "bg-accent text-accent-foreground"
                     : "hover:text-foreground/70 hover:bg-muted/20",
                   showShellPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}

@@ -2298,7 +2298,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Show changes"
-                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "changes" && "bg-muted/30")}
+                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "changes" && "bg-accent text-accent-foreground")}
                 onClick={() => setViewMode("changes")}
               >
                 <GitBranch className="h-3.5 w-3.5" />
@@ -2313,7 +2313,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Show history"
-                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "history" && "bg-muted/30")}
+                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "history" && "bg-accent text-accent-foreground")}
                 onClick={() => setViewMode("history")}
               >
                 <History className="h-3.5 w-3.5" />
@@ -2328,7 +2328,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Browse files"
-                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "files" && "bg-muted/30")}
+                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "files" && "bg-accent text-accent-foreground")}
                 onClick={() => setViewMode("files")}
               >
                 <FolderTree className="h-3.5 w-3.5" />
@@ -2343,7 +2343,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Worktrees"
-                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "worktrees" && "bg-muted/30")}
+                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "worktrees" && "bg-accent text-accent-foreground")}
                 onClick={() => setViewMode("worktrees")}
               >
                 <GitFork className="h-3.5 w-3.5" />
