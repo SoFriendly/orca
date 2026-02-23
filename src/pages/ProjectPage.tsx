@@ -2284,7 +2284,7 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   showNotesPanel
-                    ? "bg-muted/30"
+                    ? "bg-accent text-accent-foreground"
                     : "hover:text-foreground/70 hover:bg-muted/20",
                   showNotesPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}

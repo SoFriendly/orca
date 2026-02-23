@@ -343,28 +343,21 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
       });
 
       // Buffer manual input to record commands to project history
-      let inputBuffer = "";
       const dataDisposable = terminal.onData((data) => {
         invoke("write_terminal", { id: activeId, data }).catch(() => {});
-        if (!isAssistant) {
-          if (data === "\r") {
-            const cmd = inputBuffer.trim();
+        if (!isAssistant && data === "\r") {
+          // Read the actual command line from the terminal buffer,
+          // which includes text recalled via shell history (up arrow)
+          const buf = terminal.buffer.active;
+          const lineY = buf.baseY + buf.cursorY;
+          const line = buf.getLine(lineY);
+          if (line) {
+            const lineText = line.translateToString(true);
+            // Strip the shell prompt (everything up to and including the last $ % > #)
+            const cmd = lineText.replace(/^.*?[$%>#]\s*/, "").trim();
             if (cmd) {
               invoke("record_project_command", { command: cmd, projectPath: cwd }).catch(() => {});
             }
-            inputBuffer = "";
-          } else if (data === "\x7f" || data === "\b") {
-            inputBuffer = inputBuffer.slice(0, -1);
-          } else if (data === "\x03" || data === "\x15") {
-            inputBuffer = "";
-          } else if (data === "\x17") {
-            // Ctrl+W: delete last word
-            inputBuffer = inputBuffer.replace(/\S*\s*$/, "");
-          } else if (data.length === 1 && data >= " ") {
-            inputBuffer += data;
-          } else if (data.length > 1 && !data.startsWith("\x1b")) {
-            // Pasted text
-            inputBuffer += data;
           }
         }
       });

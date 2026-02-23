@@ -2,6 +2,15 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.1.98]
+
+### Bug Fixes
+- Fix sidebar panel buttons using inconsistent active state styling
+  - Notes button now uses the same `bg-accent text-accent-foreground` style as Git, Assistant, and Shell buttons
+- Fix single-character commands being saved to terminal history
+  - Terminal now reads the actual command line from the xterm screen buffer on Enter instead of tracking an input buffer
+  - Correctly captures commands recalled via shell history (up arrow) that were previously missed
+
 ## [0.1.97]
 
 ### Features
