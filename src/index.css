@@ -61,27 +61,27 @@
   }
 
   .dark {
-    --background: 250 12% 7%;
-    --foreground: 0 0% 90%;
-    --card: 250 10% 9%;
-    --card-foreground: 0 0% 90%;
-    --popover: 250 10% 9%;
-    --popover-foreground: 0 0% 90%;
+    --background: 256 16% 8%;
+    --foreground: 250 15% 90%;
+    --card: 256 20% 11%;
+    --card-foreground: 250 15% 90%;
+    --popover: 256 20% 11%;
+    --popover-foreground: 250 15% 90%;
     --primary: 252 56% 57%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 250 8% 12%;
-    --secondary-foreground: 0 0% 90%;
-    --muted: 250 6% 15%;
-    --muted-foreground: 0 0% 55%;
-    --accent: 250 6% 15%;
-    --accent-foreground: 0 0% 90%;
+    --secondary: 253 10% 15%;
+    --secondary-foreground: 250 15% 90%;
+    --muted: 253 8% 18%;
+    --muted-foreground: 250 8% 55%;
+    --accent: 253 8% 18%;
+    --accent-foreground: 250 15% 90%;
     --destructive: 0 62.8% 50%;
     --destructive-foreground: 0 0% 100%;
-    --border: 250 6% 18%;
-    --input: 250 6% 18%;
+    --border: 253 8% 21%;
+    --input: 253 8% 21%;
     --ring: 252 56% 57%;
-    --panel-shadow: 8px 14px 36px rgba(0,0,0,0.35);
-    --nav-bg: 0 0% 9%;
+    --panel-shadow: 8px 14px 36px rgba(10,0,30,0.4);
+    --nav-bg: 256 14% 10%;
   }
 
   .tokyo {
