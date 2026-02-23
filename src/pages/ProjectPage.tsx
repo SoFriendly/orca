@@ -748,7 +748,7 @@ export default function ProjectPage() {
         title: "Orca",
         width: 1200,
         height: 800,
-        minWidth: 600,
+        minWidth: 1024,
         minHeight: 600,
         center: true,
         titleBarStyle: "overlay",
@@ -2289,7 +2289,7 @@ export default function ProjectPage() {
           role="region"
           aria-label="Git panel"
           className={cn("h-full flex flex-col overflow-hidden", panelShellClass, !showGitPanel && "hidden")}
-          style={{ width: gitPanelWidth, minWidth: 280 }}
+          style={{ flex: `0 1 ${gitPanelWidth}px`, minWidth: 280 }}
         >
           <GitPanel
             projectPath={currentProject.path}
@@ -2321,7 +2321,7 @@ export default function ProjectPage() {
           <>
             <div
               className={cn("h-full flex flex-col overflow-hidden", panelShellClass)}
-              style={{ width: diffPanelWidth, minWidth: 250 }}
+              style={{ flex: `0 1 ${diffPanelWidth}px`, minWidth: 250 }}
             >
               <DiffPanel
                 selection={diffPanelSelection}
@@ -2649,7 +2649,7 @@ export default function ProjectPage() {
             !showShellPanel && "hidden",
             !showAssistantPanel && "flex-1 min-w-0"
           )}
-          style={showAssistantPanel ? { width: shellPanelWidth, minWidth: 280 } : undefined}
+          style={showAssistantPanel ? { flex: `0 1 ${shellPanelWidth}px`, minWidth: 280 } : undefined}
           onDragOver={handlePanelDragOver}
           onDrop={handleShellPanelDrop}
         >
@@ -2894,11 +2894,11 @@ export default function ProjectPage() {
           role="region"
           aria-label="Notes panel"
           className={cn(
-            "h-full flex flex-col overflow-hidden shrink-0",
+            "h-full flex flex-col overflow-hidden",
             panelShellClass,
             !showNotesPanel && "hidden"
           )}
-          style={{ width: notesPanelWidth, minWidth: 250 }}
+          style={{ flex: `0 1 ${notesPanelWidth}px`, minWidth: 250 }}
         >
           <NotesPanel projectPath={currentProject.path} onNoteDropAtPosition={handleNoteDropAtPosition} />
         </div>
@@ -2919,7 +2919,7 @@ export default function ProjectPage() {
             !showMarkdownPanel && "hidden",
             !showAssistantPanel && !showShellPanel && "flex-1 min-w-0"
           )}
-          style={showAssistantPanel || showShellPanel ? { width: markdownPanelWidth, minWidth: 300 } : undefined}
+          style={showAssistantPanel || showShellPanel ? { flex: `0 1 ${markdownPanelWidth}px`, minWidth: 300 } : undefined}
         >
           {/* Header */}
           <div className="relative flex h-10 items-center justify-between px-3 text-muted-foreground/60">
