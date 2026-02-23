@@ -1498,34 +1498,36 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     const isMultiSelectKey = isMac ? e.metaKey : e.ctrlKey;
     const isRangeSelectKey = e.shiftKey;
 
-    // Only handle selection with modifier keys, otherwise expand/collapse
-    if (isRangeSelectKey || isMultiSelectKey) {
-      setSelectedFiles(prev => {
-        const next = new Set(prev);
+    setSelectedFiles(prev => {
+      const next = new Set(prev);
 
-        if (isRangeSelectKey && lastClickedIndex.current >= 0) {
-          // Shift-click: select range
-          const start = Math.min(lastClickedIndex.current, index);
-          const end = Math.max(lastClickedIndex.current, index);
-          for (let i = start; i <= end; i++) {
-            next.add(diffs[i].path);
-          }
-        } else if (isMultiSelectKey) {
-          // Cmd/Ctrl-click: toggle individual selection
-          if (next.has(filePath)) {
-            next.delete(filePath);
-          } else {
-            next.add(filePath);
-          }
+      if (isRangeSelectKey && lastClickedIndex.current >= 0) {
+        // Shift-click: select range
+        const start = Math.min(lastClickedIndex.current, index);
+        const end = Math.max(lastClickedIndex.current, index);
+        for (let i = start; i <= end; i++) {
+          next.add(diffs[i].path);
         }
+      } else if (isMultiSelectKey) {
+        // Cmd/Ctrl-click: toggle individual selection
+        if (next.has(filePath)) {
+          next.delete(filePath);
+        } else {
+          next.add(filePath);
+        }
+      } else {
+        // Plain click: select this file only
+        if (next.has(filePath) && next.size === 1) {
+          next.delete(filePath);
+        } else {
+          next.clear();
+          next.add(filePath);
+        }
+      }
 
-        return next;
-      });
-      lastClickedIndex.current = index;
-    } else {
-      // Plain click: expand/collapse the file diff
-      toggleFileExpanded(filePath);
-    }
+      return next;
+    });
+    lastClickedIndex.current = index;
   };
 
   const clearSelection = () => {
@@ -1553,13 +1555,14 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     }
   };
 
-  const toggleFileExpanded = (path: string) => {
+  const toggleFileExpanded = (path: string, force?: boolean) => {
     setExpandedFiles((prev) => {
       const next = new Set(prev);
-      if (next.has(path)) {
-        next.delete(path);
-      } else {
+      const shouldExpand = force !== undefined ? force : !next.has(path);
+      if (shouldExpand) {
         next.add(path);
+      } else {
+        next.delete(path);
       }
       return next;
     });
@@ -1643,9 +1646,6 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     // Check if file has diff content (non-binary)
     const hasDiff = diff.hunks.length > 0;
 
-    // Can expand if it's an image or has diff content
-    const canExpand = isImage || hasDiff;
-
     return (
       <div
         className="group min-w-0 cursor-grab active:cursor-grabbing"
@@ -1658,14 +1658,14 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
               tabIndex={0}
               role="button"
               className={cn(
-                "relative flex items-center gap-2 rounded-full pl-2 pr-8 py-1.5 transition-colors cursor-grab active:cursor-grabbing",
+                "relative -mx-2 flex items-center gap-2 rounded-full px-2 py-1.5 transition-colors cursor-pointer",
                 isSelected ? "bg-primary/20" : "hover:bg-muted/50"
               )}
               onClick={(e) => handleFileClick(diff.path, index, e)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  toggleFileExpanded(diff.path);
+                  handleFileClick(diff.path, index, e as unknown as React.MouseEvent);
                 }
               }}
               onDoubleClick={() => {
@@ -1674,22 +1674,13 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 }
               }}
             >
-              {canExpand ? (
-                isExpanded ? (
-                  <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                )
-              ) : (
-                <span className="h-3 w-3 shrink-0" /> // Placeholder for alignment
-              )}
               <button
                 role="checkbox"
                 aria-checked={filesToCommit.has(diff.path)}
                 aria-label={`Stage ${diff.path} for commit`}
                 onClick={(e) => toggleFileToCommit(diff.path, e)}
                 className={cn(
-                  "h-3.5 w-3.5 shrink-0 rounded-sm border flex items-center justify-center transition-colors",
+                  "h-3.5 w-3.5 shrink-0 rounded border flex items-center justify-center transition-colors",
                   filesToCommit.has(diff.path)
                     ? cn(getStatusColor(diff.status), "border-transparent")
                     : "border-muted-foreground/50 bg-transparent"
@@ -1705,22 +1696,17 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
               <div className="flex-1 min-w-0">
                 <span className="block break-all font-mono text-xs">{diff.path}</span>
               </div>
-              {/* Discard button - shows on hover, positioned over content on right */}
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={`Discard changes to ${diff.path}`}
-                className="absolute right-5 top-1/2 -translate-y-1/2 h-5 w-5 opacity-0 group-hover:opacity-100 bg-background/80 hover:bg-muted"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setFileToDiscard(diff.path);
-                }}
-              >
-                <Undo2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-              </Button>
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent>
+            <ContextMenuItem onClick={() => toggleFileExpanded(diff.path)}>
+              {isExpanded ? (
+                <><ChevronDown className="mr-2 h-4 w-4" />Collapse diff</>
+              ) : (
+                <><ChevronRight className="mr-2 h-4 w-4" />Expand diff</>
+              )}
+            </ContextMenuItem>
+            <ContextMenuSeparator />
             <ContextMenuItem
               className="text-destructive focus:text-destructive"
               onClick={() => handleDiscardFile(diff.path)}
@@ -2235,7 +2221,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
             <>
               {/* Selection actions */}
               {selectedFiles.size > 0 && (
-                <div className="mb-3 flex items-center gap-2 rounded-lg bg-muted/50 px-2 py-2">
+                <div className="-mx-2 mb-3 flex items-center gap-2 rounded-full bg-muted/50 px-3 py-1.5">
                   <button
                     onClick={clearSelection}
                     className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-muted"
@@ -2243,7 +2229,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                     <X className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
                   <span className="flex-1 text-xs text-muted-foreground">
-                    {selectedFiles.size} file{selectedFiles.size > 1 ? 's' : ''} selected
+                    {selectedFiles.size} {selectedFiles.size > 1 ? 'Files' : 'File'}
                   </span>
                   <Button
                     variant="ghost"

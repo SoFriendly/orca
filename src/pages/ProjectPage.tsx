@@ -2217,7 +2217,7 @@ export default function ProjectPage() {
       {/* Main content area */}
       <main
         ref={containerRef}
-        className="relative z-10 flex flex-1 overflow-hidden p-1.5 pt-12"
+        className="relative z-10 flex flex-1 overflow-hidden pl-1.5 pr-2 pb-2 pt-12"
       >
         <h1 className="sr-only">{currentProject.name} - Orca</h1>
         {/* Left sidebar - Git panel */}
