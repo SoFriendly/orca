@@ -50,9 +50,9 @@ if ($BumpType) {
         $configContent = $configContent -replace '"version":\s*"[^"]+"', "`"version`": `"$newVersion`""
         Set-Content "src-tauri\tauri.conf.json" $configContent -NoNewline
 
-        # Update Cargo.toml
+        # Update Cargo.toml (only the package version, not dependencies)
         $cargoContent = Get-Content "src-tauri\Cargo.toml" -Raw
-        $cargoContent = $cargoContent -replace 'version\s*=\s*"[^"]+"', "version = `"$newVersion`""
+        $cargoContent = $cargoContent -replace '(\[package\][\s\S]*?\nversion\s*=\s*)"[^"]+"', "`$1`"$newVersion`""
         Set-Content "src-tauri\Cargo.toml" $cargoContent -NoNewline
 
         # Update package.json if exists
