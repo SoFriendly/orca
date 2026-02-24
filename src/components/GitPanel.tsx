@@ -2945,42 +2945,30 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                         <p className="text-xs text-muted-foreground/70 px-2">No stashes</p>
                       ) : (
                         stashes.map((stash) => (
-                          <div
-                            key={stash.index}
-                            className="group flex items-center gap-2 rounded-full px-2.5 py-1.5 hover:bg-muted/50 -mx-2"
-                          >
-                            <Archive className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs truncate">{stash.message}</div>
-                              <div className="text-[10px] text-muted-foreground truncate">{stash.branch}</div>
-                            </div>
-                            <div className="hidden group-hover:flex gap-0.5 flex-shrink-0">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleStashApply(stash.index)}>
-                                    <PlayCircle className="h-3 w-3" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Apply</TooltipContent>
-                              </Tooltip>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleStashPop(stash.index)}>
-                                    <ArrowUpFromLine className="h-3 w-3" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Pop</TooltipContent>
-                              </Tooltip>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => handleStashDrop(stash.index)}>
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Drop</TooltipContent>
-                              </Tooltip>
-                            </div>
-                          </div>
+                          <ContextMenu key={stash.index}>
+                            <ContextMenuTrigger asChild>
+                              <div
+                                className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 hover:bg-muted/50 -mx-2"
+                              >
+                                <Archive className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs break-words">{stash.message}</div>
+                                  <div className="text-[10px] text-muted-foreground break-words">{stash.branch}</div>
+                                </div>
+                              </div>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent>
+                              <ContextMenuItem onClick={() => handleStashPop(stash.index)}>
+                                <ArrowUpFromLine className="mr-2 h-4 w-4" />
+                                Restore
+                              </ContextMenuItem>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem onClick={() => handleStashDrop(stash.index)} className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Drop
+                              </ContextMenuItem>
+                            </ContextMenuContent>
+                          </ContextMenu>
                         ))
                       )}
                     </div>
@@ -3028,7 +3016,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
 
               {/* No changes message or not a git repo */}
               {diffs.length === 0 && (
-                <div className="flex h-full flex-col items-center justify-center p-6">
+                <div className="flex flex-col items-center justify-center p-6 mt-8">
                   <div className="flex flex-col items-center text-center max-w-[200px]">
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50 mb-4">
                       <GitCommit className="h-7 w-7 text-muted-foreground" />
