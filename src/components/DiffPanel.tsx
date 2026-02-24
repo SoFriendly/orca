@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { X, ImageIcon, FileIcon, Undo2, CheckSquare, Square } from "lucide-react";
+import { X, ImageIcon, FileIcon, Undo2, CheckSquare, Square, Plus, MessageSquare, Pencil, SquareTerminal } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -18,6 +18,7 @@ interface DiffPanelProps {
   selection: DiffPanelSelection;
   onClose: () => void;
   onRefresh: () => void;
+  onSendToAssistant?: (message: string) => void;
 }
 
 const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico', '.bmp'];
@@ -33,7 +34,7 @@ const getStatusColor = (status: string) => {
   }
 };
 
-export default function DiffPanel({ selection, onClose, onRefresh }: DiffPanelProps) {
+export default function DiffPanel({ selection, onClose, onRefresh, onSendToAssistant }: DiffPanelProps) {
   const { diff, source, commitMessage, projectPath } = selection;
   const isImage = imageExtensions.some(ext => diff.path.toLowerCase().endsWith(ext));
   const hasDiff = diff.hunks.length > 0;
@@ -45,6 +46,10 @@ export default function DiffPanel({ selection, onClose, onRefresh }: DiffPanelPr
   // Image diff state
   const [oldImageBase64, setOldImageBase64] = useState<string | null>(null);
   const [imageDiffMode, setImageDiffMode] = useState<"side-by-side" | "slider">("side-by-side");
+  // Line comment review state
+  const [lineComments, setLineComments] = useState<Map<number, string>>(new Map());
+  const [commentingLine, setCommentingLine] = useState<number | null>(null);
+  const [commentDraft, setCommentDraft] = useState("");
 
   const handleClose = useCallback(() => {
     onClose();
@@ -166,6 +171,58 @@ export default function DiffPanel({ selection, onClose, onRefresh }: DiffPanelPr
     }
   };
 
+  // Line comment helpers
+  const saveComment = () => {
+    if (commentingLine === null || !commentDraft.trim()) return;
+    setLineComments(prev => {
+      const next = new Map(prev);
+      next.set(commentingLine, commentDraft.trim());
+      return next;
+    });
+    setCommentingLine(null);
+    setCommentDraft("");
+  };
+
+  const editComment = (lineNo: number) => {
+    setCommentDraft(lineComments.get(lineNo) || "");
+    setCommentingLine(lineNo);
+  };
+
+  const deleteComment = (lineNo: number) => {
+    setLineComments(prev => {
+      const next = new Map(prev);
+      next.delete(lineNo);
+      return next;
+    });
+  };
+
+  const handleSendToAssistant = () => {
+    if (!onSendToAssistant || lineComments.size === 0) return;
+    const lines: string[] = [];
+    lines.push(`Review comments for ${diff.path}:\n`);
+
+    const sorted = Array.from(lineComments.entries()).sort((a, b) => a[0] - b[0]);
+    for (const [lineNo, comment] of sorted) {
+      let codeContent = "";
+      for (const hunk of diff.hunks) {
+        for (const line of hunk.lines) {
+          if (line.newLineNo === lineNo || line.oldLineNo === lineNo) {
+            codeContent = line.content;
+            break;
+          }
+        }
+        if (codeContent) break;
+      }
+      lines.push(`Line ${lineNo}: ${codeContent}`);
+      lines.push(`Comment: ${comment}\n`);
+    }
+
+    lines.push("Please address these inline comments.");
+    onSendToAssistant(lines.join("\n"));
+    setLineComments(new Map());
+    toast.success("Comments sent to assistant");
+  };
+
   // Get the extension for mime type detection for old image
   const getImageMime = (path: string): string => {
     if (path.endsWith('.png')) return 'image/png';
@@ -195,6 +252,13 @@ export default function DiffPanel({ selection, onClose, onRefresh }: DiffPanelPr
             disabled={isStagingLines}
           >
             {isStagingLines ? "Staging..." : `Stage ${selectedLines.size} line${selectedLines.size !== 1 ? 's' : ''}`}
+          </Button>
+        )}
+        {/* Send comments to assistant button */}
+        {lineComments.size > 0 && onSendToAssistant && (
+          <Button variant="default" size="sm" className="h-6 text-xs gap-1" onClick={handleSendToAssistant}>
+            <SquareTerminal className="h-3 w-3" />
+            Send {lineComments.size} comment{lineComments.size !== 1 ? 's' : ''} to Assistant
           </Button>
         )}
         <button
@@ -307,70 +371,141 @@ export default function DiffPanel({ selection, onClose, onRefresh }: DiffPanelPr
                       const canSelectForStaging = source === 'changes' && (line.type === "addition" || line.type === "deletion") && line.newLineNo;
                       const isSelected = line.newLineNo ? selectedLines.has(line.newLineNo) : false;
 
+                      const displayLineNo = line.newLineNo || line.oldLineNo || 0;
+                      const hasComment = lineComments.has(displayLineNo);
+
                       return (
-                        <div
-                          key={li}
-                          className={cn(
-                            "whitespace-pre-wrap break-all select-text outline-none px-3 py-1 flex items-start gap-1",
-                            line.type === "addition" && "bg-green-500/5 text-green-400",
-                            line.type === "deletion" && "bg-red-500/5 text-red-400",
-                            line.type === "context" && "text-muted-foreground",
-                            isEditable && "cursor-text",
-                            isSelected && "ring-1 ring-primary/50 bg-primary/5"
-                          )}
-                        >
-                          {/* Line selection checkbox for staging */}
-                          {canSelectForStaging && line.newLineNo ? (
-                            <button
-                              className="flex-shrink-0 mt-0.5 opacity-40 hover:opacity-100"
-                              onClick={(e) => handleToggleLine(line.newLineNo!, e.shiftKey)}
-                            >
-                              {isSelected ? (
-                                <CheckSquare className="h-3 w-3 text-primary" />
-                              ) : (
-                                <Square className="h-3 w-3" />
-                              )}
-                            </button>
-                          ) : (
-                            <span className="w-3 flex-shrink-0" />
-                          )}
-                          {/* Line number gutter */}
-                          <span className="w-8 flex-shrink-0 text-right text-muted-foreground/30 select-none text-[10px]">
-                            {line.newLineNo || line.oldLineNo || ""}
-                          </span>
-                          <span
-                            className="flex-1"
-                            contentEditable={!!isEditable}
-                            suppressContentEditableWarning
-                            onBlur={(e) => {
-                              if (isEditable && line.newLineNo) {
-                                const newContent = e.currentTarget.textContent || "";
-                                if (newContent !== line.content) {
-                                  handleEditLine(diff.path, line.newLineNo, newContent);
-                                }
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                e.currentTarget.blur();
-                              } else if (e.key === "Escape") {
-                                e.stopPropagation();
-                                e.currentTarget.textContent = line.content;
-                                e.currentTarget.blur();
-                              } else if (
-                                (e.key === "Backspace" || e.key === "Delete") &&
-                                isEditable && line.newLineNo &&
-                                !e.currentTarget.textContent
-                              ) {
-                                e.preventDefault();
-                                setDeletedLines(prev => new Set(prev).add(lineKey));
-                                handleEditLine(diff.path, line.newLineNo, "", true);
-                              }
-                            }}
+                        <div key={li}>
+                          <div
+                            className={cn(
+                              "group/line whitespace-pre-wrap break-all select-text outline-none pr-3 py-1 flex items-start",
+                              line.type === "addition" && "bg-green-500/5 text-green-400",
+                              line.type === "deletion" && "bg-red-500/5 text-red-400",
+                              line.type === "context" && "text-muted-foreground",
+                              isEditable && "cursor-text",
+                              isSelected && "ring-1 ring-primary/50 bg-primary/5"
+                            )}
                           >
-                            {line.content}
-                          </span>
+                            {/* Line number gutter */}
+                            <span className={cn("min-w-3 flex-shrink-0 text-right select-none text-[10px] pl-1 opacity-50",
+                              line.type === "addition" && "text-green-400",
+                              line.type === "deletion" && "text-red-400",
+                              line.type === "context" && "text-muted-foreground"
+                            )}>
+                              {line.newLineNo || line.oldLineNo || ""}
+                            </span>
+                            {/* Line selection checkbox for staging */}
+                            {canSelectForStaging && line.newLineNo ? (
+                              <button
+                                className="flex-shrink-0 mt-0.5 ml-1.5 opacity-40 hover:opacity-100"
+                                onClick={(e) => handleToggleLine(line.newLineNo!, e.shiftKey)}
+                              >
+                                {isSelected ? (
+                                  <CheckSquare className="h-3 w-3 text-primary" />
+                                ) : (
+                                  <Square className="h-3 w-3" />
+                                )}
+                              </button>
+                            ) : (
+                              <span className="w-3 ml-1.5 flex-shrink-0" />
+                            )}
+                            {/* Comment gutter button */}
+                            {displayLineNo ? (
+                              hasComment ? (
+                                <button
+                                  className="flex-shrink-0 mt-0.5 text-primary/60 hover:text-primary"
+                                  onClick={() => editComment(displayLineNo)}
+                                >
+                                  <MessageSquare className="h-3 w-3" />
+                                </button>
+                              ) : (
+                                <button
+                                  className="flex-shrink-0 mt-0.5 opacity-0 group-hover/line:opacity-100 text-muted-foreground hover:text-primary"
+                                  onClick={() => {
+                                    setCommentDraft("");
+                                    setCommentingLine(displayLineNo);
+                                  }}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </button>
+                              )
+                            ) : (
+                              <span className="w-3 flex-shrink-0" />
+                            )}
+                            <span
+                              className="flex-1 ml-1"
+                              contentEditable={!!isEditable}
+                              suppressContentEditableWarning
+                              onBlur={(e) => {
+                                if (isEditable && line.newLineNo) {
+                                  const newContent = e.currentTarget.textContent || "";
+                                  if (newContent !== line.content) {
+                                    handleEditLine(diff.path, line.newLineNo, newContent);
+                                  }
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  e.currentTarget.blur();
+                                } else if (e.key === "Escape") {
+                                  e.stopPropagation();
+                                  e.currentTarget.textContent = line.content;
+                                  e.currentTarget.blur();
+                                } else if (
+                                  (e.key === "Backspace" || e.key === "Delete") &&
+                                  isEditable && line.newLineNo &&
+                                  !e.currentTarget.textContent
+                                ) {
+                                  e.preventDefault();
+                                  setDeletedLines(prev => new Set(prev).add(lineKey));
+                                  handleEditLine(diff.path, line.newLineNo, "", true);
+                                }
+                              }}
+                            >
+                              {line.content}
+                            </span>
+                          </div>
+                          {/* Inline comment input */}
+                          {commentingLine === displayLineNo && displayLineNo > 0 && (
+                            <div className="bg-muted/30 border-l-2 border-primary px-3 py-2">
+                              <div className="relative">
+                                <textarea
+                                  autoFocus
+                                  className="w-full bg-background border rounded px-2 py-1 pr-6 text-xs resize-none min-h-[32px]"
+                                  placeholder="Add a review comment..."
+                                  value={commentDraft}
+                                  onChange={(e) => setCommentDraft(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !e.shiftKey) {
+                                      e.preventDefault();
+                                      saveComment();
+                                    }
+                                    if (e.key === "Escape") {
+                                      e.stopPropagation();
+                                      setCommentingLine(null);
+                                    }
+                                  }}
+                                />
+                                <button onClick={() => setCommentingLine(null)} className="absolute top-1 right-1 text-muted-foreground hover:text-foreground">
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                                <span className="absolute bottom-1 right-2 text-[10px] text-muted-foreground/40 pointer-events-none">↵ Enter</span>
+                              </div>
+                            </div>
+                          )}
+                          {/* Saved comment display */}
+                          {hasComment && commentingLine !== displayLineNo && (
+                            <div className="flex items-start gap-2 bg-primary/5 border-l-2 border-primary/30 px-3 py-1.5 group/comment">
+                              <span className="text-xs text-foreground flex-1">{lineComments.get(displayLineNo)}</span>
+                              <button onClick={() => editComment(displayLineNo)} className="opacity-0 group-hover/comment:opacity-100">
+                                <Pencil className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                              </button>
+                              <button onClick={() => deleteComment(displayLineNo)} className="opacity-0 group-hover/comment:opacity-100">
+                                <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}

@@ -1,3 +1,11 @@
+// Line comment types (for inline code review)
+export interface LineComment {
+  lineNo: number;
+  content: string;       // The code on that line
+  comment: string;       // User's review comment
+  hunkIndex: number;     // Which hunk this belongs to
+}
+
 // Project types
 export interface ProjectFolder {
   id: string;

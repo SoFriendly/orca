@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Settings,
   Palette,
@@ -633,7 +634,7 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8"
-                                    onClick={() => window.open(assistant.docsUrl, "_blank")}
+                                    onClick={() => openUrl(assistant.docsUrl)}
                                     aria-label={`Open ${assistant.name} documentation`}
                                   >
                                     <ExternalLink className="h-3.5 w-3.5" />

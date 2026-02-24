@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   GitCommit,
   RefreshCw,
@@ -481,6 +482,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
   const [showCreateTagDialog, setShowCreateTagDialog] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [newTagMessage, setNewTagMessage] = useState("");
+  const [tagTargetCommit, setTagTargetCommit] = useState<string | null>(null);
   const [tagsExpanded, setTagsExpanded] = useState(false);
   // Conflict state
   const [conflictedFiles, setConflictedFiles] = useState<string[]>([]);
@@ -496,6 +498,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
   const [rebaseBranch, setRebaseBranch] = useState("");
   const [isRebasing, setIsRebasing] = useState(false);
   // PR state
+  const [isGithubRemote, setIsGithubRemote] = useState(false);
   const [pullRequests, setPullRequests] = useState<PullRequest[]>([]);
   const [showCreatePrDialog, setShowCreatePrDialog] = useState(false);
   const [prTitle, setPrTitle] = useState("");
@@ -696,6 +699,10 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
       refreshTags();
       refreshConflicts();
       refreshPullRequests();
+      // Check if remote is GitHub
+      invoke<string>("get_remote_url", { repoPath: gitRepoPath, remote: "origin" })
+        .then((url) => setIsGithubRemote(url.includes("github.com")))
+        .catch(() => setIsGithubRemote(false));
     }
   }, [gitRepoPath, isGitRepo]);
 
@@ -1438,12 +1445,13 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
         repoPath: gitRepoPath,
         name: newTagName,
         message: newTagMessage || null,
-        commit: null,
+        commit: tagTargetCommit || null,
       });
       toast.success(`Tag '${newTagName}' created`);
       setShowCreateTagDialog(false);
       setNewTagName("");
       setNewTagMessage("");
+      setTagTargetCommit(null);
       refreshTags();
     } catch (error) {
       toast.error(`Failed to create tag: ${error}`);
@@ -1764,6 +1772,55 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     } catch (error) {
       toast.error("Failed to revert commit");
       console.error(error);
+    }
+  };
+
+  const handleCheckoutCommit = async (commitId: string) => {
+    try {
+      await invoke("checkout_commit", { repoPath: gitRepoPath, commitId });
+      toast.success("Checked out commit (detached HEAD)");
+      onRefresh();
+    } catch (error) {
+      toast.error(`Failed to checkout commit: ${error}`);
+    }
+  };
+
+  const handleCreateBranchFromCommit = async (commitId: string) => {
+    const name = prompt("Branch name:");
+    if (!name?.trim()) return;
+    try {
+      await invoke("create_branch", { repoPath: gitRepoPath, name: name.trim() });
+      // Checkout the new branch
+      await invoke("checkout_branch", { repoPath: gitRepoPath, branch: name.trim() });
+      // Reset to the target commit
+      await invoke("reset_to_commit", { repoPath: gitRepoPath, commitId, mode: "soft" });
+      toast.success(`Branch "${name.trim()}" created from commit`);
+      onRefresh();
+    } catch (error) {
+      toast.error(`Failed to create branch: ${error}`);
+    }
+  };
+
+  const handleCreateTagFromCommit = (commitId: string) => {
+    setNewTagName("");
+    setNewTagMessage("");
+    setTagTargetCommit(commitId);
+    setShowCreateTagDialog(true);
+  };
+
+  const handleViewCommitOnGithub = async (commitId: string) => {
+    try {
+      const remoteUrl = await invoke<string>("get_remote_url", { repoPath: gitRepoPath, remote: "origin" });
+      // Parse github URL from remote
+      const match = remoteUrl.match(/github\.com[:/]([^/]+\/[^/.]+)/);
+      if (match) {
+        const repoPath = match[1];
+        openUrl(`https://github.com/${repoPath}/commit/${commitId}`);
+      } else {
+        toast.error("Not a GitHub repository");
+      }
+    } catch {
+      toast.error("Could not determine remote URL");
     }
   };
 
@@ -2500,21 +2557,19 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 </TooltipTrigger>
                 <TooltipContent>Create worktree</TooltipContent>
               </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Refresh"
-                    className="h-7 w-7 text-inherit hover:text-foreground"
-                    onClick={() => onRefresh(gitRepoPath)}
-                    disabled={loading}
-                  >
-                    <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-inherit hover:text-foreground">
+                    <MoreHorizontal className="h-3.5 w-3.5" />
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent>Refresh</TooltipContent>
-              </Tooltip>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onRefresh(gitRepoPath)} disabled={loading}>
+                    <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+                    Refresh
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           ) : viewMode === "files" ? (
             <>
@@ -2546,13 +2601,14 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 </TooltipTrigger>
                 <TooltipContent>New folder</TooltipContent>
               </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Refresh files"
-                    className="h-7 w-7 text-inherit hover:text-foreground"
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-inherit hover:text-foreground">
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
                     onClick={() => {
                       if (folders && folders.length > 0) {
                         loadAllFolderTrees();
@@ -2562,11 +2618,11 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                     }}
                     disabled={isLoadingFiles}
                   >
-                    <RefreshCw className={cn("h-3.5 w-3.5", isLoadingFiles && "animate-spin")} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Refresh files</TooltipContent>
-              </Tooltip>
+                    <RefreshCw className={cn("mr-2 h-4 w-4", isLoadingFiles && "animate-spin")} />
+                    Refresh files
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           ) : (
             <>
@@ -2624,22 +2680,6 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 </TooltipContent>
               </Tooltip>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Refresh"
-                    className="h-7 w-7 text-inherit hover:text-foreground"
-                    onClick={() => onRefresh(gitRepoPath)}
-                    disabled={loading}
-                  >
-                    <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Refresh</TooltipContent>
-              </Tooltip>
-
               {/* More git actions */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -2648,6 +2688,11 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onRefresh(gitRepoPath)} disabled={loading}>
+                    <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+                    Refresh
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setShowMergeDialog(true)}>
                     <GitMerge className="mr-2 h-4 w-4" />
                     Merge branch...
@@ -2678,11 +2723,15 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                     <TagIcon className="mr-2 h-4 w-4" />
                     Create tag...
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => { setShowCreatePrDialog(true); setPrTitle(commitSubject); setPrBody(commitDescription); }}>
-                    <Github className="mr-2 h-4 w-4" />
-                    Create pull request...
-                  </DropdownMenuItem>
+                  {isGithubRemote && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => { setShowCreatePrDialog(true); setPrTitle(commitSubject); setPrBody(commitDescription); }}>
+                        <Github className="mr-2 h-4 w-4" />
+                        Create pull request...
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </>
@@ -2861,8 +2910,8 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 </div>
               )}
 
-              {/* Stash section */}
-              {isGitRepo && (
+              {/* Stash section - only show when stashes exist */}
+              {isGitRepo && stashes.length > 0 && (
                 <div className="mb-4">
                   <div
                     className="flex items-center gap-1 mb-2 cursor-pointer"
@@ -2966,7 +3015,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                             <GitBranch className="mr-2 h-4 w-4" />
                             Checkout branch
                           </ContextMenuItem>
-                          <ContextMenuItem onClick={() => window.open(pr.url, "_blank")}>
+                          <ContextMenuItem onClick={() => openUrl(pr.url)}>
                             <ExternalLink className="mr-2 h-4 w-4" />
                             Open in browser
                           </ContextMenuItem>
@@ -3063,6 +3112,33 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                           </div>
                         </ContextMenuTrigger>
                         <ContextMenuContent>
+                          <ContextMenuItem onClick={() => setCommitToReset(commit.id)}>
+                            <Undo2 className="mr-2 h-4 w-4" />
+                            Reset to Commit...
+                          </ContextMenuItem>
+                          <ContextMenuItem onClick={() => handleCheckoutCommit(commit.id)}>
+                            <GitCommit className="mr-2 h-4 w-4" />
+                            Checkout Commit
+                          </ContextMenuItem>
+                          <ContextMenuSeparator />
+                          <ContextMenuItem onClick={() => handleRevertCommit(commit.id)}>
+                            <RotateCcw className="mr-2 h-4 w-4" />
+                            Revert Changes in Commit
+                          </ContextMenuItem>
+                          <ContextMenuSeparator />
+                          <ContextMenuItem onClick={() => handleCreateBranchFromCommit(commit.id)}>
+                            <GitBranch className="mr-2 h-4 w-4" />
+                            Create Branch from Commit
+                          </ContextMenuItem>
+                          <ContextMenuItem onClick={() => handleCreateTagFromCommit(commit.id)}>
+                            <TagIcon className="mr-2 h-4 w-4" />
+                            Create Tag...
+                          </ContextMenuItem>
+                          <ContextMenuItem onClick={() => handleCherryPick(commit.id)}>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Cherry-pick Commit...
+                          </ContextMenuItem>
+                          <ContextMenuSeparator />
                           <ContextMenuItem onClick={() => {
                             navigator.clipboard.writeText(commit.id);
                             toast.success("SHA copied to clipboard");
@@ -3070,20 +3146,24 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                             <Copy className="mr-2 h-4 w-4" />
                             Copy SHA
                           </ContextMenuItem>
-                          <ContextMenuSeparator />
-                          <ContextMenuItem onClick={() => handleRevertCommit(commit.id)}>
-                            <RotateCcw className="mr-2 h-4 w-4" />
-                            Revert this commit
-                          </ContextMenuItem>
-                          <ContextMenuItem onClick={() => handleCherryPick(commit.id)}>
-                            <Copy className="mr-2 h-4 w-4" />
-                            Cherry-pick this commit
-                          </ContextMenuItem>
-                          <ContextMenuSeparator />
-                          <ContextMenuItem onClick={() => setCommitToReset(commit.id)}>
-                            <Undo2 className="mr-2 h-4 w-4" />
-                            Reset to this commit...
-                          </ContextMenuItem>
+                          {(() => {
+                            const commitTag = tags.find(t => t.commitId === commit.id);
+                            return commitTag ? (
+                              <ContextMenuItem onClick={() => {
+                                navigator.clipboard.writeText(commitTag.name);
+                                toast.success("Tag copied to clipboard");
+                              }}>
+                                <TagIcon className="mr-2 h-4 w-4" />
+                                Copy Tag
+                              </ContextMenuItem>
+                            ) : null;
+                          })()}
+                          {isGithubRemote && (
+                            <ContextMenuItem onClick={() => handleViewCommitOnGithub(commit.id)}>
+                              <Github className="mr-2 h-4 w-4" />
+                              View on GitHub
+                            </ContextMenuItem>
+                          )}
                         </ContextMenuContent>
                       </ContextMenu>
 

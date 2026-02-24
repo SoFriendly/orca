@@ -2384,6 +2384,16 @@ export default function ProjectPage() {
                 selection={diffPanelSelection}
                 onClose={() => handleShowDiff(null)}
                 onRefresh={() => refreshGitData()}
+                onSendToAssistant={(message) => {
+                  const activeTab = terminalTabs.find(t => t.id === activeTabId);
+                  if (activeTab?.terminalId) {
+                    invoke("write_terminal", { id: activeTab.terminalId, data: message + "\n" });
+                    const textarea = assistantPanelRef.current?.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
+                    textarea?.focus();
+                  } else {
+                    toast.error("No active terminal - open an assistant first");
+                  }
+                }}
               />
             </div>
             <div
