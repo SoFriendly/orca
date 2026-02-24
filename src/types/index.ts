@@ -204,6 +204,8 @@ export interface Settings {
   // Remote Portal settings
   portalEnabled?: boolean;
   portalRelayUrl?: string;
+  // GitHub integration
+  githubToken?: string;
 }
 
 // Remote Portal types
@@ -244,4 +246,60 @@ export interface NltProgressEvent {
   message: string;
   tool_name?: string;
   iteration: number;
+}
+
+// Stash types
+export interface Stash {
+  index: number;
+  message: string;
+  branch: string;
+  timestamp: string;
+}
+
+// Tag types
+export interface Tag {
+  name: string;
+  commitId: string;
+  timestamp: string;
+}
+
+// Conflict types
+export interface ConflictSection {
+  type: 'ours' | 'theirs' | 'context';
+  content: string;
+  startLine: number;
+}
+
+export interface ConflictedFile {
+  path: string;
+  sections: ConflictSection[];
+  rawContent: string;
+}
+
+// GitHub PR types
+export interface PullRequest {
+  number: number;
+  title: string;
+  body?: string;
+  state: string;
+  author: string;
+  headRef: string;
+  baseRef: string;
+  createdAt: string;
+  updatedAt: string;
+  url: string;
+  draft: boolean;
+}
+
+export interface GitHubUser {
+  login: string;
+  name?: string;
+  avatarUrl?: string;
+}
+
+export interface CheckRun {
+  name: string;
+  status: string;
+  conclusion?: string;
+  htmlUrl?: string;
 }

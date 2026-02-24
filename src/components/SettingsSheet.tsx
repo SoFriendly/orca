@@ -21,6 +21,7 @@ import {
   Trash2,
   Plus,
   Mic,
+  Github,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -51,13 +52,14 @@ interface SettingsSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type SettingsTab = "general" | "assistants" | "appearance" | "ai" | "keyboard" | "about";
+type SettingsTab = "general" | "assistants" | "appearance" | "ai" | "github" | "keyboard" | "about";
 
 const NAV_ITEMS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: "general", label: "General", icon: <Settings className="h-4 w-4" /> },
   { id: "assistants", label: "Assistants", icon: <Bot className="h-4 w-4" /> },
   { id: "appearance", label: "Appearance", icon: <Palette className="h-4 w-4" /> },
   { id: "ai", label: "AI Behavior", icon: <Sparkles className="h-4 w-4" /> },
+  { id: "github", label: "GitHub", icon: <Github className="h-4 w-4" /> },
   // { id: "portal", label: "Remote Portal", icon: <Smartphone className="h-4 w-4" /> },
   { id: "keyboard", label: "Keyboard", icon: <Keyboard className="h-4 w-4" /> },
   { id: "about", label: "About", icon: <Info className="h-4 w-4" /> },
@@ -123,6 +125,8 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
     addCustomAssistant,
     removeCustomAssistant,
     toggleAssistantHidden,
+    githubToken,
+    setGithubToken,
   } = useSettingsStore();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
@@ -946,6 +950,64 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                       </div>
                     </div>
                   </section>
+                </div>
+              )}
+
+              {/* GitHub Tab */}
+              {activeTab === "github" && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-medium">GitHub Integration</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Connect to GitHub to view and create pull requests.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-medium mb-1">Personal Access Token</p>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Create a token at GitHub Settings &gt; Developer settings &gt; Personal access tokens with <code className="bg-muted px-1 rounded">repo</code> scope.
+                      </p>
+                      <div className="flex gap-2">
+                        <Input
+                          type="password"
+                          placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                          value={githubToken || ""}
+                          onChange={(e) => setGithubToken(e.target.value || undefined)}
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            if (!githubToken) {
+                              toast.error("Enter a token first");
+                              return;
+                            }
+                            try {
+                              const user = await invoke<{ login: string; name?: string }>("github_get_user", { token: githubToken });
+                              toast.success(`Connected as ${user.name || user.login}`);
+                            } catch (error) {
+                              toast.error(`Invalid token: ${error}`);
+                            }
+                          }}
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          Verify
+                        </Button>
+                      </div>
+                    </div>
+                    {githubToken && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={() => setGithubToken(undefined)}
+                      >
+                        Disconnect GitHub
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
 

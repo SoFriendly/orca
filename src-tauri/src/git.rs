@@ -597,6 +597,7 @@ impl GitService {
             .arg(repo_path)
             .arg("pull")
             .arg("--rebase")
+            .arg("--autostash")
             .arg(remote)
             .stdin(std::process::Stdio::null())
             .env("GIT_TERMINAL_PROMPT", "0")
@@ -1051,5 +1052,609 @@ impl GitService {
         }
 
         Ok(())
+    }
+
+    // === Stash operations ===
+
+    pub fn stash_save(repo_path: &str, message: Option<&str>) -> Result<(), String> {
+        let mut cmd = std::process::Command::new("git");
+        cmd.arg("-C").arg(repo_path).arg("stash").arg("push");
+        if let Some(msg) = message {
+            cmd.arg("-m").arg(msg);
+        }
+        let output = cmd
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git stash push failed: {}", stderr.trim()));
+        }
+        Ok(())
+    }
+
+    pub fn stash_list(repo_path: &str) -> Result<Vec<(usize, String, String, String)>, String> {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("stash")
+            .arg("list")
+            .arg("--format=%gd%x00%s%x00%ci")
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut stashes = Vec::new();
+        for (i, line) in stdout.lines().enumerate() {
+            let parts: Vec<&str> = line.split('\0').collect();
+            if parts.len() >= 3 {
+                // parts[0] = stash@{N}, parts[1] = subject, parts[2] = date
+                let message = parts[1].to_string();
+                // Extract branch from message like "On branchname: message"
+                let branch = if message.starts_with("On ") {
+                    message.split(':').next().unwrap_or("").trim_start_matches("On ").to_string()
+                } else {
+                    String::new()
+                };
+                stashes.push((i, message, branch, parts[2].to_string()));
+            }
+        }
+        Ok(stashes)
+    }
+
+    pub fn stash_apply(repo_path: &str, index: usize) -> Result<(), String> {
+        let stash_ref = format!("stash@{{{}}}", index);
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("stash")
+            .arg("apply")
+            .arg(&stash_ref)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git stash apply failed: {}", stderr.trim()));
+        }
+        Ok(())
+    }
+
+    pub fn stash_pop(repo_path: &str, index: usize) -> Result<(), String> {
+        let stash_ref = format!("stash@{{{}}}", index);
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("stash")
+            .arg("pop")
+            .arg(&stash_ref)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git stash pop failed: {}", stderr.trim()));
+        }
+        Ok(())
+    }
+
+    pub fn stash_drop(repo_path: &str, index: usize) -> Result<(), String> {
+        let stash_ref = format!("stash@{{{}}}", index);
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("stash")
+            .arg("drop")
+            .arg(&stash_ref)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git stash drop failed: {}", stderr.trim()));
+        }
+        Ok(())
+    }
+
+    // === Merge operations ===
+
+    pub fn merge_branch(repo_path: &str, branch: &str, strategy: &str) -> Result<String, String> {
+        let mut cmd = std::process::Command::new("git");
+        cmd.arg("-C").arg(repo_path).arg("merge");
+        match strategy {
+            "no-ff" => { cmd.arg("--no-ff"); }
+            "squash" => { cmd.arg("--squash"); }
+            _ => { cmd.arg("--ff"); } // "ff" or default
+        }
+        cmd.arg(branch);
+        let output = cmd
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+        if !output.status.success() {
+            if stderr.contains("CONFLICT") || stdout.contains("CONFLICT") {
+                return Ok("conflict".to_string());
+            }
+            return Err(format!("git merge failed: {}", stderr.trim()));
+        }
+        Ok("ok".to_string())
+    }
+
+    pub fn abort_merge(repo_path: &str) -> Result<(), String> {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("merge")
+            .arg("--abort")
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git merge --abort failed: {}", stderr.trim()));
+        }
+        Ok(())
+    }
+
+    pub fn continue_merge(repo_path: &str, message: Option<&str>) -> Result<(), String> {
+        let mut cmd = std::process::Command::new("git");
+        cmd.arg("-C").arg(repo_path).arg("commit").arg("--no-edit");
+        if let Some(msg) = message {
+            cmd.arg("-m").arg(msg);
+        }
+        let output = cmd
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git commit failed: {}", stderr.trim()));
+        }
+        Ok(())
+    }
+
+    // === Conflict operations ===
+
+    pub fn get_conflicted_files(repo_path: &str) -> Result<Vec<String>, String> {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("diff")
+            .arg("--name-only")
+            .arg("--diff-filter=U")
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let files: Vec<String> = stdout.lines().filter(|l| !l.is_empty()).map(|l| l.to_string()).collect();
+        Ok(files)
+    }
+
+    pub fn get_conflict_content(repo_path: &str, file_path: &str) -> Result<String, String> {
+        let full_path = std::path::Path::new(repo_path).join(file_path);
+        std::fs::read_to_string(&full_path)
+            .map_err(|e| format!("Failed to read file: {}", e))
+    }
+
+    pub fn resolve_conflict(repo_path: &str, file_path: &str, content: &str) -> Result<(), String> {
+        let full_path = std::path::Path::new(repo_path).join(file_path);
+        std::fs::write(&full_path, content)
+            .map_err(|e| format!("Failed to write file: {}", e))?;
+
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("add")
+            .arg(file_path)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git add failed: {}", stderr.trim()));
+        }
+        Ok(())
+    }
+
+    // === Undo last commit ===
+
+    pub fn undo_last_commit(repo_path: &str) -> Result<(), String> {
+        let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
+        let head = repo.head().map_err(|e| e.to_string())?;
+        let commit = head.peel_to_commit().map_err(|e| e.to_string())?;
+
+        if commit.parent_count() == 0 {
+            return Err("Cannot undo: this is the initial commit".to_string());
+        }
+
+        let parent = commit.parent(0).map_err(|e| e.to_string())?;
+        let parent_id = parent.id().to_string();
+        Self::reset_to_commit(repo_path, &parent_id, "soft")
+    }
+
+    // === Rebase operations ===
+
+    pub fn rebase_onto(repo_path: &str, onto_branch: &str) -> Result<String, String> {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("rebase")
+            .arg(onto_branch)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if stderr.contains("CONFLICT") || stderr.contains("could not apply") {
+                return Ok("conflict".to_string());
+            }
+            return Err(format!("git rebase failed: {}", stderr.trim()));
+        }
+        Ok("ok".to_string())
+    }
+
+    pub fn rebase_continue(repo_path: &str) -> Result<String, String> {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("rebase")
+            .arg("--continue")
+            .stdin(std::process::Stdio::null())
+            .env("GIT_EDITOR", "true")
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if stderr.contains("CONFLICT") {
+                return Ok("conflict".to_string());
+            }
+            return Err(format!("git rebase --continue failed: {}", stderr.trim()));
+        }
+        Ok("ok".to_string())
+    }
+
+    pub fn rebase_abort(repo_path: &str) -> Result<(), String> {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("rebase")
+            .arg("--abort")
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git rebase --abort failed: {}", stderr.trim()));
+        }
+        Ok(())
+    }
+
+    pub fn cherry_pick(repo_path: &str, commit_id: &str) -> Result<String, String> {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("cherry-pick")
+            .arg(commit_id)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if stderr.contains("CONFLICT") {
+                return Ok("conflict".to_string());
+            }
+            return Err(format!("git cherry-pick failed: {}", stderr.trim()));
+        }
+        Ok("ok".to_string())
+    }
+
+    // === Tag operations ===
+
+    pub fn list_tags(repo_path: &str) -> Result<Vec<(String, String, String)>, String> {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("tag")
+            .arg("-l")
+            .arg("--format=%(refname:short)%00%(objectname:short)%00%(creatordate:iso)")
+            .arg("--sort=-creatordate")
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let tags: Vec<(String, String, String)> = stdout
+            .lines()
+            .filter(|l| !l.is_empty())
+            .filter_map(|line| {
+                let parts: Vec<&str> = line.split('\0').collect();
+                if parts.len() >= 3 {
+                    Some((parts[0].to_string(), parts[1].to_string(), parts[2].to_string()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        Ok(tags)
+    }
+
+    pub fn create_tag(repo_path: &str, name: &str, message: Option<&str>, commit: Option<&str>) -> Result<(), String> {
+        let mut cmd = std::process::Command::new("git");
+        cmd.arg("-C").arg(repo_path).arg("tag");
+        if let Some(msg) = message {
+            cmd.arg("-a").arg(name).arg("-m").arg(msg);
+        } else {
+            cmd.arg(name);
+        }
+        if let Some(c) = commit {
+            cmd.arg(c);
+        }
+        let output = cmd
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git tag failed: {}", stderr.trim()));
+        }
+        Ok(())
+    }
+
+    pub fn delete_tag(repo_path: &str, name: &str) -> Result<(), String> {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("tag")
+            .arg("-d")
+            .arg(name)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git tag -d failed: {}", stderr.trim()));
+        }
+        Ok(())
+    }
+
+    pub fn push_tag(repo_path: &str, tag: &str, remote: &str) -> Result<(), String> {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("push")
+            .arg(remote)
+            .arg(tag)
+            .stdin(std::process::Stdio::null())
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .env("GIT_SSH_COMMAND", "ssh -o BatchMode=yes")
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git push tag failed: {}", stderr.trim()));
+        }
+        Ok(())
+    }
+
+    // === Line-level staging ===
+
+    pub fn stage_lines(repo_path: &str, file_path: &str, line_ranges: Vec<(u32, u32)>) -> Result<(), String> {
+        // Generate a partial patch from the full diff and apply it
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("diff")
+            .arg("--")
+            .arg(file_path)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git diff: {}", e))?;
+
+        let full_patch = String::from_utf8_lossy(&output.stdout).to_string();
+        if full_patch.is_empty() {
+            return Err("No diff found for file".to_string());
+        }
+
+        // Parse the patch and filter to only include selected lines
+        let filtered_patch = Self::filter_patch_lines(&full_patch, &line_ranges)?;
+
+        // Apply the filtered patch to the index
+        let mut child = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("apply")
+            .arg("--cached")
+            .arg("--recount")
+            .arg("-")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Failed to spawn git apply: {}", e))?;
+
+        if let Some(mut stdin) = child.stdin.take() {
+            use std::io::Write;
+            stdin.write_all(filtered_patch.as_bytes())
+                .map_err(|e| format!("Failed to write patch: {}", e))?;
+        }
+
+        let output = child.wait_with_output()
+            .map_err(|e| format!("Failed to wait for git apply: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git apply --cached failed: {}", stderr.trim()));
+        }
+        Ok(())
+    }
+
+    fn filter_patch_lines(patch: &str, line_ranges: &[(u32, u32)]) -> Result<String, String> {
+        // Keep the file header, filter hunk lines to only selected ones
+        let mut result = String::new();
+        let mut in_header = true;
+        let mut current_new_line: u32 = 0;
+        let mut current_hunk_lines = Vec::new();
+        let mut current_hunk_header = String::new();
+
+        for line in patch.lines() {
+            if line.starts_with("diff ") || line.starts_with("index ") || line.starts_with("--- ") || line.starts_with("+++ ") {
+                // Flush previous hunk if any
+                if !current_hunk_lines.is_empty() {
+                    Self::write_filtered_hunk(&mut result, &current_hunk_header, &current_hunk_lines, line_ranges);
+                    current_hunk_lines.clear();
+                }
+                in_header = true;
+                result.push_str(line);
+                result.push('\n');
+                continue;
+            }
+
+            if line.starts_with("@@ ") {
+                // Flush previous hunk
+                if !current_hunk_lines.is_empty() {
+                    Self::write_filtered_hunk(&mut result, &current_hunk_header, &current_hunk_lines, line_ranges);
+                    current_hunk_lines.clear();
+                }
+                in_header = false;
+                current_hunk_header = line.to_string();
+                // Parse new file start line from @@ -a,b +c,d @@
+                if let Some(plus_part) = line.split('+').nth(1) {
+                    if let Some(start) = plus_part.split(',').next().and_then(|s| s.split(' ').next()) {
+                        current_new_line = start.parse().unwrap_or(1);
+                    }
+                }
+                continue;
+            }
+
+            if !in_header {
+                let new_line_no = if line.starts_with('+') {
+                    let n = current_new_line;
+                    current_new_line += 1;
+                    Some(n)
+                } else if line.starts_with('-') {
+                    None
+                } else {
+                    current_new_line += 1;
+                    None
+                };
+                current_hunk_lines.push((line.to_string(), new_line_no));
+            }
+        }
+
+        // Flush last hunk
+        if !current_hunk_lines.is_empty() {
+            Self::write_filtered_hunk(&mut result, &current_hunk_header, &current_hunk_lines, line_ranges);
+        }
+
+        if result.is_empty() {
+            return Err("No matching lines to stage".to_string());
+        }
+
+        Ok(result)
+    }
+
+    fn write_filtered_hunk(
+        result: &mut String,
+        hunk_header: &str,
+        lines: &[(String, Option<u32>)],
+        line_ranges: &[(u32, u32)],
+    ) {
+        let is_line_selected = |new_line: u32| -> bool {
+            line_ranges.iter().any(|(start, end)| new_line >= *start && new_line <= *end)
+        };
+
+        let mut filtered_lines = Vec::new();
+        for (line, new_line_no) in lines {
+            if line.starts_with('+') {
+                if let Some(n) = new_line_no {
+                    if is_line_selected(*n) {
+                        filtered_lines.push(line.as_str());
+                    } else {
+                        // Convert unselected addition to context
+                        let ctx = format!(" {}", &line[1..]);
+                        filtered_lines.push(Box::leak(ctx.into_boxed_str()));
+                    }
+                }
+            } else if line.starts_with('-') {
+                // Include deletions that are adjacent to selected additions, or check context
+                // For simplicity, include all deletions in hunks that have selected lines
+                filtered_lines.push(line.as_str());
+            } else {
+                filtered_lines.push(line.as_str());
+            }
+        }
+
+        // Check if any actual changes remain
+        let has_changes = filtered_lines.iter().any(|l| l.starts_with('+') || l.starts_with('-'));
+        if !has_changes {
+            return;
+        }
+
+        // Recalculate hunk header
+        let mut old_count = 0u32;
+        let mut new_count = 0u32;
+        for line in &filtered_lines {
+            if line.starts_with('+') {
+                new_count += 1;
+            } else if line.starts_with('-') {
+                old_count += 1;
+            } else {
+                old_count += 1;
+                new_count += 1;
+            }
+        }
+
+        // Parse original old start from header
+        let old_start = hunk_header
+            .split('-')
+            .nth(1)
+            .and_then(|s| s.split(',').next())
+            .and_then(|s| s.parse::<u32>().ok())
+            .unwrap_or(1);
+        let new_start = hunk_header
+            .split('+')
+            .nth(1)
+            .and_then(|s| s.split(',').next().and_then(|n| n.split(' ').next()))
+            .and_then(|s| s.parse::<u32>().ok())
+            .unwrap_or(1);
+
+        result.push_str(&format!("@@ -{},{} +{},{} @@\n", old_start, old_count, new_start, new_count));
+        for line in &filtered_lines {
+            result.push_str(line);
+            result.push('\n');
+        }
+    }
+
+    // === Image diff support ===
+
+    pub fn get_old_file_content(repo_path: &str, file_path: &str) -> Result<Vec<u8>, String> {
+        let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
+        let head = repo.head().map_err(|e| e.to_string())?;
+        let tree = head.peel_to_tree().map_err(|e| e.to_string())?;
+        let entry = tree.get_path(std::path::Path::new(file_path))
+            .map_err(|_| format!("File {} not found in HEAD", file_path))?;
+        let blob = repo.find_blob(entry.id())
+            .map_err(|e| format!("Failed to read blob: {}", e))?;
+        Ok(blob.content().to_vec())
     }
 }

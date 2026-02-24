@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { GitStatus, FileDiff, Branch, Commit, WorktreeInfo } from '@/types';
+import type { GitStatus, FileDiff, Branch, Commit, WorktreeInfo, Stash, Tag, PullRequest } from '@/types';
 
 interface GitState {
   status: GitStatus | null;
@@ -7,6 +7,10 @@ interface GitState {
   branches: Branch[];
   history: Commit[];
   worktrees: WorktreeInfo[];
+  stashes: Stash[];
+  tags: Tag[];
+  pullRequests: PullRequest[];
+  conflictedFiles: string[];
   loading: boolean;
   error: string | null;
 
@@ -16,6 +20,10 @@ interface GitState {
   setBranches: (branches: Branch[]) => void;
   setHistory: (history: Commit[]) => void;
   setWorktrees: (worktrees: WorktreeInfo[]) => void;
+  setStashes: (stashes: Stash[]) => void;
+  setTags: (tags: Tag[]) => void;
+  setPullRequests: (pullRequests: PullRequest[]) => void;
+  setConflictedFiles: (files: string[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   reset: () => void;
@@ -27,6 +35,10 @@ const initialState = {
   branches: [],
   history: [],
   worktrees: [],
+  stashes: [],
+  tags: [],
+  pullRequests: [],
+  conflictedFiles: [],
   loading: false,
   error: null,
 };
@@ -39,6 +51,10 @@ export const useGitStore = create<GitState>((set) => ({
   setBranches: (branches) => set({ branches }),
   setHistory: (history) => set({ history }),
   setWorktrees: (worktrees) => set({ worktrees }),
+  setStashes: (stashes) => set({ stashes }),
+  setTags: (tags) => set({ tags }),
+  setPullRequests: (pullRequests) => set({ pullRequests }),
+  setConflictedFiles: (files) => set({ conflictedFiles: files }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
   reset: () => set(initialState),

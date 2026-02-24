@@ -27,6 +27,8 @@ interface SettingsState extends Settings {
   addCustomAssistant: (config: CustomAssistantConfig) => void;
   removeCustomAssistant: (id: string) => void;
   toggleAssistantHidden: (id: string) => void;
+  // GitHub
+  setGithubToken: (token: string | undefined) => void;
   // Custom theme actions
   setCustomTheme: (theme: CustomThemeColors | undefined) => void;
   setCustomThemeColor: (colorKey: keyof CustomThemeColors['colors'], value: string) => void;
@@ -80,6 +82,7 @@ export const useSettingsStore = create<SettingsState>()(
       showHiddenFiles: false,
       customAssistants: [],
       hiddenAssistantIds: [],
+      githubToken: undefined,
 
       setTheme: (theme) => {
         const customTheme = get().customTheme;
@@ -126,6 +129,8 @@ export const useSettingsStore = create<SettingsState>()(
       setPreferredEditor: (editor) => set({ preferredEditor: editor }),
 
       setShowHiddenFiles: (enabled) => set({ showHiddenFiles: enabled }),
+
+      setGithubToken: (token) => set({ githubToken: token }),
 
       addCustomAssistant: (config) => set((state) => ({
         customAssistants: [...state.customAssistants, config],

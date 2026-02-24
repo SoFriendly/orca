@@ -20,10 +20,12 @@ use uuid::Uuid;
 
 mod database;
 mod git;
+mod github;
 mod portal;
 
 use database::Database;
 use git::GitService;
+use github::GitHubClient;
 use portal::Portal;
 
 // Types for IPC
@@ -131,6 +133,58 @@ pub struct WorktreeInfo {
     pub lock_reason: Option<String>,
     #[serde(rename = "isPrunable")]
     pub is_prunable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Stash {
+    pub index: usize,
+    pub message: String,
+    pub branch: String,
+    pub timestamp: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Tag {
+    pub name: String,
+    #[serde(rename = "commitId")]
+    pub commit_id: String,
+    pub timestamp: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PullRequest {
+    pub number: u64,
+    pub title: String,
+    pub body: Option<String>,
+    pub state: String,
+    pub author: String,
+    #[serde(rename = "headRef")]
+    pub head_ref: String,
+    #[serde(rename = "baseRef")]
+    pub base_ref: String,
+    #[serde(rename = "createdAt")]
+    pub created_at: String,
+    #[serde(rename = "updatedAt")]
+    pub updated_at: String,
+    pub url: String,
+    pub draft: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckRun {
+    pub name: String,
+    pub status: String,
+    pub conclusion: Option<String>,
+    #[serde(rename = "htmlUrl")]
+    pub html_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitHubUser {
+    pub login: String,
+    pub name: Option<String>,
+    #[serde(rename = "avatarUrl")]
+    pub avatar_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1253,6 +1307,200 @@ fn push_remote(repo_path: String, remote: String) -> Result<(), String> {
 #[tauri::command]
 fn publish_branch(repo_path: String, remote: String) -> Result<(), String> {
     GitService::publish_branch(&repo_path, &remote)
+}
+
+// Stash commands
+#[tauri::command]
+fn stash_save(repo_path: String, message: Option<String>) -> Result<(), String> {
+    GitService::stash_save(&repo_path, message.as_deref())
+}
+
+#[tauri::command]
+fn stash_list(repo_path: String) -> Result<Vec<Stash>, String> {
+    let raw = GitService::stash_list(&repo_path)?;
+    Ok(raw.into_iter().map(|(index, message, branch, timestamp)| Stash {
+        index,
+        message,
+        branch,
+        timestamp,
+    }).collect())
+}
+
+#[tauri::command]
+fn stash_apply(repo_path: String, index: usize) -> Result<(), String> {
+    GitService::stash_apply(&repo_path, index)
+}
+
+#[tauri::command]
+fn stash_pop(repo_path: String, index: usize) -> Result<(), String> {
+    GitService::stash_pop(&repo_path, index)
+}
+
+#[tauri::command]
+fn stash_drop(repo_path: String, index: usize) -> Result<(), String> {
+    GitService::stash_drop(&repo_path, index)
+}
+
+// Merge commands
+#[tauri::command]
+fn merge_branch(repo_path: String, branch: String, strategy: String) -> Result<String, String> {
+    GitService::merge_branch(&repo_path, &branch, &strategy)
+}
+
+#[tauri::command]
+fn abort_merge(repo_path: String) -> Result<(), String> {
+    GitService::abort_merge(&repo_path)
+}
+
+#[tauri::command]
+fn continue_merge(repo_path: String, message: Option<String>) -> Result<(), String> {
+    GitService::continue_merge(&repo_path, message.as_deref())
+}
+
+// Conflict commands
+#[tauri::command]
+fn get_conflicted_files(repo_path: String) -> Result<Vec<String>, String> {
+    GitService::get_conflicted_files(&repo_path)
+}
+
+#[tauri::command]
+fn get_conflict_content(repo_path: String, file_path: String) -> Result<String, String> {
+    GitService::get_conflict_content(&repo_path, &file_path)
+}
+
+#[tauri::command]
+fn resolve_conflict(repo_path: String, file_path: String, content: String) -> Result<(), String> {
+    GitService::resolve_conflict(&repo_path, &file_path, &content)
+}
+
+// Undo last commit
+#[tauri::command]
+fn undo_last_commit(repo_path: String) -> Result<(), String> {
+    GitService::undo_last_commit(&repo_path)
+}
+
+// Rebase commands
+#[tauri::command]
+fn rebase_onto(repo_path: String, onto_branch: String) -> Result<String, String> {
+    GitService::rebase_onto(&repo_path, &onto_branch)
+}
+
+#[tauri::command]
+fn rebase_continue(repo_path: String) -> Result<String, String> {
+    GitService::rebase_continue(&repo_path)
+}
+
+#[tauri::command]
+fn rebase_abort(repo_path: String) -> Result<(), String> {
+    GitService::rebase_abort(&repo_path)
+}
+
+#[tauri::command]
+fn cherry_pick_commit(repo_path: String, commit_id: String) -> Result<String, String> {
+    GitService::cherry_pick(&repo_path, &commit_id)
+}
+
+// Tag commands
+#[tauri::command]
+fn list_tags(repo_path: String) -> Result<Vec<Tag>, String> {
+    let raw = GitService::list_tags(&repo_path)?;
+    Ok(raw.into_iter().map(|(name, commit_id, timestamp)| Tag {
+        name,
+        commit_id,
+        timestamp,
+    }).collect())
+}
+
+#[tauri::command]
+fn create_tag(repo_path: String, name: String, message: Option<String>, commit: Option<String>) -> Result<(), String> {
+    GitService::create_tag(&repo_path, &name, message.as_deref(), commit.as_deref())
+}
+
+#[tauri::command]
+fn delete_tag(repo_path: String, name: String) -> Result<(), String> {
+    GitService::delete_tag(&repo_path, &name)
+}
+
+#[tauri::command]
+fn push_tag(repo_path: String, tag: String, remote: String) -> Result<(), String> {
+    GitService::push_tag(&repo_path, &tag, &remote)
+}
+
+// Line-level staging
+#[tauri::command]
+fn stage_lines(repo_path: String, file_path: String, line_ranges: Vec<(u32, u32)>) -> Result<(), String> {
+    GitService::stage_lines(&repo_path, &file_path, line_ranges)
+}
+
+// Image diff
+#[tauri::command]
+fn get_old_file_content(repo_path: String, file_path: String) -> Result<String, String> {
+    let bytes = GitService::get_old_file_content(&repo_path, &file_path)?;
+    Ok(BASE64.encode(&bytes))
+}
+
+// GitHub commands
+#[tauri::command]
+async fn github_get_user(token: String) -> Result<GitHubUser, String> {
+    let (login, name, avatar_url) = GitHubClient::get_user(&token).await?;
+    Ok(GitHubUser { login, name, avatar_url })
+}
+
+#[tauri::command]
+async fn github_list_pull_requests(
+    token: String,
+    owner: String,
+    repo: String,
+    state: String,
+) -> Result<Vec<PullRequest>, String> {
+    let raw = GitHubClient::list_pull_requests(&token, &owner, &repo, &state).await?;
+    Ok(raw.into_iter().map(|(number, title, body, state, author, head_ref, base_ref, created_at, updated_at, url, draft)| {
+        PullRequest { number, title, body, state, author, head_ref, base_ref, created_at, updated_at, url, draft }
+    }).collect())
+}
+
+#[tauri::command]
+async fn github_create_pull_request(
+    token: String,
+    owner: String,
+    repo: String,
+    title: String,
+    body: String,
+    head: String,
+    base: String,
+) -> Result<PullRequest, String> {
+    let (number, url) = GitHubClient::create_pull_request(&token, &owner, &repo, &title, &body, &head, &base).await?;
+    Ok(PullRequest {
+        number,
+        title,
+        body: Some(body),
+        state: "open".to_string(),
+        author: String::new(),
+        head_ref: head,
+        base_ref: base,
+        created_at: String::new(),
+        updated_at: String::new(),
+        url,
+        draft: false,
+    })
+}
+
+#[tauri::command]
+async fn github_get_pr_checks(
+    token: String,
+    owner: String,
+    repo: String,
+    git_ref: String,
+) -> Result<Vec<CheckRun>, String> {
+    let raw = GitHubClient::get_pr_checks(&token, &owner, &repo, &git_ref).await?;
+    Ok(raw.into_iter().map(|(name, status, conclusion, html_url)| {
+        CheckRun { name, status, conclusion, html_url }
+    }).collect())
+}
+
+#[tauri::command]
+fn github_parse_remote_url(remote_url: String) -> Result<(String, String), String> {
+    GitHubClient::parse_remote_url(&remote_url)
 }
 
 // Git file watcher commands
@@ -3765,6 +4013,42 @@ pub fn run() {
             prune_worktrees,
             lock_worktree,
             unlock_worktree,
+            // Stash
+            stash_save,
+            stash_list,
+            stash_apply,
+            stash_pop,
+            stash_drop,
+            // Merge
+            merge_branch,
+            abort_merge,
+            continue_merge,
+            // Conflicts
+            get_conflicted_files,
+            get_conflict_content,
+            resolve_conflict,
+            // Undo
+            undo_last_commit,
+            // Rebase
+            rebase_onto,
+            rebase_continue,
+            rebase_abort,
+            cherry_pick_commit,
+            // Tags
+            list_tags,
+            create_tag,
+            delete_tag,
+            push_tag,
+            // Line staging
+            stage_lines,
+            // Image diff
+            get_old_file_content,
+            // GitHub
+            github_get_user,
+            github_list_pull_requests,
+            github_create_pull_request,
+            github_get_pr_checks,
+            github_parse_remote_url,
             // Project
             add_project,
             remove_project,

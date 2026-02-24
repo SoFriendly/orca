@@ -39,6 +39,13 @@ import {
   Lock,
   Unlock,
   FolderPlus,
+  Archive,
+  AlertTriangle,
+  GitMerge,
+  TagIcon,
+  Github,
+  PlayCircle,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -81,7 +88,7 @@ import {
 import { useGitStore } from "@/stores/gitStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { cn, formatTimestamp } from "@/lib/utils";
-import type { FileDiff, DiffHunk, ProjectFolder, WorktreeInfo, DiffPanelSelection } from "@/types";
+import type { FileDiff, DiffHunk, ProjectFolder, WorktreeInfo, DiffPanelSelection, Stash, Tag, PullRequest } from "@/types";
 
 
 interface GitPanelProps {
@@ -464,6 +471,36 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
   const [showCreateWorktreeDialog, setShowCreateWorktreeDialog] = useState(false);
   const justDraggedRef = useRef(false);
 
+  // Stash state
+  const [stashes, setStashes] = useState<Stash[]>([]);
+  const [showStashDialog, setShowStashDialog] = useState(false);
+  const [stashMessage, setStashMessage] = useState("");
+  const [stashesExpanded, setStashesExpanded] = useState(false);
+  // Tag state
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [showCreateTagDialog, setShowCreateTagDialog] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagMessage, setNewTagMessage] = useState("");
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  // Conflict state
+  const [conflictedFiles, setConflictedFiles] = useState<string[]>([]);
+  const [showConflictResolver, setShowConflictResolver] = useState(false);
+  const [conflictContent, setConflictContent] = useState<Record<string, string>>({});
+  const [resolvedFiles, setResolvedFiles] = useState<Set<string>>(new Set());
+  // Merge state
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [mergeBranch, setMergeBranch] = useState("");
+  const [mergeStrategy, setMergeStrategy] = useState<"ff" | "no-ff" | "squash">("ff");
+  // Rebase state
+  const [showRebaseDialog, setShowRebaseDialog] = useState(false);
+  const [rebaseBranch, setRebaseBranch] = useState("");
+  const [isRebasing, setIsRebasing] = useState(false);
+  // PR state
+  const [pullRequests, setPullRequests] = useState<PullRequest[]>([]);
+  const [showCreatePrDialog, setShowCreatePrDialog] = useState(false);
+  const [prTitle, setPrTitle] = useState("");
+  const [prBody, setPrBody] = useState("");
+  const [prBase, setPrBase] = useState("main");
   const currentBranch = branches.find((b) => b.isHead);
 
   // Separate staged and unstaged changes (for now, treating all as unstaged)
@@ -651,6 +688,16 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
       onRefresh(gitRepoPath);
     }
   }, [activeFolderId]);
+
+  // Load stashes, tags, conflicts, and PRs when repo changes
+  useEffect(() => {
+    if (isGitRepo && gitRepoPath) {
+      refreshStashes();
+      refreshTags();
+      refreshConflicts();
+      refreshPullRequests();
+    }
+  }, [gitRepoPath, isGitRepo]);
 
   // Reload file tree when fileTreeRoot changes (due to cd or project change)
   useEffect(() => {
@@ -1302,18 +1349,13 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
   };
 
   const handleUndoCommit = async () => {
-    if (history.length < 2) {
+    if (history.length < 1) {
       toast.error("No commit to undo");
       return;
     }
     setIsUndoing(true);
     try {
-      const parentCommitId = history[1].id;
-      await invoke("reset_to_commit", {
-        repoPath: gitRepoPath,
-        commitId: parentCommitId,
-        mode: "soft"
-      });
+      await invoke("undo_last_commit", { repoPath: gitRepoPath });
       toast.success("Commit undone");
       onRefresh();
     } catch (error) {
@@ -1322,6 +1364,315 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
       console.error("Undo commit failed:", error);
     } finally {
       setIsUndoing(false);
+    }
+  };
+
+  // === Stash handlers ===
+  const refreshStashes = async () => {
+    try {
+      const result = await invoke<Stash[]>("stash_list", { repoPath: gitRepoPath });
+      setStashes(result);
+    } catch {
+      // Silently fail - stash list is not critical
+    }
+  };
+
+  const handleStashSave = async () => {
+    try {
+      await invoke("stash_save", { repoPath: gitRepoPath, message: stashMessage || null });
+      toast.success("Changes stashed");
+      setShowStashDialog(false);
+      setStashMessage("");
+      onRefresh();
+      refreshStashes();
+    } catch (error) {
+      toast.error(`Failed to stash: ${error}`);
+    }
+  };
+
+  const handleStashApply = async (index: number) => {
+    try {
+      await invoke("stash_apply", { repoPath: gitRepoPath, index });
+      toast.success("Stash applied");
+      onRefresh();
+    } catch (error) {
+      toast.error(`Failed to apply stash: ${error}`);
+    }
+  };
+
+  const handleStashPop = async (index: number) => {
+    try {
+      await invoke("stash_pop", { repoPath: gitRepoPath, index });
+      toast.success("Stash popped");
+      onRefresh();
+      refreshStashes();
+    } catch (error) {
+      toast.error(`Failed to pop stash: ${error}`);
+    }
+  };
+
+  const handleStashDrop = async (index: number) => {
+    try {
+      await invoke("stash_drop", { repoPath: gitRepoPath, index });
+      toast.success("Stash dropped");
+      refreshStashes();
+    } catch (error) {
+      toast.error(`Failed to drop stash: ${error}`);
+    }
+  };
+
+  // === Tag handlers ===
+  const refreshTags = async () => {
+    try {
+      const result = await invoke<Tag[]>("list_tags", { repoPath: gitRepoPath });
+      setTags(result);
+    } catch {
+      // Silently fail
+    }
+  };
+
+  const handleCreateTag = async () => {
+    if (!newTagName.trim()) return;
+    try {
+      await invoke("create_tag", {
+        repoPath: gitRepoPath,
+        name: newTagName,
+        message: newTagMessage || null,
+        commit: null,
+      });
+      toast.success(`Tag '${newTagName}' created`);
+      setShowCreateTagDialog(false);
+      setNewTagName("");
+      setNewTagMessage("");
+      refreshTags();
+    } catch (error) {
+      toast.error(`Failed to create tag: ${error}`);
+    }
+  };
+
+  const handleDeleteTag = async (name: string) => {
+    try {
+      await invoke("delete_tag", { repoPath: gitRepoPath, name });
+      toast.success(`Tag '${name}' deleted`);
+      refreshTags();
+    } catch (error) {
+      toast.error(`Failed to delete tag: ${error}`);
+    }
+  };
+
+  const handlePushTag = async (tag: string) => {
+    try {
+      await invoke("push_tag", { repoPath: gitRepoPath, tag, remote: "origin" });
+      toast.success(`Tag '${tag}' pushed`);
+    } catch (error) {
+      toast.error(`Failed to push tag: ${error}`);
+    }
+  };
+
+  // === Conflict handlers ===
+  const refreshConflicts = async () => {
+    try {
+      const files = await invoke<string[]>("get_conflicted_files", { repoPath: gitRepoPath });
+      setConflictedFiles(files);
+    } catch {
+      setConflictedFiles([]);
+    }
+  };
+
+  const handleLoadConflictContent = async (filePath: string) => {
+    try {
+      const content = await invoke<string>("get_conflict_content", { repoPath: gitRepoPath, filePath });
+      setConflictContent(prev => ({ ...prev, [filePath]: content }));
+    } catch (error) {
+      toast.error(`Failed to load conflict content: ${error}`);
+    }
+  };
+
+  const handleResolveConflict = async (filePath: string, content: string) => {
+    try {
+      await invoke("resolve_conflict", { repoPath: gitRepoPath, filePath, content });
+      setResolvedFiles(prev => new Set([...prev, filePath]));
+      toast.success(`Resolved ${filePath}`);
+      refreshConflicts();
+    } catch (error) {
+      toast.error(`Failed to resolve conflict: ${error}`);
+    }
+  };
+
+  const handleAbortMerge = async () => {
+    try {
+      await invoke("abort_merge", { repoPath: gitRepoPath });
+      toast.success("Merge aborted");
+      setConflictedFiles([]);
+      setShowConflictResolver(false);
+      setResolvedFiles(new Set());
+      onRefresh();
+    } catch (error) {
+      toast.error(`Failed to abort merge: ${error}`);
+    }
+  };
+
+  const handleContinueMerge = async () => {
+    try {
+      await invoke("continue_merge", { repoPath: gitRepoPath, message: null });
+      toast.success("Merge completed");
+      setConflictedFiles([]);
+      setShowConflictResolver(false);
+      setResolvedFiles(new Set());
+      onRefresh();
+    } catch (error) {
+      toast.error(`Failed to continue merge: ${error}`);
+    }
+  };
+
+  // === Merge handler ===
+  const handleMergeBranch = async () => {
+    if (!mergeBranch) return;
+    try {
+      const result = await invoke<string>("merge_branch", {
+        repoPath: gitRepoPath,
+        branch: mergeBranch,
+        strategy: mergeStrategy,
+      });
+      setShowMergeDialog(false);
+      if (result === "conflict") {
+        toast.warning("Merge has conflicts - please resolve them");
+        refreshConflicts();
+        setShowConflictResolver(true);
+      } else {
+        toast.success(`Merged '${mergeBranch}' successfully`);
+        if (mergeStrategy === "squash") {
+          toast.info("Squash merge staged - commit when ready");
+        }
+      }
+      onRefresh();
+    } catch (error) {
+      toast.error(`Merge failed: ${error}`);
+    }
+  };
+
+  // === Rebase handlers ===
+  const handleRebaseOnto = async () => {
+    if (!rebaseBranch) return;
+    setIsRebasing(true);
+    try {
+      const result = await invoke<string>("rebase_onto", { repoPath: gitRepoPath, ontoBranch: rebaseBranch });
+      setShowRebaseDialog(false);
+      if (result === "conflict") {
+        toast.warning("Rebase has conflicts - please resolve them");
+        refreshConflicts();
+        setShowConflictResolver(true);
+      } else {
+        toast.success(`Rebased onto '${rebaseBranch}' successfully`);
+      }
+      onRefresh();
+    } catch (error) {
+      toast.error(`Rebase failed: ${error}`);
+    } finally {
+      setIsRebasing(false);
+    }
+  };
+
+  const handleRebaseContinue = async () => {
+    setIsRebasing(true);
+    try {
+      const result = await invoke<string>("rebase_continue", { repoPath: gitRepoPath });
+      if (result === "conflict") {
+        toast.warning("More conflicts to resolve");
+        refreshConflicts();
+      } else {
+        toast.success("Rebase completed");
+        setShowConflictResolver(false);
+        setConflictedFiles([]);
+      }
+      onRefresh();
+    } catch (error) {
+      toast.error(`Rebase continue failed: ${error}`);
+    } finally {
+      setIsRebasing(false);
+    }
+  };
+
+  const handleRebaseAbort = async () => {
+    try {
+      await invoke("rebase_abort", { repoPath: gitRepoPath });
+      toast.success("Rebase aborted");
+      setConflictedFiles([]);
+      setShowConflictResolver(false);
+      setIsRebasing(false);
+      onRefresh();
+    } catch (error) {
+      toast.error(`Rebase abort failed: ${error}`);
+    }
+  };
+
+  const handleCherryPick = async (commitId: string) => {
+    try {
+      const result = await invoke<string>("cherry_pick_commit", { repoPath: gitRepoPath, commitId });
+      if (result === "conflict") {
+        toast.warning("Cherry-pick has conflicts - please resolve them");
+        refreshConflicts();
+        setShowConflictResolver(true);
+      } else {
+        toast.success("Cherry-pick completed");
+      }
+      onRefresh();
+    } catch (error) {
+      toast.error(`Cherry-pick failed: ${error}`);
+    }
+  };
+
+  // === PR handlers ===
+  const refreshPullRequests = async () => {
+    const settings = useSettingsStore.getState();
+    if (!settings.githubToken) return;
+    try {
+      const remoteUrl = await invoke<string>("get_remote_url", { repoPath: gitRepoPath, remote: "origin" });
+      const [owner, repo] = await invoke<[string, string]>("github_parse_remote_url", { remoteUrl });
+      const prs = await invoke<PullRequest[]>("github_list_pull_requests", {
+        token: settings.githubToken,
+        owner,
+        repo,
+        state: "open",
+      });
+      setPullRequests(prs);
+    } catch {
+      // Silently fail - GitHub integration is optional
+    }
+  };
+
+  const handleCreatePr = async () => {
+    const settings = useSettingsStore.getState();
+    if (!settings.githubToken || !prTitle.trim()) return;
+    try {
+      const remoteUrl = await invoke<string>("get_remote_url", { repoPath: gitRepoPath, remote: "origin" });
+      const [owner, repo] = await invoke<[string, string]>("github_parse_remote_url", { remoteUrl });
+      const pr = await invoke<PullRequest>("github_create_pull_request", {
+        token: settings.githubToken,
+        owner,
+        repo,
+        title: prTitle,
+        body: prBody,
+        head: currentBranch?.name || "main",
+        base: prBase,
+      });
+      toast.success(`PR #${pr.number} created`);
+      setShowCreatePrDialog(false);
+      setPrTitle("");
+      setPrBody("");
+      refreshPullRequests();
+    } catch (error) {
+      toast.error(`Failed to create PR: ${error}`);
+    }
+  };
+
+  const handleCheckoutPrBranch = async (branchName: string) => {
+    try {
+      await invoke("checkout_branch", { repoPath: gitRepoPath, branch: branchName });
+      toast.success(`Switched to ${branchName}`);
+      onRefresh();
+    } catch (error) {
+      toast.error(`Failed to checkout branch: ${error}`);
     }
   };
 
@@ -2288,6 +2639,52 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 </TooltipTrigger>
                 <TooltipContent>Refresh</TooltipContent>
               </Tooltip>
+
+              {/* More git actions */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-inherit hover:text-foreground">
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setShowMergeDialog(true)}>
+                    <GitMerge className="mr-2 h-4 w-4" />
+                    Merge branch...
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowRebaseDialog(true)}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Rebase onto...
+                  </DropdownMenuItem>
+                  {isRebasing && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleRebaseContinue}>
+                        <PlayCircle className="mr-2 h-4 w-4" />
+                        Continue rebase
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleRebaseAbort} className="text-destructive">
+                        <XCircle className="mr-2 h-4 w-4" />
+                        Abort rebase
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setShowStashDialog(true)} disabled={diffs.length === 0}>
+                    <Archive className="mr-2 h-4 w-4" />
+                    Stash changes
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowCreateTagDialog(true)}>
+                    <TagIcon className="mr-2 h-4 w-4" />
+                    Create tag...
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => { setShowCreatePrDialog(true); setPrTitle(commitSubject); setPrBody(commitDescription); }}>
+                    <Github className="mr-2 h-4 w-4" />
+                    Create pull request...
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           )}
         </div>
@@ -2364,6 +2761,54 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
           {/* Changes View */}
           {viewMode === "changes" && (
             <>
+              {/* Conflict banner */}
+              {conflictedFiles.length > 0 && (
+                <div className="mb-3 -mx-2 rounded-lg bg-destructive/10 border border-destructive/20 p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <span className="text-sm font-medium text-destructive">
+                      {conflictedFiles.length} conflicted file{conflictedFiles.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="space-y-1 mb-2">
+                    {conflictedFiles.map(f => (
+                      <div key={f} className="text-xs font-mono text-muted-foreground truncate">{f}</div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setShowConflictResolver(true);
+                        conflictedFiles.forEach(f => handleLoadConflictContent(f));
+                      }}
+                    >
+                      Resolve Conflicts
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs text-destructive hover:text-destructive"
+                      onClick={handleAbortMerge}
+                    >
+                      Abort Merge
+                    </Button>
+                    {conflictedFiles.length === 0 && resolvedFiles.size > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={handleContinueMerge}
+                      >
+                        Continue Merge
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Selection actions */}
               {selectedFiles.size > 1 && (
                 <div className="-mx-2 mb-3 flex items-center gap-2 rounded-full bg-muted/50 px-3 py-1.5">
@@ -2411,6 +2856,122 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                   <div className="space-y-0.5">
                     {stagedChanges.map((diff, index) => (
                       <FileItem key={diff.path} diff={diff} index={unstagedChanges.length + index} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Stash section */}
+              {isGitRepo && (
+                <div className="mb-4">
+                  <div
+                    className="flex items-center gap-1 mb-2 cursor-pointer"
+                    onClick={() => {
+                      setStashesExpanded(!stashesExpanded);
+                      if (!stashesExpanded) refreshStashes();
+                    }}
+                  >
+                    {stashesExpanded ? (
+                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                    )}
+                    <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Stashes {stashes.length > 0 && `(${stashes.length})`}
+                    </h3>
+                    {diffs.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 ml-auto"
+                        onClick={(e) => { e.stopPropagation(); setShowStashDialog(true); }}
+                      >
+                        <Archive className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                  {stashesExpanded && (
+                    <div className="space-y-1">
+                      {stashes.length === 0 ? (
+                        <p className="text-xs text-muted-foreground/70 px-2">No stashes</p>
+                      ) : (
+                        stashes.map((stash) => (
+                          <div
+                            key={stash.index}
+                            className="group flex items-center gap-2 rounded-full px-2.5 py-1.5 hover:bg-muted/50 -mx-2"
+                          >
+                            <Archive className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs truncate">{stash.message}</div>
+                              <div className="text-[10px] text-muted-foreground truncate">{stash.branch}</div>
+                            </div>
+                            <div className="hidden group-hover:flex gap-0.5 flex-shrink-0">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleStashApply(stash.index)}>
+                                    <PlayCircle className="h-3 w-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Apply</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleStashPop(stash.index)}>
+                                    <ArrowUpFromLine className="h-3 w-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Pop</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => handleStashDrop(stash.index)}>
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Drop</TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Pull Requests section */}
+              {isGitRepo && pullRequests.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Pull Requests ({pullRequests.length})
+                  </h3>
+                  <div className="space-y-1">
+                    {pullRequests.slice(0, 5).map((pr) => (
+                      <ContextMenu key={pr.number}>
+                        <ContextMenuTrigger asChild>
+                          <div className="group flex items-start gap-2 rounded-lg px-2.5 py-1.5 hover:bg-muted/50 -mx-2 cursor-pointer">
+                            <Github className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs truncate">
+                                <span className="text-muted-foreground">#{pr.number}</span> {pr.title}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground truncate">
+                                {pr.headRef} {pr.draft && "(draft)"} &middot; {pr.author}
+                              </div>
+                            </div>
+                          </div>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent>
+                          <ContextMenuItem onClick={() => handleCheckoutPrBranch(pr.headRef)}>
+                            <GitBranch className="mr-2 h-4 w-4" />
+                            Checkout branch
+                          </ContextMenuItem>
+                          <ContextMenuItem onClick={() => window.open(pr.url, "_blank")}>
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            Open in browser
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      </ContextMenu>
                     ))}
                   </div>
                 </div>
@@ -2513,6 +3074,10 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                           <ContextMenuItem onClick={() => handleRevertCommit(commit.id)}>
                             <RotateCcw className="mr-2 h-4 w-4" />
                             Revert this commit
+                          </ContextMenuItem>
+                          <ContextMenuItem onClick={() => handleCherryPick(commit.id)}>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Cherry-pick this commit
                           </ContextMenuItem>
                           <ContextMenuSeparator />
                           <ContextMenuItem onClick={() => setCommitToReset(commit.id)}>
@@ -2645,6 +3210,67 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                       </>
                     )}
                   </div>
+                </div>
+              )}
+              {/* Tags section */}
+              {isGitRepo && (
+                <div className="mt-4">
+                  <div
+                    className="flex items-center gap-1 mb-2 cursor-pointer"
+                    onClick={() => {
+                      setTagsExpanded(!tagsExpanded);
+                      if (!tagsExpanded) refreshTags();
+                    }}
+                  >
+                    {tagsExpanded ? (
+                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                    )}
+                    <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Tags {tags.length > 0 && `(${tags.length})`}
+                    </h3>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 ml-auto"
+                      onClick={(e) => { e.stopPropagation(); setShowCreateTagDialog(true); }}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  {tagsExpanded && (
+                    <div className="space-y-1">
+                      {tags.length === 0 ? (
+                        <p className="text-xs text-muted-foreground/70 px-2">No tags</p>
+                      ) : (
+                        tags.map((tag) => (
+                          <ContextMenu key={tag.name}>
+                            <ContextMenuTrigger asChild>
+                              <div className="group flex items-center gap-2 rounded-full px-2.5 py-1.5 hover:bg-muted/50 -mx-2">
+                                <TagIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs truncate font-mono">{tag.name}</div>
+                                  <div className="text-[10px] text-muted-foreground truncate">{tag.commitId}</div>
+                                </div>
+                              </div>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent>
+                              <ContextMenuItem onClick={() => handlePushTag(tag.name)}>
+                                <ArrowUpFromLine className="mr-2 h-4 w-4" />
+                                Push to remote
+                              </ContextMenuItem>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem className="text-destructive" onClick={() => handleDeleteTag(tag.name)}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete tag
+                              </ContextMenuItem>
+                            </ContextMenuContent>
+                          </ContextMenu>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -3298,7 +3924,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
           )}
 
           {/* Commit or Undo Commit button */}
-          {status && status.ahead > 0 && filesToCommit.size === 0 && history.length > 1 ? (
+          {status && filesToCommit.size === 0 && history.length > 1 ? (
             <Button
               className="w-full bg-muted hover:bg-muted/80 text-foreground font-medium"
               onClick={handleUndoCommit}
@@ -3508,6 +4134,300 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Stash dialog */}
+      <Dialog open={showStashDialog} onOpenChange={setShowStashDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Stash Changes</DialogTitle>
+            <DialogDescription>Save your uncommitted changes for later.</DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="Optional stash message"
+            value={stashMessage}
+            onChange={(e) => setStashMessage(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleStashSave()}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowStashDialog(false)}>Cancel</Button>
+            <Button onClick={handleStashSave}>Stash</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create tag dialog */}
+      <Dialog open={showCreateTagDialog} onOpenChange={setShowCreateTagDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Tag</DialogTitle>
+            <DialogDescription>Create a new tag at the current commit.</DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="Tag name (e.g. v1.0.0)"
+            value={newTagName}
+            onChange={(e) => setNewTagName(e.target.value)}
+          />
+          <Input
+            placeholder="Optional message (creates annotated tag)"
+            value={newTagMessage}
+            onChange={(e) => setNewTagMessage(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleCreateTag()}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateTagDialog(false)}>Cancel</Button>
+            <Button onClick={handleCreateTag} disabled={!newTagName.trim()}>Create Tag</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Merge branch dialog */}
+      <Dialog open={showMergeDialog} onOpenChange={setShowMergeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Merge Branch</DialogTitle>
+            <DialogDescription>
+              Merge a branch into <span className="font-mono text-primary">{currentBranch?.name || "current branch"}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Source branch</label>
+              <select
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={mergeBranch}
+                onChange={(e) => setMergeBranch(e.target.value)}
+              >
+                <option value="">Select a branch...</option>
+                {branches
+                  .filter(b => !b.isHead && !b.isRemote)
+                  .map(b => (
+                    <option key={b.name} value={b.name}>{b.name}</option>
+                  ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Strategy</label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="radio" name="mergeStrategy" checked={mergeStrategy === "ff"} onChange={() => setMergeStrategy("ff")} />
+                  Fast-forward (if possible)
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="radio" name="mergeStrategy" checked={mergeStrategy === "no-ff"} onChange={() => setMergeStrategy("no-ff")} />
+                  Merge commit (no fast-forward)
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="radio" name="mergeStrategy" checked={mergeStrategy === "squash"} onChange={() => setMergeStrategy("squash")} />
+                  Squash
+                </label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMergeDialog(false)}>Cancel</Button>
+            <Button onClick={handleMergeBranch} disabled={!mergeBranch}>Merge</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rebase dialog */}
+      <Dialog open={showRebaseDialog} onOpenChange={setShowRebaseDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rebase onto Branch</DialogTitle>
+            <DialogDescription>
+              Rebase <span className="font-mono text-primary">{currentBranch?.name || "current branch"}</span> onto another branch.
+            </DialogDescription>
+          </DialogHeader>
+          <select
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            value={rebaseBranch}
+            onChange={(e) => setRebaseBranch(e.target.value)}
+          >
+            <option value="">Select a branch...</option>
+            {branches
+              .filter(b => !b.isHead && !b.isRemote)
+              .map(b => (
+                <option key={b.name} value={b.name}>{b.name}</option>
+              ))}
+          </select>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRebaseDialog(false)}>Cancel</Button>
+            <Button onClick={handleRebaseOnto} disabled={!rebaseBranch || isRebasing}>
+              {isRebasing ? "Rebasing..." : "Rebase"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create PR dialog */}
+      <Dialog open={showCreatePrDialog} onOpenChange={setShowCreatePrDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create Pull Request</DialogTitle>
+            <DialogDescription>
+              Create a PR from <span className="font-mono text-primary">{currentBranch?.name}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Base branch</label>
+              <select
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={prBase}
+                onChange={(e) => setPrBase(e.target.value)}
+              >
+                {branches
+                  .filter(b => !b.isRemote)
+                  .map(b => (
+                    <option key={b.name} value={b.name}>{b.name}</option>
+                  ))}
+              </select>
+            </div>
+            <Input
+              placeholder="Pull request title"
+              value={prTitle}
+              onChange={(e) => setPrTitle(e.target.value)}
+            />
+            <Textarea
+              placeholder="Description (optional)"
+              value={prBody}
+              onChange={(e) => setPrBody(e.target.value)}
+              className="min-h-[100px]"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreatePrDialog(false)}>Cancel</Button>
+            <Button onClick={handleCreatePr} disabled={!prTitle.trim()}>Create Pull Request</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Conflict resolver dialog */}
+      <Dialog open={showConflictResolver} onOpenChange={setShowConflictResolver}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Resolve Conflicts</DialogTitle>
+            <DialogDescription>
+              {conflictedFiles.length} file{conflictedFiles.length !== 1 ? 's' : ''} with conflicts.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 mb-4">
+            <Button variant="outline" size="sm" onClick={handleAbortMerge} className="text-destructive">
+              Abort Merge
+            </Button>
+            {conflictedFiles.length === 0 && (
+              <Button size="sm" onClick={handleContinueMerge}>
+                Continue Merge
+              </Button>
+            )}
+            {isRebasing && (
+              <>
+                <Button variant="outline" size="sm" onClick={handleRebaseAbort} className="text-destructive">
+                  Abort Rebase
+                </Button>
+                <Button size="sm" onClick={handleRebaseContinue}>
+                  Continue Rebase
+                </Button>
+              </>
+            )}
+          </div>
+          <div className="space-y-4">
+            {conflictedFiles.map((filePath) => {
+              const content = conflictContent[filePath];
+              const isResolved = resolvedFiles.has(filePath);
+              return (
+                <div key={filePath} className="border rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-mono truncate">{filePath}</span>
+                    {isResolved ? (
+                      <span className="text-xs text-green-500 font-medium">Resolved</span>
+                    ) : (
+                      <span className="text-xs text-destructive font-medium">Conflicted</span>
+                    )}
+                  </div>
+                  {content && !isResolved && (
+                    <div className="space-y-2">
+                      {/* Parse conflict markers and show resolution options */}
+                      {content.includes("<<<<<<<") ? (
+                        <div className="space-y-2">
+                          {content.split(/(<<<<<<<[^\n]*\n[\s\S]*?>>>>>>>[^\n]*)/g).map((section, i) => {
+                            if (section.includes("<<<<<<<")) {
+                              const oursMatch = section.match(/<<<<<<<[^\n]*\n([\s\S]*?)=======/);
+                              const theirsMatch = section.match(/=======\n([\s\S]*?)>>>>>>>/);
+                              const ours = oursMatch?.[1] || "";
+                              const theirs = theirsMatch?.[1] || "";
+                              return (
+                                <div key={i} className="border border-destructive/30 rounded p-2 space-y-2">
+                                  <div className="flex gap-2 flex-wrap">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 text-xs"
+                                      onClick={() => {
+                                        const resolved = content.replace(section, ours);
+                                        handleResolveConflict(filePath, resolved);
+                                      }}
+                                    >
+                                      Use Ours
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 text-xs"
+                                      onClick={() => {
+                                        const resolved = content.replace(section, theirs);
+                                        handleResolveConflict(filePath, resolved);
+                                      }}
+                                    >
+                                      Use Theirs
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 text-xs"
+                                      onClick={() => {
+                                        const resolved = content.replace(section, ours + theirs);
+                                        handleResolveConflict(filePath, resolved);
+                                      }}
+                                    >
+                                      Use Both
+                                    </Button>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <div className="text-[10px] font-medium text-muted-foreground mb-1">Ours</div>
+                                      <pre className="text-xs bg-green-500/10 rounded p-1.5 overflow-x-auto max-h-32">{ours.trim()}</pre>
+                                    </div>
+                                    <div>
+                                      <div className="text-[10px] font-medium text-muted-foreground mb-1">Theirs</div>
+                                      <pre className="text-xs bg-blue-500/10 rounded p-1.5 overflow-x-auto max-h-32">{theirs.trim()}</pre>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return section ? <pre key={i} className="text-xs text-muted-foreground">{section.trim()}</pre> : null;
+                          })}
+                        </div>
+                      ) : (
+                        <pre className="text-xs bg-muted/50 rounded p-2 overflow-x-auto max-h-48">{content}</pre>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pull Requests section dialog */}
+      {pullRequests.length > 0 && (
+        <Dialog>
+          {/* PR list is shown in the dropdown - this is a placeholder for future expansion */}
+        </Dialog>
+      )}
     </div>
   );
 }
