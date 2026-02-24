@@ -125,6 +125,12 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
     y: number;
     link: HoveredLinkInfo;
   } | null>(null);
+  const [webLinkMenu, setWebLinkMenu] = useState<{
+    x: number;
+    y: number;
+    url: string;
+  } | null>(null);
+  const hoveredWebLinkRef = useRef<string | null>(null);
 
   const onCwdChangeRef = useRef(onCwdChange);
   useEffect(() => { onCwdChangeRef.current = onCwdChange; }, [onCwdChange]);
@@ -151,10 +157,16 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
     if (link) {
       e.preventDefault();
       setContextMenu({ x: e.clientX, y: e.clientY, link });
+      return;
+    }
+    const webLink = hoveredWebLinkRef.current;
+    if (webLink) {
+      e.preventDefault();
+      setWebLinkMenu({ x: e.clientX, y: e.clientY, url: webLink });
     }
   }, []);
 
-  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+  const closeContextMenu = useCallback(() => { setContextMenu(null); setWebLinkMenu(null); }, []);
 
   const handleOpenFile = useCallback((link: HoveredLinkInfo) => {
     invoke("open_file_in_editor", {
@@ -262,6 +274,9 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
       terminal.loadAddon(fitAddon);
       terminal.loadAddon(new WebLinksAddon((e, uri) => {
         if (navigator.platform.toUpperCase().includes('MAC') ? e.metaKey : e.ctrlKey) openUrl(uri).catch(() => {});
+      }, {
+        hover: (_e, uri) => { hoveredWebLinkRef.current = uri; },
+        leave: () => { hoveredWebLinkRef.current = null; },
       }));
       terminal.loadAddon(new Unicode11Addon());
       terminal.unicode.activeVersion = "11";
@@ -501,6 +516,33 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
             >
               <Copy className="mr-2 h-4 w-4" />
               Copy Path
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Context menu for web links */}
+      {webLinkMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={closeContextMenu} onContextMenu={(e) => { e.preventDefault(); closeContextMenu(); }} />
+          <div
+            className="fixed z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-80 zoom-in-95"
+            style={{ left: webLinkMenu.x, top: webLinkMenu.y }}
+          >
+            <button
+              onClick={() => { openUrl(webLinkMenu.url).catch(console.error); closeContextMenu(); }}
+              className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Open in Browser
+            </button>
+            <div className="-mx-1 my-1 h-px bg-border" />
+            <button
+              onClick={() => { navigator.clipboard.writeText(webLinkMenu.url); toast.success("Link copied"); closeContextMenu(); }}
+              className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+            >
+              <Copy className="mr-2 h-4 w-4" />
+              Copy Link
             </button>
           </div>
         </>
