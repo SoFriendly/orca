@@ -2,6 +2,13 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.2.0]
+
+### Improvements
+- **Git Stash UX**: Stash items now wrap long text instead of truncating, use rounded-lg styling, and have a right-click context menu with Restore and Drop actions (removed hover buttons)
+- **Git Stash Naming**: Renamed "Pop" to "Restore" and removed "Apply" for clearer stash operations
+- **Git Panel Menu Labels**: Standardized dropdown menu items to title case without ellipses — Merge Branch, Rebase, Stash Changes, Create Tag, Open PR
+
 ## [0.1.99]
 
 ### New Features
