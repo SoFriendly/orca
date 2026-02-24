@@ -2,6 +2,25 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.1.99]
+
+### New Features
+- **Inline Code Review Comments**: Hover any line in the diff viewer to see a "+" button, click to add a review comment. Comments display inline below lines with edit/delete on hover. "Send to Assistant" button formats all comments with file path, line numbers, and code context, then sends them to the active assistant terminal.
+- **Git Stash Support**: Full stash operations — save (with optional message), list, apply, pop, and drop. Stash section in the Git panel only appears when stashes exist.
+- **GitHub Pull Requests**: List open PRs, checkout PR branches, and create new pull requests directly from the Git panel. "Create PR" option is hidden for non-GitHub remotes.
+- **GitHub Check Runs**: View CI/check status for pull requests.
+- **Commit History Context Menu**: Expanded right-click options on commits — Reset to Commit, Checkout Commit, Revert Changes, Create Branch from Commit, Create Tag from Commit, Cherry-pick, Copy SHA, Copy Tag (when tagged), and View on GitHub (for GitHub repos).
+- **Terminal Web Link Context Menu**: Right-click detected web links in the terminal to "Open in Browser" or "Copy Link".
+
+### Improvements
+- **Git Panel Header Cleanup**: Moved refresh buttons into ellipsis (⋯) dropdown menus across all Git panel views (worktrees, files, history) to reduce icon clutter.
+- **DiffPanel Line Layout**: Reordered gutter to line number → checkbox → comment button → code for a tighter layout with less left padding.
+- **Diff Line Number Colors**: Line numbers now match their diff line color (green for additions, red for deletions) instead of a flat muted color.
+- **GitHub Token Setting**: Added GitHub personal access token configuration in Settings for PR and GitHub API features.
+
+### Bug Fixes
+- **External Links**: Replaced `window.open` calls with Tauri's `openUrl` plugin across GitPanel, SettingsSheet, and PR links so URLs actually open in the system browser.
+
 ## [0.1.98]
 
 ### Bug Fixes
