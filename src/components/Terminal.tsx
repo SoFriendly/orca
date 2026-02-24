@@ -357,23 +357,54 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
         terminal.write(bytes);
       });
 
-      // Buffer manual input to record commands to project history
+      // Track typed input to record commands to project history.
+      // Accumulates printable keystrokes; handles backspace.
+      // On Enter, saves the accumulated command and resets.
+      // Shell history (up/down arrow) replaces the line via PTY output, not onData,
+      // so for those we fall back to reading the buffer and stripping the prompt.
+      let inputBuf = "";
+      let hasTyped = false;
+
       const dataDisposable = terminal.onData((data) => {
         invoke("write_terminal", { id: activeId, data }).catch(() => {});
-        if (!isAssistant && data === "\r") {
-          // Read the actual command line from the terminal buffer,
-          // which includes text recalled via shell history (up arrow)
-          const buf = terminal.buffer.active;
-          const lineY = buf.baseY + buf.cursorY;
-          const line = buf.getLine(lineY);
-          if (line) {
-            const lineText = line.translateToString(true);
-            // Strip the shell prompt (everything up to and including the last $ % > #)
-            const cmd = lineText.replace(/^.*?[$%>#]\s*/, "").trim();
-            if (cmd) {
-              invoke("record_project_command", { command: cmd, projectPath: cwd }).catch(() => {});
+        if (isAssistant) return;
+
+        if (data === "\r") {
+          let cmd = "";
+          if (hasTyped) {
+            // User typed the command — use our accumulated buffer
+            cmd = inputBuf.trim();
+          } else if (inputBuf === "") {
+            // User used shell history (arrow keys) without typing — read from buffer
+            const buf = terminal.buffer.active;
+            const lineY = buf.baseY + buf.cursorY;
+            const line = buf.getLine(lineY);
+            if (line) {
+              const lineText = line.translateToString(true);
+              cmd = lineText.replace(/^.*?[$%>#)]\s*/, "").trim();
             }
           }
+          console.log("[shell-history] hasTyped:", hasTyped, "inputBuf:", JSON.stringify(inputBuf), "cmd:", JSON.stringify(cmd));
+          if (cmd) {
+            invoke("record_project_command", { command: cmd, projectPath: cwd }).catch(() => {});
+          }
+          inputBuf = "";
+          hasTyped = false;
+        } else if (data === "\x7f" || data === "\b") {
+          // Backspace
+          inputBuf = inputBuf.slice(0, -1);
+        } else if (data === "\x1b[A" || data === "\x1b[B") {
+          // Up/down arrow (shell history navigation) — clear typed buffer
+          inputBuf = "";
+          hasTyped = false;
+        } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
+          // Printable character
+          inputBuf += data;
+          hasTyped = true;
+        } else if (data.length > 1 && !data.startsWith("\x1b")) {
+          // Pasted text
+          inputBuf += data;
+          hasTyped = true;
         }
       });
       const resizeDisposable = terminal.onResize(({ cols, rows }) => invoke("resize_terminal", { id: activeId, cols, rows }).catch(() => {}));
