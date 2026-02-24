@@ -1397,15 +1397,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     }
   };
 
-  const handleStashApply = async (index: number) => {
-    try {
-      await invoke("stash_apply", { repoPath: gitRepoPath, index });
-      toast.success("Stash applied");
-      onRefresh();
-    } catch (error) {
-      toast.error(`Failed to apply stash: ${error}`);
-    }
-  };
+
 
   const handleStashPop = async (index: number) => {
     try {
