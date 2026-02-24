@@ -2695,11 +2695,11 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setShowMergeDialog(true)}>
                     <GitMerge className="mr-2 h-4 w-4" />
-                    Merge branch...
+                    Merge Branch
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setShowRebaseDialog(true)}>
                     <RotateCcw className="mr-2 h-4 w-4" />
-                    Rebase onto...
+                    Rebase
                   </DropdownMenuItem>
                   {isRebasing && (
                     <>
@@ -2717,18 +2717,18 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setShowStashDialog(true)} disabled={diffs.length === 0}>
                     <Archive className="mr-2 h-4 w-4" />
-                    Stash changes
+                    Stash Changes
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setShowCreateTagDialog(true)}>
                     <TagIcon className="mr-2 h-4 w-4" />
-                    Create tag...
+                    Create Tag
                   </DropdownMenuItem>
                   {isGithubRemote && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => { setShowCreatePrDialog(true); setPrTitle(commitSubject); setPrBody(commitDescription); }}>
                         <Github className="mr-2 h-4 w-4" />
-                        Create pull request...
+                        Open PR
                       </DropdownMenuItem>
                     </>
                   )}
@@ -3120,7 +3120,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                           </ContextMenuItem>
                           <ContextMenuItem onClick={() => handleCreateTagFromCommit(commit.id)}>
                             <TagIcon className="mr-2 h-4 w-4" />
-                            Create Tag...
+                            Create Tag
                           </ContextMenuItem>
                           <ContextMenuItem onClick={() => handleCherryPick(commit.id)}>
                             <Copy className="mr-2 h-4 w-4" />
@@ -4302,7 +4302,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
       <Dialog open={showRebaseDialog} onOpenChange={setShowRebaseDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rebase onto Branch</DialogTitle>
+            <DialogTitle>Rebase</DialogTitle>
             <DialogDescription>
               Rebase <span className="font-mono text-primary">{currentBranch?.name || "current branch"}</span> onto another branch.
             </DialogDescription>
