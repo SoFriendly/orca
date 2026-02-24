@@ -469,6 +469,12 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
   const hasGeneratedInitialMessage = useRef(false);
   const pendingAutoGenerate = useRef(false);
   const lastClickedIndex = useRef<number>(-1);
+  const fileRowRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const marqueeDragRef = useRef<{
+    anchorClientX: number;
+    anchorClientY: number;
+  } | null>(null);
+  const [marqueeBox, setMarqueeBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const [showCreateWorktreeDialog, setShowCreateWorktreeDialog] = useState(false);
   const justDraggedRef = useRef(false);
 
@@ -1909,6 +1915,14 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     const isMultiSelectKey = isMac ? e.metaKey : e.ctrlKey;
     const isRangeSelectKey = e.shiftKey;
 
+    if (!isRangeSelectKey && !isMultiSelectKey) {
+      // Plain click: expand/collapse inline diff in the git panel.
+      setSelectedFiles(new Set());
+      toggleFileExpanded(filePath);
+      lastClickedIndex.current = index;
+      return;
+    }
+
     setSelectedFiles(prev => {
       const next = new Set(prev);
 
@@ -1926,26 +1940,76 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
         } else {
           next.add(filePath);
         }
-      } else {
-        // Plain click: show diff in panel, clear selection
-        next.clear();
-        if (onShowDiff) {
-          if (activeDiffPath === filePath) {
-            onShowDiff(null);
-          } else {
-            onShowDiff({
-              diff: diffs[index],
-              source: 'changes',
-              projectPath: gitRepoPath,
-            });
-          }
-        }
-        return next;
       }
 
       return next;
     });
     lastClickedIndex.current = index;
+  };
+
+  const startEmptyAreaDragSelect = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-file-row],button,input,textarea,[role="checkbox"],[role="menuitem"],[data-slot="button"],a')) {
+      return;
+    }
+    e.preventDefault();
+    setSelectedFiles(new Set());
+    setMarqueeBox({ left: e.clientX, top: e.clientY, width: 0, height: 0 });
+    marqueeDragRef.current = {
+      anchorClientX: e.clientX,
+      anchorClientY: e.clientY,
+    };
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const drag = marqueeDragRef.current;
+      if (!drag) return;
+
+      const minX = Math.min(drag.anchorClientX, moveEvent.clientX);
+      const maxX = Math.max(drag.anchorClientX, moveEvent.clientX);
+      const minY = Math.min(drag.anchorClientY, moveEvent.clientY);
+      const maxY = Math.max(drag.anchorClientY, moveEvent.clientY);
+      setMarqueeBox({
+        left: minX,
+        top: minY,
+        width: maxX - minX,
+        height: maxY - minY,
+      });
+
+      const next = new Set<string>();
+      for (const [index, el] of fileRowRefs.current.entries()) {
+        const rect = el.getBoundingClientRect();
+        const intersects = !(rect.right < minX || rect.left > maxX || rect.bottom < minY || rect.top > maxY);
+        if (intersects && diffs[index]) {
+          next.add(diffs[index].path);
+          lastClickedIndex.current = index;
+        }
+      }
+      setSelectedFiles(next);
+    };
+
+    const onMouseUp = () => {
+      marqueeDragRef.current = null;
+      setMarqueeBox(null);
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  };
+
+  const handleViewDiffPanel = (filePath: string, index: number) => {
+    if (!onShowDiff) return;
+    if (activeDiffPath === filePath) {
+      onShowDiff(null);
+      return;
+    }
+    onShowDiff({
+      diff: diffs[index],
+      source: 'changes',
+      projectPath: gitRepoPath,
+    });
   };
 
   const clearSelection = () => {
@@ -2072,6 +2136,11 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
         <ContextMenu>
           <ContextMenuTrigger asChild>
             <div
+              ref={(el) => {
+                if (el) fileRowRefs.current.set(index, el);
+                else fileRowRefs.current.delete(index);
+              }}
+              data-file-row
               tabIndex={0}
               role="button"
               className={cn(
@@ -2116,12 +2185,9 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent>
-            <ContextMenuItem onClick={() => toggleFileExpanded(diff.path)}>
-              {isExpanded ? (
-                <><ChevronDown className="mr-2 h-4 w-4" />Collapse diff</>
-              ) : (
-                <><ChevronRight className="mr-2 h-4 w-4" />Expand diff</>
-              )}
+            <ContextMenuItem onClick={() => handleViewDiffPanel(diff.path, index)}>
+              <GitCommit className="mr-2 h-4 w-4" />
+              View Diff
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
@@ -2797,8 +2863,8 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
       {/* Scrollable content */}
       <ContextMenu>
       <ContextMenuTrigger asChild>
-      <ScrollArea className="flex-1 min-w-0">
-        <div className="px-4 pb-4 pt-4 min-w-0">
+      <ScrollArea className="flex-1 min-w-0" onMouseDown={viewMode === "changes" ? startEmptyAreaDragSelect : undefined}>
+        <div className="relative min-h-full px-4 pb-4 pt-4 min-w-0">
           {/* Changes View */}
           {viewMode === "changes" && (
             <>
@@ -4487,6 +4553,18 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
         <Dialog>
           {/* PR list is shown in the dropdown - this is a placeholder for future expansion */}
         </Dialog>
+      )}
+
+      {viewMode === "changes" && marqueeBox && (
+        <div
+          className="pointer-events-none fixed z-50 rounded-sm border border-primary/70 bg-primary/15"
+          style={{
+            left: marqueeBox.left,
+            top: marqueeBox.top,
+            width: marqueeBox.width,
+            height: marqueeBox.height,
+          }}
+        />
       )}
     </div>
   );
