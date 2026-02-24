@@ -2345,7 +2345,11 @@ export default function ProjectPage() {
         <div
           role="region"
           aria-label="Git panel"
-          className={cn("h-full flex flex-col overflow-hidden", panelShellClass, !showGitPanel && "hidden")}
+          className={cn(
+            "relative h-full flex flex-col overflow-hidden after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-2 after:bg-card",
+            panelShellClass,
+            !showGitPanel && "hidden"
+          )}
           style={{ flex: `0 1 ${gitPanelWidth}px`, minWidth: 280 }}
         >
           <GitPanel
