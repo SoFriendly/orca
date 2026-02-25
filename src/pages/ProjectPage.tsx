@@ -2413,6 +2413,8 @@ export default function ProjectPage() {
             onSaveWorkspace={handleSaveProject}
             onShowDiff={handleShowDiff}
             activeDiffPath={diffPanelSelection?.diff.path ?? null}
+            activeDiffSource={diffPanelSelection?.source ?? null}
+            activeDiffCommitId={diffPanelSelection?.commitId ?? null}
           />
         </div>
         {/* Resize handle for git panel */}

@@ -2,6 +2,11 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.2.3]
+
+### Bug Fixes
+- **History Diff Refresh**: Opening the same file from a different commit in History now refreshes the diff panel instead of closing it
+
 ## [0.2.2]
 
 ### Bug Fixes

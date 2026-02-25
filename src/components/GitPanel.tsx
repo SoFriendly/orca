@@ -107,6 +107,8 @@ interface GitPanelProps {
   onSaveWorkspace?: () => void; // Callback to save workspace file
   onShowDiff?: (selection: DiffPanelSelection | null) => void;
   activeDiffPath?: string | null;
+  activeDiffSource?: DiffPanelSelection["source"] | null;
+  activeDiffCommitId?: string | null;
 }
 
 interface CommitSuggestion {
@@ -406,7 +408,7 @@ function WorktreeView({ worktrees, repoPath, onRefresh, showCreateDialog, setSho
   );
 }
 
-export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo, onOpenMarkdown, shellCwd, folders, onAddFolder, onRemoveFolder, workspaceName, onRenameWorkspace, onSaveWorkspace, onShowDiff, activeDiffPath }: GitPanelProps) {
+export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo, onOpenMarkdown, shellCwd, folders, onAddFolder, onRemoveFolder, workspaceName, onRenameWorkspace, onSaveWorkspace, onShowDiff, activeDiffPath, activeDiffSource, activeDiffCommitId }: GitPanelProps) {
   const { diffs, branches, loading, status, history, worktrees } = useGitStore();
   const { autoCommitMessage, aiApiKey, aiProviderType, aiModel, preferredEditor, showHiddenFiles } = useSettingsStore();
   // Track the current root path for the file tree (can be changed by cd command)
@@ -1827,11 +1829,8 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     if (next.has(commitId)) {
       next.delete(commitId);
       // Close diff panel if it belongs to this commit
-      if (onShowDiff && activeDiffPath) {
-        const fileDiffsForCommit = commitDiffs.get(commitId);
-        if (fileDiffsForCommit?.some(d => d.path === activeDiffPath)) {
-          onShowDiff(null);
-        }
+      if (onShowDiff && activeDiffSource === "history" && activeDiffCommitId === commitId) {
+        onShowDiff(null);
       }
     } else {
       next.add(commitId);
@@ -2001,7 +2000,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
 
   const handleViewDiffPanel = (filePath: string, index: number) => {
     if (!onShowDiff) return;
-    if (activeDiffPath === filePath) {
+    if (activeDiffSource === "changes" && activeDiffPath === filePath) {
       onShowDiff(null);
       return;
     }
@@ -2119,7 +2118,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
 
   const FileItem = ({ diff, index }: { diff: FileDiff; index: number }) => {
     const isSelected = selectedFiles.has(diff.path);
-    const isActive = diff.path === activeDiffPath;
+    const isActive = activeDiffSource === "changes" && diff.path === activeDiffPath;
     const isExpanded = expandedFiles.has(diff.path);
 
     // Check if file is an image
@@ -3221,7 +3220,10 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                           ) : (
                             fileDiffs.map((diff) => {
                               const fileExists = diff.status !== "deleted";
-                              const isActive = diff.path === activeDiffPath;
+                              const isActive =
+                                activeDiffSource === "history" &&
+                                activeDiffPath === diff.path &&
+                                activeDiffCommitId === commit.id;
 
                               return (
                                 <div key={diff.path} className="min-w-0">
@@ -3234,7 +3236,11 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                                         )}
                                         onClick={() => {
                                           if (onShowDiff) {
-                                            if (activeDiffPath === diff.path) {
+                                            if (
+                                              activeDiffSource === "history" &&
+                                              activeDiffPath === diff.path &&
+                                              activeDiffCommitId === commit.id
+                                            ) {
                                               onShowDiff(null);
                                             } else {
                                               onShowDiff({
