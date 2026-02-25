@@ -2,6 +2,14 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.2.4]
+
+### Bug Fixes
+- **Create PR Branch Mapping**: Create Pull Request now consistently uses the checked-out branch as the source (`head`), excludes it from the target branch selector, and prevents invalid same-branch source/target submissions
+- **Create PR Dialog Clarity**: Updated PR labels and copy to clearly distinguish source vs target branches (`From branch` and `Merge into branch`)
+- **GitHub Auth Fallback**: PR listing/creation and GitHub token verification now fall back to `gh auth token` when no token is saved in settings
+- **Changes Panel PR Section**: Pull Requests in the Changes view is now collapsible and matches the stash-style empty-state rendering without shifting the main empty state layout
+
 ## [0.2.3]
 
 ### Bug Fixes

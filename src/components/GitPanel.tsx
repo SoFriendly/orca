@@ -508,11 +508,53 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
   // PR state
   const [isGithubRemote, setIsGithubRemote] = useState(false);
   const [pullRequests, setPullRequests] = useState<PullRequest[]>([]);
+  const [pullRequestsExpanded, setPullRequestsExpanded] = useState(false);
   const [showCreatePrDialog, setShowCreatePrDialog] = useState(false);
   const [prTitle, setPrTitle] = useState("");
   const [prBody, setPrBody] = useState("");
   const [prBase, setPrBase] = useState("main");
   const currentBranch = branches.find((b) => b.isHead);
+  const normalizePrBranchName = (name: string) => name.startsWith("origin/") ? name.slice("origin/".length) : name;
+  const availablePrBaseBranches = Array.from(new Set(
+    branches
+      .filter((b) => b.name !== "origin/HEAD")
+      .map((b) => normalizePrBranchName(b.name))
+      .filter((name) => name && name !== currentBranch?.name),
+  ));
+
+  const getDefaultPrBase = () => {
+    const preferred = ["main", "master", "develop", "dev"];
+    for (const name of preferred) {
+      if (availablePrBaseBranches.includes(name)) return name;
+    }
+    return availablePrBaseBranches[0] || "";
+  };
+
+  const openCreatePrDialog = () => {
+    setPrTitle(commitSubject);
+    setPrBody(commitDescription);
+    setPrBase(getDefaultPrBase());
+    setShowCreatePrDialog(true);
+  };
+
+  const resolveGithubToken = async (showError: boolean): Promise<string | null> => {
+    const settings = useSettingsStore.getState();
+    const configuredToken = settings.githubToken?.trim();
+    if (configuredToken) return configuredToken;
+
+    try {
+      const ghToken = await invoke<string>("github_get_cli_token");
+      const trimmed = ghToken.trim();
+      if (trimmed) return trimmed;
+    } catch {
+      // fall through to unified error handling below
+    }
+
+    if (showError) {
+      toast.error("GitHub token not configured. Set one in Settings or run `gh auth login`.");
+    }
+    return null;
+  };
 
   // Separate staged and unstaged changes (for now, treating all as unstaged)
   const unstagedChanges = diffs;
@@ -1632,13 +1674,13 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
 
   // === PR handlers ===
   const refreshPullRequests = async () => {
-    const settings = useSettingsStore.getState();
-    if (!settings.githubToken) return;
+    const token = await resolveGithubToken(false);
+    if (!token) return;
     try {
       const remoteUrl = await invoke<string>("get_remote_url", { repoPath: gitRepoPath, remote: "origin" });
       const [owner, repo] = await invoke<[string, string]>("github_parse_remote_url", { remoteUrl });
       const prs = await invoke<PullRequest[]>("github_list_pull_requests", {
-        token: settings.githubToken,
+        token,
         owner,
         repo,
         state: "open",
@@ -1650,18 +1692,37 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
   };
 
   const handleCreatePr = async () => {
-    const settings = useSettingsStore.getState();
-    if (!settings.githubToken || !prTitle.trim()) return;
+    const token = await resolveGithubToken(true);
+    if (!token) {
+      return;
+    }
+    if (!prTitle.trim()) {
+      toast.error("Pull request title is required");
+      return;
+    }
+    const headBranch = currentBranch?.name;
+    if (!headBranch) {
+      toast.error("No current branch selected");
+      return;
+    }
+    if (!prBase) {
+      toast.error("Select a base branch");
+      return;
+    }
+    if (prBase === headBranch) {
+      toast.error("Base branch must be different from the current branch");
+      return;
+    }
     try {
       const remoteUrl = await invoke<string>("get_remote_url", { repoPath: gitRepoPath, remote: "origin" });
       const [owner, repo] = await invoke<[string, string]>("github_parse_remote_url", { remoteUrl });
       const pr = await invoke<PullRequest>("github_create_pull_request", {
-        token: settings.githubToken,
+        token,
         owner,
         repo,
         title: prTitle,
         body: prBody,
-        head: currentBranch?.name || "main",
+        head: headBranch,
         base: prBase,
       });
       toast.success(`PR #${pr.number} created`);
@@ -2783,7 +2844,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                   {isGithubRemote && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => { setShowCreatePrDialog(true); setPrTitle(commitSubject); setPrBody(commitDescription); }}>
+                      <DropdownMenuItem onClick={openCreatePrDialog}>
                         <Github className="mr-2 h-4 w-4" />
                         Open PR
                       </DropdownMenuItem>
@@ -2866,7 +2927,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
         <div className="relative min-h-full px-4 pb-4 pt-4 min-w-0">
           {/* Changes View */}
           {viewMode === "changes" && (
-            <>
+            <div className="min-w-0 overflow-x-hidden">
               {/* Conflict banner */}
               {conflictedFiles.length > 0 && (
                 <div className="mb-3 -mx-2 rounded-lg bg-destructive/10 border border-destructive/20 p-3">
@@ -3034,46 +3095,66 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
               )}
 
               {/* Pull Requests section */}
-              {isGitRepo && pullRequests.length > 0 && (
+              {isGitRepo && isGithubRemote && (
                 <div className="mb-4">
-                  <h3 className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Pull Requests ({pullRequests.length})
-                  </h3>
-                  <div className="space-y-1">
-                    {pullRequests.slice(0, 5).map((pr) => (
-                      <ContextMenu key={pr.number}>
-                        <ContextMenuTrigger asChild>
-                          <div className="group flex items-start gap-2 rounded-lg px-2.5 py-1.5 hover:bg-muted/50 -mx-2 cursor-pointer">
-                            <Github className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs truncate">
-                                <span className="text-muted-foreground">#{pr.number}</span> {pr.title}
-                              </div>
-                              <div className="text-[10px] text-muted-foreground truncate">
-                                {pr.headRef} {pr.draft && "(draft)"} &middot; {pr.author}
-                              </div>
-                            </div>
-                          </div>
-                        </ContextMenuTrigger>
-                        <ContextMenuContent>
-                          <ContextMenuItem onClick={() => handleCheckoutPrBranch(pr.headRef)}>
-                            <GitBranch className="mr-2 h-4 w-4" />
-                            Checkout branch
-                          </ContextMenuItem>
-                          <ContextMenuItem onClick={() => openUrl(pr.url)}>
-                            <ExternalLink className="mr-2 h-4 w-4" />
-                            Open in browser
-                          </ContextMenuItem>
-                        </ContextMenuContent>
-                      </ContextMenu>
-                    ))}
+                  <div
+                    className="flex items-center gap-1 mb-2 cursor-pointer"
+                    onClick={() => {
+                      const nextExpanded = !pullRequestsExpanded;
+                      setPullRequestsExpanded(nextExpanded);
+                      if (nextExpanded) refreshPullRequests();
+                    }}
+                  >
+                    {pullRequestsExpanded ? (
+                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                    )}
+                    <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Pull Requests {pullRequests.length > 0 && `(${pullRequests.length})`}
+                    </h3>
                   </div>
+                  {pullRequestsExpanded && (
+                    <div className="space-y-1">
+                      {pullRequests.length === 0 ? (
+                        <p className="text-xs text-muted-foreground/70 px-2">No pull requests</p>
+                      ) : (
+                        pullRequests.slice(0, 5).map((pr) => (
+                          <ContextMenu key={pr.number}>
+                            <ContextMenuTrigger asChild>
+                              <div className="group flex items-start gap-2 rounded-lg px-2.5 py-1.5 hover:bg-muted/50 -mx-2 cursor-pointer">
+                                <Github className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs break-words">
+                                    <span className="text-muted-foreground">#{pr.number}</span> {pr.title}
+                                  </div>
+                                  <div className="text-[10px] text-muted-foreground break-words">
+                                    {pr.headRef} {pr.draft && "(draft)"} &middot; {pr.author}
+                                  </div>
+                                </div>
+                              </div>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent>
+                              <ContextMenuItem onClick={() => handleCheckoutPrBranch(pr.headRef)}>
+                                <GitBranch className="mr-2 h-4 w-4" />
+                                Checkout branch
+                              </ContextMenuItem>
+                              <ContextMenuItem onClick={() => openUrl(pr.url)}>
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                                Open in browser
+                              </ContextMenuItem>
+                            </ContextMenuContent>
+                          </ContextMenu>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* No changes message or not a git repo */}
               {diffs.length === 0 && (
-                <div className="flex flex-col items-center justify-center p-6 mt-8">
+                <div className="mt-8 flex w-full flex-col items-center justify-center p-6">
                   <div className="flex flex-col items-center text-center max-w-[200px]">
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50 mb-4">
                       <GitCommit className="h-7 w-7 text-muted-foreground" />
@@ -3114,7 +3195,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                   </div>
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {/* History View */}
@@ -4398,21 +4479,25 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
           <DialogHeader>
             <DialogTitle>Create Pull Request</DialogTitle>
             <DialogDescription>
-              Create a PR from <span className="font-mono text-primary">{currentBranch?.name}</span>.
+              Open a PR from <span className="font-mono text-primary">{currentBranch?.name || "current branch"}</span> into a base branch.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <label className="text-sm font-medium mb-1 block">Base branch</label>
+              <label className="text-sm font-medium mb-1 block">From branch</label>
+              <Input value={currentBranch?.name || ""} readOnly disabled />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Merge into branch</label>
               <select
                 className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                 value={prBase}
                 onChange={(e) => setPrBase(e.target.value)}
               >
-                {branches
-                  .filter(b => !b.isRemote)
-                  .map(b => (
-                    <option key={b.name} value={b.name}>{b.name}</option>
+                <option value="" disabled>Select a base branch...</option>
+                {availablePrBaseBranches
+                  .map((branchName) => (
+                    <option key={branchName} value={branchName}>{branchName}</option>
                   ))}
               </select>
             </div>
@@ -4430,7 +4515,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreatePrDialog(false)}>Cancel</Button>
-            <Button onClick={handleCreatePr} disabled={!prTitle.trim()}>Create Pull Request</Button>
+            <Button onClick={handleCreatePr} disabled={!prTitle.trim() || !currentBranch?.name}>Create Pull Request</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

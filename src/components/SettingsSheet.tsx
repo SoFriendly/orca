@@ -981,15 +981,20 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                           variant="outline"
                           size="sm"
                           onClick={async () => {
-                            if (!githubToken) {
-                              toast.error("Enter a token first");
-                              return;
-                            }
                             try {
-                              const user = await invoke<{ login: string; name?: string }>("github_get_user", { token: githubToken });
+                              let tokenToVerify = githubToken?.trim() || "";
+                              if (!tokenToVerify) {
+                                tokenToVerify = (await invoke<string>("github_get_cli_token")).trim();
+                                if (!tokenToVerify) {
+                                  toast.error("No token available. Set one here or run `gh auth login`.");
+                                  return;
+                                }
+                              }
+
+                              const user = await invoke<{ login: string; name?: string }>("github_get_user", { token: tokenToVerify });
                               toast.success(`Connected as ${user.name || user.login}`);
                             } catch (error) {
-                              toast.error(`Invalid token: ${error}`);
+                              toast.error(`GitHub auth failed: ${error}`);
                             }
                           }}
                         >

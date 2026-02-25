@@ -1447,6 +1447,29 @@ async fn github_get_user(token: String) -> Result<GitHubUser, String> {
 }
 
 #[tauri::command]
+fn github_get_cli_token() -> Result<String, String> {
+    let output = std::process::Command::new("gh")
+        .args(["auth", "token"])
+        .output()
+        .map_err(|e| format!("Failed to run gh CLI: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if stderr.is_empty() {
+            return Err("gh auth token failed".to_string());
+        }
+        return Err(format!("gh auth token failed: {}", stderr));
+    }
+
+    let token = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if token.is_empty() {
+        return Err("gh auth token returned empty output".to_string());
+    }
+
+    Ok(token)
+}
+
+#[tauri::command]
 async fn github_list_pull_requests(
     token: String,
     owner: String,
@@ -4045,6 +4068,7 @@ pub fn run() {
             get_old_file_content,
             // GitHub
             github_get_user,
+            github_get_cli_token,
             github_list_pull_requests,
             github_create_pull_request,
             github_get_pr_checks,
