@@ -80,7 +80,7 @@ function App() {
           <Route path="/project/:projectId" element={<ProjectPage />} />
           <Route path="/terminal" element={<TerminalWindow />} />
         </Routes>
-        <Toaster position="bottom-right" />
+        <Toaster position="top-right" />
         <UpdateChecker />
       </div>
     </TooltipProvider>

@@ -2,6 +2,17 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.2.1]
+
+### Improvements
+- **Undo Commit**: "Undo Commit" button now only appears when there are unpushed commits
+- **Toast Position**: Moved toast notifications from bottom-right to top-right
+- **Sidebar Icon Order**: Swapped Files and Worktrees icon positions (now Changes | History | Worktrees | Files)
+- **Panel Overflow Handling**: Window now grows to fit panels but is clamped to the display edge; panels shrink proportionally when there isn't enough screen space
+
+### Bug Fixes
+- **Discard Dialog Overflow**: Long file paths in discard confirmation dialogs now wrap instead of overflowing the modal
+
 ## [0.2.0]
 
 ### Improvements

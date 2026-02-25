@@ -997,21 +997,21 @@ export default function ProjectPage() {
     return () => window.removeEventListener('resize', handleWindowResize);
   }, []);
 
-  // Grow window when panels overflow the container
+  // Grow window and/or shrink panels when they overflow the container
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    // Sum all visible panel widths + resize handles (6px each)
-    let totalNeeded = 0;
     const panels = [
-      { show: showGitPanel, width: gitPanelWidth },
-      { show: showDiffPanel, width: diffPanelWidth },
-      { show: showAssistantPanel, width: assistantPanelWidth },
-      { show: showShellPanel, width: shellPanelWidth },
-      { show: showNotesPanel, width: notesPanelWidth },
-      { show: showMarkdownPanel, width: markdownPanelWidth },
+      { show: showGitPanel, width: gitPanelWidth, setWidth: setGitPanelWidth, minWidth: 280 },
+      { show: showDiffPanel, width: diffPanelWidth, setWidth: setDiffPanelWidth, minWidth: 250 },
+      { show: showAssistantPanel, width: assistantPanelWidth, setWidth: setAssistantPanelWidth, minWidth: 320 },
+      { show: showShellPanel, width: shellPanelWidth, setWidth: setShellPanelWidth, minWidth: 280 },
+      { show: showNotesPanel, width: notesPanelWidth, setWidth: setNotesPanelWidth, minWidth: 250 },
+      { show: showMarkdownPanel, width: markdownPanelWidth, setWidth: setMarkdownPanelWidth, minWidth: 300 },
     ];
+
+    let totalNeeded = 0;
     let visibleCount = 0;
     for (const p of panels) {
       if (p.show) {
@@ -1019,7 +1019,6 @@ export default function ProjectPage() {
         visibleCount++;
       }
     }
-    // Resize handles between panels
     totalNeeded += Math.max(0, visibleCount - 1) * 6;
 
     const availableWidth = container.clientWidth;
@@ -1027,14 +1026,61 @@ export default function ProjectPage() {
 
     if (overflow > 0) {
       const win = getCurrentWindow();
-      win.outerSize().then(size => {
-        win.scaleFactor().then(scale => {
+      (async () => {
+        try {
+          const size = await win.outerSize();
+          const scale = await win.scaleFactor();
+          const position = await win.outerPosition();
+          const monitor = await win.currentMonitor();
+
           const logicalWidth = size.width / scale;
           const logicalHeight = size.height / scale;
-          win.setSize(new LogicalSize(Math.round(logicalWidth + overflow + 8), Math.round(logicalHeight)));
+          let desiredWidth = Math.round(logicalWidth + overflow + 8);
+
+          // Clamp so window right edge doesn't pass monitor right edge
+          if (monitor) {
+            const monitorRight = (monitor.position.x + monitor.size.width) / scale;
+            const windowLeft = position.x / scale;
+            const maxWidth = Math.round(monitorRight - windowLeft);
+            desiredWidth = Math.min(desiredWidth, maxWidth);
+          }
+
+          // Never shrink below current size
+          desiredWidth = Math.max(desiredWidth, Math.round(logicalWidth));
+
+          const windowGrowth = desiredWidth - Math.round(logicalWidth);
+          const remainingOverflow = overflow - windowGrowth;
+
+          // Shrink panels if window can't grow enough
+          if (remainingOverflow > 0) {
+            const visible = panels.filter(p => p.show);
+            const totalShrinkable = visible.reduce((sum, p) => sum + (p.width - p.minWidth), 0);
+
+            if (totalShrinkable > 0) {
+              const shrinkNeeded = Math.min(remainingOverflow, totalShrinkable);
+              for (const p of visible) {
+                const shrinkable = p.width - p.minWidth;
+                if (shrinkable <= 0) continue;
+                const share = Math.round(shrinkNeeded * (shrinkable / totalShrinkable));
+                p.setWidth(p.width - share);
+              }
+            }
+          }
+
+          if (desiredWidth > logicalWidth) {
+            await win.setSize(new LogicalSize(desiredWidth, Math.round(logicalHeight)));
+            lastContainerWidth.current = availableWidth + windowGrowth;
+          }
+        } catch {
+          // Fallback: grow without clamping (original behavior)
+          const size = await win.outerSize();
+          const scale = await win.scaleFactor();
+          const logicalWidth = size.width / scale;
+          const logicalHeight = size.height / scale;
+          await win.setSize(new LogicalSize(Math.round(logicalWidth + overflow + 8), Math.round(logicalHeight)));
           lastContainerWidth.current = availableWidth + overflow + 8;
-        });
-      });
+        }
+      })();
     }
   }, [showGitPanel, showAssistantPanel, showShellPanel, showNotesPanel, showMarkdownPanel, showDiffPanel,
       gitPanelWidth, assistantPanelWidth, shellPanelWidth, notesPanelWidth, markdownPanelWidth, diffPanelWidth]);

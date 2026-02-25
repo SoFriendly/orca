@@ -2833,21 +2833,6 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="Browse files"
-                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "files" && "bg-accent text-accent-foreground")}
-                onClick={() => setViewMode("files")}
-              >
-                <FolderTree className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Files</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
                 aria-label="Worktrees"
                 className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "worktrees" && "bg-accent text-accent-foreground")}
                 onClick={() => setViewMode("worktrees")}
@@ -2856,6 +2841,21 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
               </Button>
             </TooltipTrigger>
             <TooltipContent>Worktrees</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Browse files"
+                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "files" && "bg-accent text-accent-foreground")}
+                onClick={() => setViewMode("files")}
+              >
+                <FolderTree className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Files</TooltipContent>
           </Tooltip>
         </div>
       </div>
@@ -4050,7 +4050,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
           )}
 
           {/* Commit or Undo Commit button */}
-          {status && filesToCommit.size === 0 && history.length > 1 ? (
+          {status && filesToCommit.size === 0 && history.length > 1 && status.ahead > 0 ? (
             <Button
               className="w-full bg-muted hover:bg-muted/80 text-foreground font-medium"
               onClick={handleUndoCommit}
@@ -4133,9 +4133,9 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
             <AlertDialogTitle>Discard changes to {selectedFiles.size} file{selectedFiles.size > 1 ? 's' : ''}?</AlertDialogTitle>
             <AlertDialogDescription>
               This will discard all changes to the following files. This cannot be undone.
-              <ul className="mt-2 max-h-32 overflow-auto overflow-x-hidden rounded bg-muted p-2 font-mono text-xs">
+              <ul className="mt-2 max-h-32 overflow-auto rounded bg-muted p-2 font-mono text-xs break-all">
                 {Array.from(selectedFiles).map(file => (
-                  <li key={file} className="truncate">{file}</li>
+                  <li key={file}>{file}</li>
                 ))}
               </ul>
             </AlertDialogDescription>
