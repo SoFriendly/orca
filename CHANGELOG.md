@@ -2,6 +2,18 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.2.5]
+
+### Improvements
+- **Stash Section Pinned to Bottom**: Stashes section now sits fixed above the commit box instead of floating in the scroll area
+- **Pull Requests Pinned to Top**: Pull Requests section stays at the top of the changes view, above unstaged/staged changes
+- **Stash Context Menu**: Right-click stash items for Restore and Drop actions (removed hover buttons)
+- **Stash Changes from Context Menu**: Right-click any unstaged file to stash all changes
+- **PR Text Wrapping**: Pull request titles and branch names now wrap instead of truncating
+
+### Bug Fixes
+- **Remove Dead Code**: Removed unused `handleStashApply` function
+
 ## [0.2.4]
 
 ### Bug Fixes

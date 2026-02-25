@@ -2250,6 +2250,12 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
               View Diff
             </ContextMenuItem>
             <ContextMenuSeparator />
+            {unstagedChanges.some(d => d.path === diff.path) && (
+              <ContextMenuItem onClick={() => setShowStashDialog(true)}>
+                <Archive className="mr-2 h-4 w-4" />
+                Stash Changes
+              </ContextMenuItem>
+            )}
             <ContextMenuItem
               className="text-destructive focus:text-destructive"
               onClick={() => handleDiscardFile(diff.path)}
@@ -3000,100 +3006,6 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 </div>
               )}
 
-              {/* Unstaged Changes */}
-              {unstagedChanges.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Unstaged Changes
-                  </h3>
-                  <div className="space-y-0.5">
-                    {unstagedChanges.map((diff, index) => (
-                      <FileItem key={diff.path} diff={diff} index={index} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Staged Changes */}
-              {stagedChanges.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Staged Changes
-                  </h3>
-                  <div className="space-y-0.5">
-                    {stagedChanges.map((diff, index) => (
-                      <FileItem key={diff.path} diff={diff} index={unstagedChanges.length + index} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Stash section - only show when stashes exist */}
-              {isGitRepo && stashes.length > 0 && (
-                <div className="mb-4">
-                  <div
-                    className="flex items-center gap-1 mb-2 cursor-pointer"
-                    onClick={() => {
-                      setStashesExpanded(!stashesExpanded);
-                      if (!stashesExpanded) refreshStashes();
-                    }}
-                  >
-                    {stashesExpanded ? (
-                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                    ) : (
-                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                    )}
-                    <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                      Stashes {stashes.length > 0 && `(${stashes.length})`}
-                    </h3>
-                    {diffs.length > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 ml-auto"
-                        onClick={(e) => { e.stopPropagation(); setShowStashDialog(true); }}
-                      >
-                        <Archive className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                  {stashesExpanded && (
-                    <div className="space-y-1">
-                      {stashes.length === 0 ? (
-                        <p className="text-xs text-muted-foreground/70 px-2">No stashes</p>
-                      ) : (
-                        stashes.map((stash) => (
-                          <ContextMenu key={stash.index}>
-                            <ContextMenuTrigger asChild>
-                              <div
-                                className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 hover:bg-muted/50 -mx-2"
-                              >
-                                <Archive className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-xs break-words">{stash.message}</div>
-                                  <div className="text-[10px] text-muted-foreground break-words">{stash.branch}</div>
-                                </div>
-                              </div>
-                            </ContextMenuTrigger>
-                            <ContextMenuContent>
-                              <ContextMenuItem onClick={() => handleStashPop(stash.index)}>
-                                <ArrowUpFromLine className="mr-2 h-4 w-4" />
-                                Restore
-                              </ContextMenuItem>
-                              <ContextMenuSeparator />
-                              <ContextMenuItem onClick={() => handleStashDrop(stash.index)} className="text-destructive">
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Drop
-                              </ContextMenuItem>
-                            </ContextMenuContent>
-                          </ContextMenu>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Pull Requests section */}
               {isGitRepo && isGithubRemote && (
                 <div className="mb-4">
@@ -3149,6 +3061,34 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                       )}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Unstaged Changes */}
+              {unstagedChanges.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Unstaged Changes
+                  </h3>
+                  <div className="space-y-0.5">
+                    {unstagedChanges.map((diff, index) => (
+                      <FileItem key={diff.path} diff={diff} index={index} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Staged Changes */}
+              {stagedChanges.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Staged Changes
+                  </h3>
+                  <div className="space-y-0.5">
+                    {stagedChanges.map((diff, index) => (
+                      <FileItem key={diff.path} diff={diff} index={unstagedChanges.length + index} />
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -4093,6 +4033,66 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
         </ContextMenuItem>
       </ContextMenuContent>
       </ContextMenu>
+
+      {/* Stash section - fixed above commit */}
+      {isGitRepo && stashes.length > 0 && (
+        <div className="border-t border-border px-4 py-3">
+          <div
+            className="flex items-center gap-1 mb-1 cursor-pointer"
+            onClick={() => {
+              setStashesExpanded(!stashesExpanded);
+              if (!stashesExpanded) refreshStashes();
+            }}
+          >
+            {stashesExpanded ? (
+              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-3 w-3 text-muted-foreground" />
+            )}
+            <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Stashes {stashes.length > 0 && `(${stashes.length})`}
+            </h3>
+            {diffs.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 ml-auto"
+                onClick={(e) => { e.stopPropagation(); setShowStashDialog(true); }}
+              >
+                <Archive className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+          {stashesExpanded && (
+            <div className="space-y-1">
+              {stashes.map((stash) => (
+                <ContextMenu key={stash.index}>
+                  <ContextMenuTrigger asChild>
+                    <div className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 hover:bg-muted/50 -mx-2">
+                      <Archive className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs break-words">{stash.message}</div>
+                        <div className="text-[10px] text-muted-foreground break-words">{stash.branch}</div>
+                      </div>
+                    </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem onClick={() => handleStashPop(stash.index)}>
+                      <ArrowUpFromLine className="mr-2 h-4 w-4" />
+                      Restore
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onClick={() => handleStashDrop(stash.index)} className="text-destructive">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Drop
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Commit section - fixed at bottom (only show when git repo) */}
       {isGitRepo ? (
