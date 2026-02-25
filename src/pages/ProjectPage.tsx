@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+import { getCurrentWindow, LogicalSize, currentMonitor } from "@tauri-apps/api/window";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -1031,7 +1031,7 @@ export default function ProjectPage() {
           const size = await win.outerSize();
           const scale = await win.scaleFactor();
           const position = await win.outerPosition();
-          const monitor = await win.currentMonitor();
+          const monitor = await currentMonitor();
 
           const logicalWidth = size.width / scale;
           const logicalHeight = size.height / scale;
