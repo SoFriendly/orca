@@ -2,6 +2,12 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.2.2]
+
+### Bug Fixes
+- **Shell Command History**: Simplify command recording to always read from the terminal buffer on Enter, fixing pasted commands not being saved to history
+- **Shell Prompt Parsing**: Expand prompt character detection to support common unicode prompt indicators (✗, ✓, ❯, ➜, →) and strip cwd paths that follow prompt characters
+
 ## [0.2.1]
 
 ### Improvements
