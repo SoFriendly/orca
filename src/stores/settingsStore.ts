@@ -33,6 +33,9 @@ interface SettingsState extends Settings {
   setCustomTheme: (theme: CustomThemeColors | undefined) => void;
   setCustomThemeColor: (colorKey: keyof CustomThemeColors['colors'], value: string) => void;
   initializeCustomTheme: (baseTheme: 'dark' | 'tokyo' | 'light') => void;
+  // Default panel visibility
+  defaultPanels: { git: boolean; assistant: boolean; shell: boolean; notes: boolean };
+  setDefaultPanelVisibility: (panel: keyof SettingsState['defaultPanels'], visible: boolean) => void;
 }
 
 // Apply theme to document
@@ -83,6 +86,7 @@ export const useSettingsStore = create<SettingsState>()(
       customAssistants: [],
       hiddenAssistantIds: [],
       githubToken: undefined,
+      defaultPanels: { git: true, assistant: true, shell: true, notes: false },
 
       setTheme: (theme) => {
         const customTheme = get().customTheme;
@@ -178,6 +182,10 @@ export const useSettingsStore = create<SettingsState>()(
         set({ customTheme: updatedCustomTheme });
         applyTheme('custom', updatedCustomTheme);
       },
+
+      setDefaultPanelVisibility: (panel, visible) => set((state) => ({
+        defaultPanels: { ...state.defaultPanels, [panel]: visible },
+      })),
 
       initializeCustomTheme: (baseTheme) => {
         const customTheme: CustomThemeColors = {

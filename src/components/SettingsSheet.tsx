@@ -128,6 +128,8 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
     toggleAssistantHidden,
     githubToken,
     setGithubToken,
+    defaultPanels,
+    setDefaultPanelVisibility,
   } = useSettingsStore();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
@@ -199,16 +201,20 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
     }
   }, [customAssistants]);
 
-  // Check installed assistants when dialog opens
+  // Cache: track whether we've done the initial assistant check
+  const hasCheckedAssistantsRef = useRef(false);
+
+  // Check installed assistants only when Assistants tab is active (deferred for performance)
   useEffect(() => {
-    if (open) {
+    if (open && activeTab === "assistants") {
       checkInstalledAssistants();
+      hasCheckedAssistantsRef.current = true;
     }
     if (!open) {
       // Clear installing state when dialog closes
       setInstallingCommands(new Set());
     }
-  }, [open, checkInstalledAssistants]);
+  }, [open, activeTab, checkInstalledAssistants]);
 
   // Poll while any assistants are being installed
   useEffect(() => {
@@ -471,6 +477,40 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                           onCheckedChange={setShowHiddenFiles}
                         />
                       </div>
+                    </div>
+                  </section>
+
+                  {/* Default Panels Section */}
+                  <section>
+                    <h3 className="text-lg font-semibold">Default Panels</h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      Choose which panels are visible when opening a new window.
+                    </p>
+
+                    <div className="space-y-6">
+                      {([
+                        { key: "git" as const, label: "Git Panel", desc: "Source control, branches, and commit history." },
+                        { key: "assistant" as const, label: "Assistant Panel", desc: "AI coding assistant terminal." },
+                        { key: "shell" as const, label: "Shell Panel", desc: "General-purpose terminal." },
+                        { key: "notes" as const, label: "Notes Panel", desc: "Project notes and scratch pad." },
+                      ]).map(({ key, label, desc }) => {
+                        const isOn = defaultPanels[key];
+                        const visibleCount = Object.values(defaultPanels).filter(Boolean).length;
+                        const isLastVisible = isOn && visibleCount <= 1;
+                        return (
+                          <div key={key} className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium">{label}</p>
+                              <p className="text-xs text-muted-foreground">{desc}</p>
+                            </div>
+                            <Switch
+                              checked={isOn}
+                              disabled={isLastVisible}
+                              onCheckedChange={(checked) => setDefaultPanelVisibility(key, checked)}
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   </section>
 

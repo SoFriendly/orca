@@ -340,7 +340,7 @@ export default function ProjectPage() {
   const navigate = useNavigate();
   const { projects, openTab, addFolderToProject, removeFolderFromProject, updateProject, addProject } = useProjectStore();
   const { diffs: storeDiffs, branches, worktrees, setStatus, setDiffs, setBranches, setHistory, setWorktrees, setLoading } = useGitStore();
-  const { assistantArgs, defaultAssistant, autoFetchRemote, theme, customTheme, customAssistants, hiddenAssistantIds, hasSeenOnboarding, setHasSeenOnboarding } = useSettingsStore();
+  const { assistantArgs, defaultAssistant, autoFetchRemote, theme, customTheme, customAssistants, hiddenAssistantIds, hasSeenOnboarding, setHasSeenOnboarding, defaultPanels } = useSettingsStore();
 
   // Terminal background colors per theme (computed from --card CSS variable)
   const terminalBg =
@@ -370,11 +370,11 @@ export default function ProjectPage() {
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editingTabName, setEditingTabName] = useState("");
   const [installedAssistants, setInstalledAssistants] = useState<string[]>([]);
-  const [showGitPanel, setShowGitPanel] = useState(true);
+  const [showGitPanel, setShowGitPanel] = useState(() => defaultPanels?.git ?? true);
   const [isGitRepo, setIsGitRepo] = useState(true);
-  const [showAssistantPanel, setShowAssistantPanel] = useState(true);
-  const [showShellPanel, setShowShellPanel] = useState(true);
-  const [showNotesPanel, setShowNotesPanel] = useState(false);
+  const [showAssistantPanel, setShowAssistantPanel] = useState(() => defaultPanels?.assistant ?? true);
+  const [showShellPanel, setShowShellPanel] = useState(() => defaultPanels?.shell ?? true);
+  const [showNotesPanel, setShowNotesPanel] = useState(() => defaultPanels?.notes ?? false);
   const [showMarkdownPanel, setShowMarkdownPanel] = useState(false);
   const [markdownFile, setMarkdownFile] = useState<{ path: string; content: string; lineNumber?: number } | null>(null);
   const [markdownEditMode, setMarkdownEditMode] = useState(false);
@@ -1828,11 +1828,15 @@ export default function ProjectPage() {
         invoke<Commit[]>("get_history", { repoPath: path, limit: 50 }),
         invoke<WorktreeInfo[]>("list_worktrees", { repoPath: path }).catch(() => [] as WorktreeInfo[]),
       ]);
-      setStatus(status);
-      setDiffs(diffs);
-      setBranches(branches);
-      setHistory(history);
-      setWorktrees(worktrees);
+      // Only update state when data actually changed to avoid unnecessary re-renders
+      // that disrupt context menus and make the file list hard to interact with
+      const current = useGitStore.getState();
+      const statusJson = JSON.stringify(status);
+      if (statusJson !== JSON.stringify(current.status)) setStatus(status);
+      if (JSON.stringify(diffs) !== JSON.stringify(current.diffs)) setDiffs(diffs);
+      if (JSON.stringify(branches) !== JSON.stringify(current.branches)) setBranches(branches);
+      if (JSON.stringify(history) !== JSON.stringify(current.history)) setHistory(history);
+      if (JSON.stringify(worktrees) !== JSON.stringify(current.worktrees)) setWorktrees(worktrees);
     } catch (error) {
       console.error("Failed to load git data:", error);
     } finally {

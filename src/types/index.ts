@@ -214,6 +214,13 @@ export interface Settings {
   portalRelayUrl?: string;
   // GitHub integration
   githubToken?: string;
+  // Default panel visibility
+  defaultPanels?: {
+    git: boolean;
+    assistant: boolean;
+    shell: boolean;
+    notes: boolean;
+  };
 }
 
 // Remote Portal types
