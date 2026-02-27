@@ -4628,7 +4628,20 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                           })}
                         </div>
                       ) : (
-                        <pre className="text-xs bg-muted/50 rounded p-2 overflow-x-auto max-h-48">{content}</pre>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm text-green-500">
+                            <Check className="h-3.5 w-3.5" />
+                            <span>Conflicts resolved locally — stage to mark as resolved</span>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => handleResolveConflict(filePath, content)}
+                          >
+                            Mark as Resolved
+                          </Button>
+                        </div>
                       )}
                     </div>
                   )}

@@ -195,6 +195,49 @@ impl GitService {
     }
 
     pub fn commit(repo_path: &str, message: &str, files: Option<Vec<String>>) -> Result<(), String> {
+        // If a merge is in progress, use CLI git commit which handles unmerged index state
+        let merge_head = std::path::Path::new(repo_path).join(".git").join("MERGE_HEAD");
+        if merge_head.exists() {
+            // Stage files first
+            if let Some(ref file_list) = files {
+                for file in file_list {
+                    let output = std::process::Command::new("git")
+                        .arg("-C").arg(repo_path)
+                        .arg("add").arg(file)
+                        .stdin(std::process::Stdio::null())
+                        .output()
+                        .map_err(|e| format!("Failed to run git add: {}", e))?;
+                    if !output.status.success() {
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        return Err(format!("git add failed: {}", stderr.trim()));
+                    }
+                }
+            } else {
+                let output = std::process::Command::new("git")
+                    .arg("-C").arg(repo_path)
+                    .arg("add").arg("-A")
+                    .stdin(std::process::Stdio::null())
+                    .output()
+                    .map_err(|e| format!("Failed to run git add: {}", e))?;
+                if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    return Err(format!("git add failed: {}", stderr.trim()));
+                }
+            }
+
+            let output = std::process::Command::new("git")
+                .arg("-C").arg(repo_path)
+                .arg("commit").arg("-m").arg(message)
+                .stdin(std::process::Stdio::null())
+                .output()
+                .map_err(|e| format!("Failed to run git commit: {}", e))?;
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("git commit failed: {}", stderr.trim()));
+            }
+            return Ok(());
+        }
+
         let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
 
         // Get all changed/untracked files from status
