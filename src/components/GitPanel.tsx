@@ -29,6 +29,7 @@ import {
   Copy,
   FolderOpen,
   FolderMinus,
+  Eye,
   EyeOff,
   ExternalLink,
   SquareTerminal,
@@ -410,7 +411,7 @@ function WorktreeView({ worktrees, repoPath, onRefresh, showCreateDialog, setSho
 
 export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo, onOpenMarkdown, shellCwd, folders, onAddFolder, onRemoveFolder, workspaceName, onRenameWorkspace, onSaveWorkspace, onShowDiff, activeDiffPath, activeDiffSource, activeDiffCommitId }: GitPanelProps) {
   const { diffs, branches, loading, status, history, worktrees } = useGitStore();
-  const { autoCommitMessage, aiApiKey, aiProviderType, aiModel, preferredEditor, showHiddenFiles } = useSettingsStore();
+  const { autoCommitMessage, aiApiKey, aiProviderType, aiModel, preferredEditor, showHiddenFiles, setShowHiddenFiles } = useSettingsStore();
   // Track the current root path for the file tree (can be changed by cd command)
   const [fileTreeRoot, setFileTreeRoot] = useState(projectPath);
   // Workspace name editing state (Issue #6)
@@ -3960,6 +3961,11 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                       <FolderPlus className="mr-2 h-4 w-4" />
                       New Folder
                     </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onClick={() => setShowHiddenFiles(!showHiddenFiles)}>
+                      {showHiddenFiles ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
+                      {showHiddenFiles ? "Hide Hidden Files" : "Show Hidden Files"}
+                    </ContextMenuItem>
                   </ContextMenuContent>
                 </ContextMenu>
               ) : (
@@ -4030,6 +4036,11 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
         <ContextMenuItem onClick={() => handleStartCreateFolder("")}>
           <FolderPlus className="mr-2 h-4 w-4" />
           New Folder
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => setShowHiddenFiles(!showHiddenFiles)}>
+          {showHiddenFiles ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
+          {showHiddenFiles ? "Hide Hidden Files" : "Show Hidden Files"}
         </ContextMenuItem>
       </ContextMenuContent>
       </ContextMenu>

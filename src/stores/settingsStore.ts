@@ -82,7 +82,7 @@ export const useSettingsStore = create<SettingsState>()(
       aiProviderType: 'groq' as AiProviderType,
       aiModel: undefined,
       preferredEditor: undefined,
-      showHiddenFiles: false,
+      showHiddenFiles: true,
       customAssistants: [],
       hiddenAssistantIds: [],
       githubToken: undefined,
