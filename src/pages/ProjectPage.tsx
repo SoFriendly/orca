@@ -1804,7 +1804,9 @@ export default function ProjectPage() {
     }
   };
 
+  const loadGitDataCounter = useRef(0);
   const loadGitData = async (path: string) => {
+    const loadId = ++loadGitDataCounter.current;
     setLoading(true);
     try {
       // Check if this is a git repo first
@@ -1840,7 +1842,10 @@ export default function ProjectPage() {
     } catch (error) {
       console.error("Failed to load git data:", error);
     } finally {
-      setLoading(false);
+      // Only clear loading if this is still the latest load request
+      if (loadId === loadGitDataCounter.current) {
+        setLoading(false);
+      }
     }
   };
 
