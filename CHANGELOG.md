@@ -2,6 +2,20 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.2.6]
+
+### New Features
+- **Default Panel Visibility**: New "Default Panels" section in Settings > General lets you choose which panels (Git, Assistant, Shell, Notes) are visible when opening a new window
+- **Show Hidden Files by Default**: Hidden files are now visible in the file tree by default
+- **File Tree Context Menu**: Right-click empty area in the file tree to toggle hidden file visibility
+
+### Improvements
+- **Settings Modal Performance**: Assistant install checks are now deferred until the Assistants tab is opened, eliminating filesystem scan lag on every settings open
+- **Merge Commit Support**: Merge commits now fall back to CLI git commands when MERGE_HEAD exists, fixing issues with committing after a merge
+
+### Bug Fixes
+- **Git Data Load Race Condition**: Added request tracking to prevent stale git data from overwriting newer results during concurrent loads
+
 ## [0.2.5]
 
 ### Improvements
