@@ -1446,10 +1446,59 @@ async fn github_get_user(token: String) -> Result<GitHubUser, String> {
     Ok(GitHubUser { login, name, avatar_url })
 }
 
+/// Build an augmented PATH string that includes common tool install locations.
+/// GUI apps on macOS don't inherit the user's shell PATH, so tools like `gh`
+/// installed via Homebrew won't be found without this.
+fn get_augmented_path() -> String {
+    let current_path = std::env::var("PATH").unwrap_or_default();
+
+    #[cfg(target_os = "macos")]
+    {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/Users/Shared".to_string());
+        let extra_paths = vec![
+            format!("{}/bin", home),
+            format!("{}/.local/bin", home),
+            format!("{}/.cargo/bin", home),
+            "/opt/homebrew/bin".to_string(),
+            "/opt/homebrew/sbin".to_string(),
+            "/usr/local/bin".to_string(),
+            "/usr/local/sbin".to_string(),
+        ];
+        return format!("{}:{}", extra_paths.join(":"), current_path);
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/home".to_string());
+        let extra_paths = vec![
+            format!("{}/bin", home),
+            format!("{}/.local/bin", home),
+            format!("{}/.cargo/bin", home),
+            "/usr/local/bin".to_string(),
+        ];
+        return format!("{}:{}", extra_paths.join(":"), current_path);
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\Users".to_string());
+        let extra_paths = vec![
+            format!("{}\\.cargo\\bin", home),
+            format!("{}\\AppData\\Local\\Programs", home),
+            format!("{}\\AppData\\Roaming\\npm", home),
+        ];
+        return format!("{};{}", extra_paths.join(";"), current_path);
+    }
+
+    #[allow(unreachable_code)]
+    current_path
+}
+
 #[tauri::command]
 fn github_get_cli_token() -> Result<String, String> {
     let output = std::process::Command::new("gh")
         .args(["auth", "token"])
+        .env("PATH", get_augmented_path())
         .output()
         .map_err(|e| format!("Failed to run gh CLI: {}", e))?;
 
@@ -1519,6 +1568,17 @@ async fn github_get_pr_checks(
     Ok(raw.into_iter().map(|(name, status, conclusion, html_url)| {
         CheckRun { name, status, conclusion, html_url }
     }).collect())
+}
+
+#[tauri::command]
+async fn github_merge_pull_request(
+    token: String,
+    owner: String,
+    repo: String,
+    pull_number: u64,
+    merge_method: String,
+) -> Result<String, String> {
+    GitHubClient::merge_pull_request(&token, &owner, &repo, pull_number, &merge_method).await
 }
 
 #[tauri::command]
@@ -4072,6 +4132,7 @@ pub fn run() {
             github_list_pull_requests,
             github_create_pull_request,
             github_get_pr_checks,
+            github_merge_pull_request,
             github_parse_remote_url,
             // Project
             add_project,

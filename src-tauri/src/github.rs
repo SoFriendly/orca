@@ -183,6 +183,38 @@ impl GitHubClient {
         )).collect())
     }
 
+    pub async fn merge_pull_request(
+        token: &str,
+        owner: &str,
+        repo: &str,
+        pull_number: u64,
+        merge_method: &str,
+    ) -> Result<String, String> {
+        let client = reqwest::Client::new();
+        let url = format!(
+            "https://api.github.com/repos/{}/{}/pulls/{}/merge",
+            owner, repo, pull_number
+        );
+
+        let body = serde_json::json!({ "merge_method": merge_method });
+
+        let resp = client
+            .put(&url)
+            .headers(Self::headers(token))
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| format!("Request failed: {}", e))?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(format!("GitHub API error ({}): {}", status, body));
+        }
+
+        Ok("merged".to_string())
+    }
+
     pub fn parse_remote_url(remote_url: &str) -> Result<(String, String), String> {
         // Handle SSH: git@github.com:owner/repo.git
         if remote_url.starts_with("git@github.com:") {

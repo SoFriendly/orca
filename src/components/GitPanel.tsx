@@ -511,6 +511,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
   const [pullRequests, setPullRequests] = useState<PullRequest[]>([]);
   const [pullRequestsExpanded, setPullRequestsExpanded] = useState(false);
   const [showCreatePrDialog, setShowCreatePrDialog] = useState(false);
+  const [mergingPrNumber, setMergingPrNumber] = useState<number | null>(null);
   const [prTitle, setPrTitle] = useState("");
   const [prBody, setPrBody] = useState("");
   const [prBase, setPrBase] = useState("main");
@@ -1689,6 +1690,30 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
       setPullRequests(prs);
     } catch {
       // Silently fail - GitHub integration is optional
+    }
+  };
+
+  const handleMergePr = async (prNumber: number, prTitle: string) => {
+    const token = await resolveGithubToken(true);
+    if (!token) return;
+    setMergingPrNumber(prNumber);
+    try {
+      const remoteUrl = await invoke<string>("get_remote_url", { repoPath: gitRepoPath, remote: "origin" });
+      const [owner, repo] = await invoke<[string, string]>("github_parse_remote_url", { remoteUrl });
+      await invoke<string>("github_merge_pull_request", {
+        token,
+        owner,
+        repo,
+        pullNumber: prNumber,
+        mergeMethod: "merge",
+      });
+      toast.success(`Merged #${prNumber}: ${prTitle}`);
+      refreshPullRequests();
+      onRefresh();
+    } catch (error) {
+      toast.error(`Failed to merge PR: ${error}`);
+    } finally {
+      setMergingPrNumber(null);
     }
   };
 
@@ -3036,7 +3061,11 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                           <ContextMenu key={pr.number}>
                             <ContextMenuTrigger asChild>
                               <div className="group flex items-start gap-2 rounded-lg px-2.5 py-1.5 hover:bg-muted/50 -mx-2 cursor-pointer">
-                                <Github className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
+                                {mergingPrNumber === pr.number ? (
+                                  <Loader2 className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5 animate-spin" />
+                                ) : (
+                                  <Github className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
+                                )}
                                 <div className="flex-1 min-w-0">
                                   <div className="text-xs break-words">
                                     <span className="text-muted-foreground">#{pr.number}</span> {pr.title}
@@ -3050,11 +3079,16 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                             <ContextMenuContent>
                               <ContextMenuItem onClick={() => handleCheckoutPrBranch(pr.headRef)}>
                                 <GitBranch className="mr-2 h-4 w-4" />
-                                Checkout branch
+                                Checkout Branch
                               </ContextMenuItem>
+                              <ContextMenuItem onClick={() => handleMergePr(pr.number, pr.title)}>
+                                <GitMerge className="mr-2 h-4 w-4" />
+                                Merge PR
+                              </ContextMenuItem>
+                              <ContextMenuSeparator />
                               <ContextMenuItem onClick={() => openUrl(pr.url)}>
                                 <ExternalLink className="mr-2 h-4 w-4" />
-                                Open in browser
+                                Open in Browser
                               </ContextMenuItem>
                             </ContextMenuContent>
                           </ContextMenu>

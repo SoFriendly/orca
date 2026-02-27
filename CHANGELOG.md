@@ -2,6 +2,14 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.2.7]
+
+### New Features
+- **Merge Pull Requests**: Right-click any PR in the Pull Requests section to merge it directly from Orca. Shows a loading spinner on the PR row while the merge is in progress.
+
+### Bug Fixes
+- **Pull Requests Not Loading**: Fixed GitHub CLI token resolution failing in the Tauri GUI app because `gh` wasn't on the default macOS GUI process PATH. Added augmented PATH lookup that includes Homebrew, cargo, and other common install locations.
+
 ## [0.2.6]
 
 ### New Features
