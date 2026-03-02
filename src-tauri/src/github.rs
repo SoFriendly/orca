@@ -1,6 +1,8 @@
 use reqwest::header::{HeaderMap, ACCEPT, AUTHORIZATION, USER_AGENT};
 use serde::{Deserialize, Serialize};
 
+use crate::http_client;
+
 pub struct GitHubClient;
 
 #[derive(Debug, Deserialize)]
@@ -68,7 +70,7 @@ impl GitHubClient {
     }
 
     pub async fn get_user(token: &str) -> Result<(String, Option<String>, Option<String>), String> {
-        let client = reqwest::Client::new();
+        let client = http_client();
         let resp = client
             .get("https://api.github.com/user")
             .headers(Self::headers(token))
@@ -90,7 +92,7 @@ impl GitHubClient {
         repo: &str,
         state: &str,
     ) -> Result<Vec<(u64, String, Option<String>, String, String, String, String, String, String, String, bool)>, String> {
-        let client = reqwest::Client::new();
+        let client = http_client();
         let url = format!("https://api.github.com/repos/{}/{}/pulls?state={}&per_page=30", owner, repo, state);
         let resp = client
             .get(&url)
@@ -128,7 +130,7 @@ impl GitHubClient {
         head: &str,
         base: &str,
     ) -> Result<(u64, String), String> {
-        let client = reqwest::Client::new();
+        let client = http_client();
         let url = format!("https://api.github.com/repos/{}/{}/pulls", owner, repo);
         let pr_body = CreatePrBody {
             title: title.to_string(),
@@ -161,7 +163,7 @@ impl GitHubClient {
         repo: &str,
         git_ref: &str,
     ) -> Result<Vec<(String, String, Option<String>, Option<String>)>, String> {
-        let client = reqwest::Client::new();
+        let client = http_client();
         let url = format!("https://api.github.com/repos/{}/{}/commits/{}/check-runs", owner, repo, git_ref);
         let resp = client
             .get(&url)
@@ -190,7 +192,7 @@ impl GitHubClient {
         pull_number: u64,
         merge_method: &str,
     ) -> Result<String, String> {
-        let client = reqwest::Client::new();
+        let client = http_client();
         let url = format!(
             "https://api.github.com/repos/{}/{}/pulls/{}/merge",
             owner, repo, pull_number

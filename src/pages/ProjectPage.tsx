@@ -1942,8 +1942,16 @@ export default function ProjectPage() {
     });
 
     // Listen for file change events
-    const unlisten = listen<string>("git-files-changed", (event) => {
+    const unlistenGit = listen<string>("git-files-changed", (event) => {
       // Only refresh if this event is for our repo
+      if (event.payload === repoPath) {
+        loadGitData(repoPath);
+      }
+    });
+
+    // Also refresh git status when working tree files change (detected by the
+    // project file watcher), so unstaged changes update live.
+    const unlistenFs = listen<string>("fs-files-changed", (event) => {
       if (event.payload === repoPath) {
         loadGitData(repoPath);
       }
@@ -1952,7 +1960,8 @@ export default function ProjectPage() {
     return () => {
       // Stop watching when component unmounts or project changes
       invoke("unwatch_repo", { repoPath }).catch(() => {});
-      unlisten.then((fn) => fn());
+      unlistenGit.then((fn) => fn());
+      unlistenFs.then((fn) => fn());
     };
   }, [currentProject?.path]);
 
@@ -1961,17 +1970,20 @@ export default function ProjectPage() {
     if (!markdownFile || !showMarkdownPanel || markdownEditMode) return;
 
     const filePath = markdownFile.path;
-    const unlisten = listen<string>("git-files-changed", async () => {
+    const refreshMarkdown = async () => {
       try {
         const content = await invoke<string>("read_text_file", { path: filePath });
         setMarkdownFile((prev) => prev && prev.path === filePath ? { ...prev, content } : prev);
       } catch {
         // File may have been deleted; ignore
       }
-    });
+    };
+    const unlistenGit = listen<string>("git-files-changed", refreshMarkdown);
+    const unlistenFs = listen<string>("fs-files-changed", refreshMarkdown);
 
     return () => {
-      unlisten.then((fn) => fn());
+      unlistenGit.then((fn) => fn());
+      unlistenFs.then((fn) => fn());
     };
   }, [markdownFile?.path, showMarkdownPanel, markdownEditMode]);
 

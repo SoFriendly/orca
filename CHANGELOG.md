@@ -2,6 +2,13 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.2.8]
+
+### Bug Fixes
+- **App Hangs on Poor Network**: All HTTP requests (GitHub API, AI commit messages, Smart Shell) now have a 30-second request timeout and 10-second connect timeout. Previously, requests with no network would block indefinitely, freezing the UI.
+- **Linux Crashes on Folder Open**: Removed duplicate recursive file watcher that was watching the entire working directory from both `watch_repo` and `watch_project_files`, doubling inotify usage and exhausting the default 8192 watch limit on Linux.
+- **Graceful Watcher Failures**: File and git watchers now log a warning and continue if the OS watcher fails (e.g., inotify limit exhausted) instead of propagating the error and crashing the app.
+
 ## [0.2.7]
 
 ### New Features

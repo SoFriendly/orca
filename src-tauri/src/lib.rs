@@ -28,6 +28,15 @@ use git::GitService;
 use github::GitHubClient;
 use portal::Portal;
 
+/// Build an HTTP client with sensible timeouts to prevent hangs on poor networks.
+pub(crate) fn http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .connect_timeout(Duration::from_secs(10))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new())
+}
+
 // Types for IPC
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectFolder {
@@ -1623,7 +1632,6 @@ fn watch_repo(
     state: tauri::State<Arc<AppState>>,
 ) -> Result<(), String> {
     use notify::RecursiveMode;
-    use std::path::Path;
     use std::sync::mpsc;
 
     // Check if already watching this repo
@@ -1689,14 +1697,12 @@ fn watch_repo(
     ).map_err(|e| e.to_string())?;
 
     // Watch the .git directory (especially index file which changes on most operations)
-    debouncer.watcher().watch(&git_dir, RecursiveMode::Recursive)
-        .map_err(|e| e.to_string())?;
-
-    // Also watch the working directory recursively for file changes
-    // This catches new files, deletions, and modifications before they're staged
-    let work_dir = Path::new(&repo_path);
-    debouncer.watcher().watch(work_dir, RecursiveMode::Recursive)
-        .map_err(|e| e.to_string())?;
+    // Note: working directory watching is handled by watch_project_files to avoid
+    // duplicate recursive watchers that exhaust inotify limits on Linux.
+    if let Err(e) = debouncer.watcher().watch(&git_dir, RecursiveMode::Recursive) {
+        println!("Warning: failed to watch git directory {:?}: {}. Git status updates may not be live.", git_dir, e);
+        return Ok(());
+    }
 
     // Store the watcher
     let git_watcher = GitWatcher {
@@ -1850,8 +1856,10 @@ fn watch_project_files(
     ).map_err(|e| e.to_string())?;
 
     // Watch the project directory recursively
-    debouncer.watcher().watch(project_dir, RecursiveMode::Recursive)
-        .map_err(|e| e.to_string())?;
+    if let Err(e) = debouncer.watcher().watch(project_dir, RecursiveMode::Recursive) {
+        println!("Warning: failed to watch project directory {:?}: {}. File change detection may not work.", project_dir, e);
+        return Ok(());
+    }
 
     // Store the watcher
     let file_watcher = FileWatcher {
@@ -3190,7 +3198,7 @@ Keep the description brief or empty if the subject is self-explanatory."#,
         changes_summary
     );
 
-    let client = reqwest::Client::new();
+    let client = http_client();
 
     let content = if config.is_claude {
         claude_simple_request(
@@ -3742,7 +3750,7 @@ async fn ai_shell_command(
     let system_prompt = build_nlt_system_prompt(shell_name, &folder_info, &config_info);
     let user_msg = format!("User request: {}", request);
 
-    let client = reqwest::Client::new();
+    let client = http_client();
     let max_iterations = 8;
     let started = std::time::Instant::now();
     let timeout = Duration::from_secs(30);
