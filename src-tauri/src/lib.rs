@@ -642,14 +642,37 @@ fn spawn_terminal(
     #[cfg(target_os = "linux")]
     {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/home".to_string());
-        let extra_paths = vec![
+        let mut extra_paths = vec![
             format!("{}/bin", home),
             format!("{}/.local/bin", home),
             format!("{}/.cargo/bin", home),
             format!("{}/.pyenv/bin", home),
             format!("{}/.pyenv/shims", home),
+            format!("{}/.nvm/versions/node/default/bin", home),
+            "/snap/bin".to_string(),
             "/usr/local/bin".to_string(),
         ];
+
+        // Add NVM_DIR and PYENV_ROOT bin paths if set
+        if let Ok(nvm_dir) = std::env::var("NVM_DIR") {
+            cmd.env("NVM_DIR", &nvm_dir);
+            let nvm_default = format!("{}/versions/node/default/bin", nvm_dir);
+            if !extra_paths.contains(&nvm_default) {
+                extra_paths.push(nvm_default);
+            }
+        }
+        if let Ok(pyenv_root) = std::env::var("PYENV_ROOT") {
+            cmd.env("PYENV_ROOT", &pyenv_root);
+            let pyenv_bin = format!("{}/bin", pyenv_root);
+            let pyenv_shims = format!("{}/shims", pyenv_root);
+            if !extra_paths.contains(&pyenv_bin) {
+                extra_paths.push(pyenv_bin);
+            }
+            if !extra_paths.contains(&pyenv_shims) {
+                extra_paths.push(pyenv_shims);
+            }
+        }
+
         let new_path = format!("{}:{}", extra_paths.join(":"), current_path);
         cmd.env("PATH", new_path);
     }
@@ -925,18 +948,24 @@ fn is_git_repo(path: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
-fn get_status(repo_path: String) -> Result<GitStatus, String> {
-    GitService::get_status(&repo_path)
+async fn get_status(repo_path: String) -> Result<GitStatus, String> {
+    tokio::task::spawn_blocking(move || GitService::get_status(&repo_path))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
 }
 
 #[tauri::command]
-fn get_diff(repo_path: String) -> Result<Vec<FileDiff>, String> {
-    GitService::get_diff(&repo_path)
+async fn get_diff(repo_path: String) -> Result<Vec<FileDiff>, String> {
+    tokio::task::spawn_blocking(move || GitService::get_diff(&repo_path))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
 }
 
 #[tauri::command]
-fn commit(repo_path: String, message: String, files: Option<Vec<String>>) -> Result<(), String> {
-    GitService::commit(&repo_path, &message, files)
+async fn commit(repo_path: String, message: String, files: Option<Vec<String>>) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || GitService::commit(&repo_path, &message, files))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
 }
 
 #[tauri::command]
@@ -945,8 +974,10 @@ fn get_branches(repo_path: String) -> Result<Vec<Branch>, String> {
 }
 
 #[tauri::command]
-fn checkout_branch(repo_path: String, branch: String) -> Result<(), String> {
-    GitService::checkout_branch(&repo_path, &branch)
+async fn checkout_branch(repo_path: String, branch: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || GitService::checkout_branch(&repo_path, &branch))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
 }
 
 #[tauri::command]
@@ -955,13 +986,17 @@ fn create_branch(repo_path: String, name: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn get_history(repo_path: String, limit: u32) -> Result<Vec<Commit>, String> {
-    GitService::get_history(&repo_path, limit)
+async fn get_history(repo_path: String, limit: u32) -> Result<Vec<Commit>, String> {
+    tokio::task::spawn_blocking(move || GitService::get_history(&repo_path, limit))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
 }
 
 #[tauri::command]
-fn get_commit_diff(repo_path: String, commit_id: String) -> Result<Vec<FileDiff>, String> {
-    GitService::get_commit_diff(&repo_path, &commit_id)
+async fn get_commit_diff(repo_path: String, commit_id: String) -> Result<Vec<FileDiff>, String> {
+    tokio::task::spawn_blocking(move || GitService::get_commit_diff(&repo_path, &commit_id))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
 }
 
 #[tauri::command]
@@ -1008,76 +1043,85 @@ fn revert_commit(repo_path: String, commit_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn get_file_tree(path: String, show_hidden: bool) -> Result<Vec<FileTreeNode>, String> {
-    use std::fs;
-    use std::path::Path;
+async fn get_file_tree(path: String, show_hidden: bool) -> Result<Vec<FileTreeNode>, String> {
+    tokio::task::spawn_blocking(move || {
+        use std::fs;
+        use std::path::Path;
 
-    fn build_tree(dir_path: &Path, base_path: &Path, depth: usize, show_hidden: bool) -> Result<Vec<FileTreeNode>, String> {
-        if depth > 10 {
-            return Ok(vec![]); // Limit depth to prevent infinite recursion
-        }
+        const FILE_COUNT_CAP: usize = 50_000;
 
-        let mut nodes = Vec::new();
-        let entries = fs::read_dir(dir_path).map_err(|e| e.to_string())?;
-
-        for entry in entries {
-            let entry = entry.map_err(|e| e.to_string())?;
-            let path = entry.path();
-            let name = entry.file_name().to_string_lossy().to_string();
-
-            // Skip hidden files/dirs unless show_hidden is true
-            if !show_hidden && name.starts_with('.') {
-                continue;
+        fn build_tree(dir_path: &Path, base_path: &Path, depth: usize, show_hidden: bool, count: &mut usize) -> Result<Vec<FileTreeNode>, String> {
+            if depth > 10 || *count >= FILE_COUNT_CAP {
+                return Ok(vec![]);
             }
 
-            // Always skip common ignore patterns
-            if name == "node_modules" || name == "target" || name == "__pycache__" || name == "dist" || name == "build" {
-                continue;
+            let mut nodes = Vec::new();
+            let entries = fs::read_dir(dir_path).map_err(|e| e.to_string())?;
+
+            for entry in entries {
+                if *count >= FILE_COUNT_CAP {
+                    break;
+                }
+
+                let entry = entry.map_err(|e| e.to_string())?;
+                let path = entry.path();
+                let name = entry.file_name().to_string_lossy().to_string();
+
+                if !show_hidden && name.starts_with('.') {
+                    continue;
+                }
+
+                if name == "node_modules" || name == "target" || name == "__pycache__" || name == "dist" || name == "build" {
+                    continue;
+                }
+
+                *count += 1;
+
+                let relative_path = path.strip_prefix(base_path)
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|_| name.clone());
+
+                let is_dir = path.is_dir();
+                let modified = fs::metadata(&path)
+                    .and_then(|m| m.modified())
+                    .ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_secs_f64());
+                let children = if is_dir {
+                    Some(build_tree(&path, base_path, depth + 1, show_hidden, count)?)
+                } else {
+                    None
+                };
+
+                nodes.push(FileTreeNode {
+                    name,
+                    path: relative_path,
+                    is_dir,
+                    children,
+                    modified,
+                });
             }
 
-            let relative_path = path.strip_prefix(base_path)
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_else(|_| name.clone());
-
-            let is_dir = path.is_dir();
-            let modified = fs::metadata(&path)
-                .and_then(|m| m.modified())
-                .ok()
-                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                .map(|d| d.as_secs_f64());
-            let children = if is_dir {
-                Some(build_tree(&path, base_path, depth + 1, show_hidden)?)
-            } else {
-                None
-            };
-
-            nodes.push(FileTreeNode {
-                name,
-                path: relative_path,
-                is_dir,
-                children,
-                modified,
+            nodes.sort_by(|a, b| {
+                match (a.is_dir, b.is_dir) {
+                    (true, false) => std::cmp::Ordering::Less,
+                    (false, true) => std::cmp::Ordering::Greater,
+                    _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+                }
             });
+
+            Ok(nodes)
         }
 
-        // Sort: directories first, then alphabetically
-        nodes.sort_by(|a, b| {
-            match (a.is_dir, b.is_dir) {
-                (true, false) => std::cmp::Ordering::Less,
-                (false, true) => std::cmp::Ordering::Greater,
-                _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-            }
-        });
-
-        Ok(nodes)
-    }
-
-    let path = Path::new(&path);
-    build_tree(path, path, 0, show_hidden)
+        let mut count = 0usize;
+        let path = Path::new(&path);
+        build_tree(path, path, 0, show_hidden, &mut count)
+    })
+    .await
+    .map_err(|e| format!("Task failed: {}", e))?
 }
 
-#[tauri::command]
-fn search_file_contents(path: String, query: String, show_hidden: bool, max_results: Option<usize>) -> Result<ContentSearchResult, String> {
+fn search_file_contents_sync(path: String, query: String, show_hidden: bool, max_results: Option<usize>) -> Result<ContentSearchResult, String> {
     use std::fs;
     use std::io::{BufRead, BufReader};
     use std::path::Path;
@@ -1131,12 +1175,10 @@ fn search_file_contents(path: String, query: String, show_hidden: bool, max_resu
             let path = entry.path();
             let name = entry.file_name().to_string_lossy().to_string();
 
-            // Skip hidden files/dirs unless show_hidden is true
             if !show_hidden && name.starts_with('.') {
                 continue;
             }
 
-            // Always skip common ignore patterns
             if name == "node_modules" || name == "target" || name == "__pycache__" || name == "dist" || name == "build" || name == ".git" {
                 continue;
             }
@@ -1144,20 +1186,17 @@ fn search_file_contents(path: String, query: String, show_hidden: bool, max_resu
             if path.is_dir() {
                 walk_dir(&path, base_path, query_lower, show_hidden, binary_extensions, matches, max, truncated, depth + 1);
             } else {
-                // Skip binary files by extension
                 let name_lower = name.to_lowercase();
                 if binary_extensions.iter().any(|ext| name_lower.ends_with(ext)) {
                     continue;
                 }
 
-                // Skip files > 1MB
                 if let Ok(metadata) = fs::metadata(&path) {
                     if metadata.len() > 1_048_576 {
                         continue;
                     }
                 }
 
-                // Search file contents
                 let file = match fs::File::open(&path) {
                     Ok(f) => f,
                     Err(_) => continue,
@@ -1172,7 +1211,7 @@ fn search_file_contents(path: String, query: String, show_hidden: bool, max_resu
 
                     let line = match line_result {
                         Ok(l) => l,
-                        Err(_) => break, // binary content or encoding error
+                        Err(_) => break,
                     };
 
                     if line.to_lowercase().contains(query_lower) {
@@ -1196,6 +1235,13 @@ fn search_file_contents(path: String, query: String, show_hidden: bool, max_resu
     walk_dir(base, base, &query_lower, show_hidden, &binary_extensions, &mut matches, max, &mut truncated, 0);
 
     Ok(ContentSearchResult { matches, truncated })
+}
+
+#[tauri::command]
+async fn search_file_contents(path: String, query: String, show_hidden: bool, max_results: Option<usize>) -> Result<ContentSearchResult, String> {
+    tokio::task::spawn_blocking(move || search_file_contents_sync(path, query, show_hidden, max_results))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
 }
 
 #[tauri::command]
@@ -1294,28 +1340,28 @@ fn init_repo(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn clone_repo(url: String, path: String) -> Result<String, String> {
-    GitService::clone_repo(&url, &path)
+async fn clone_repo(url: String, path: String) -> Result<String, String> {
+    GitService::clone_repo_async(&url, &path).await
 }
 
 #[tauri::command]
-fn fetch_remote(repo_path: String, remote: String) -> Result<(), String> {
-    GitService::fetch(&repo_path, &remote)
+async fn fetch_remote(repo_path: String, remote: String) -> Result<(), String> {
+    GitService::fetch_async(&repo_path, &remote).await
 }
 
 #[tauri::command]
-fn pull_remote(repo_path: String, remote: String) -> Result<(), String> {
-    GitService::pull(&repo_path, &remote)
+async fn pull_remote(repo_path: String, remote: String) -> Result<(), String> {
+    GitService::pull_async(&repo_path, &remote).await
 }
 
 #[tauri::command]
-fn push_remote(repo_path: String, remote: String) -> Result<(), String> {
-    GitService::push(&repo_path, &remote)
+async fn push_remote(repo_path: String, remote: String) -> Result<(), String> {
+    GitService::push_async(&repo_path, &remote).await
 }
 
 #[tauri::command]
-fn publish_branch(repo_path: String, remote: String) -> Result<(), String> {
-    GitService::publish_branch(&repo_path, &remote)
+async fn publish_branch(repo_path: String, remote: String) -> Result<(), String> {
+    GitService::publish_branch_async(&repo_path, &remote).await
 }
 
 // Stash commands
@@ -1431,14 +1477,16 @@ fn delete_tag(repo_path: String, name: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn push_tag(repo_path: String, tag: String, remote: String) -> Result<(), String> {
-    GitService::push_tag(&repo_path, &tag, &remote)
+async fn push_tag(repo_path: String, tag: String, remote: String) -> Result<(), String> {
+    GitService::push_tag_async(&repo_path, &tag, &remote).await
 }
 
 // Line-level staging
 #[tauri::command]
-fn stage_lines(repo_path: String, file_path: String, line_ranges: Vec<(u32, u32)>) -> Result<(), String> {
-    GitService::stage_lines(&repo_path, &file_path, line_ranges)
+async fn stage_lines(repo_path: String, file_path: String, line_ranges: Vec<(u32, u32)>) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || GitService::stage_lines(&repo_path, &file_path, line_ranges))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
 }
 
 // Image diff
@@ -1483,6 +1531,8 @@ fn get_augmented_path() -> String {
             format!("{}/bin", home),
             format!("{}/.local/bin", home),
             format!("{}/.cargo/bin", home),
+            format!("{}/.nvm/versions/node/default/bin", home),
+            "/snap/bin".to_string(),
             "/usr/local/bin".to_string(),
         ];
         return format!("{}:{}", extra_paths.join(":"), current_path);
@@ -2114,34 +2164,57 @@ fn open_in_terminal_editor(path: String, editor: String) -> Result<(), String> {
 
     #[cfg(target_os = "linux")]
     {
-        // Try common terminal emulators
-        let terminals = ["gnome-terminal", "konsole", "xfce4-terminal", "xterm"];
         let mut spawned = false;
 
-        for term in terminals {
-            let result = match term {
-                "gnome-terminal" => std::process::Command::new(term)
-                    .args(["--", &editor, &path])
-                    .spawn(),
-                "konsole" => std::process::Command::new(term)
-                    .args(["-e", &editor, &path])
-                    .spawn(),
-                "xfce4-terminal" => std::process::Command::new(term)
-                    .args(["-e", &format!("{} '{}'", editor, escaped_path)])
-                    .spawn(),
-                _ => std::process::Command::new(term)
-                    .args(["-e", &format!("{} '{}'", editor, escaped_path)])
-                    .spawn(),
-            };
-
-            if result.is_ok() {
+        // Check $TERMINAL env var first (user preference)
+        if let Ok(user_term) = std::env::var("TERMINAL") {
+            if std::process::Command::new(&user_term)
+                .args(["-e", &format!("{} '{}'", editor, escaped_path)])
+                .spawn()
+                .is_ok()
+            {
                 spawned = true;
-                break;
             }
         }
 
         if !spawned {
-            return Err("Could not find a terminal emulator".to_string());
+            // Try common terminal emulators
+            let terminals = [
+                "gnome-terminal", "konsole", "alacritty", "kitty",
+                "wezterm", "foot", "xfce4-terminal", "xterm",
+            ];
+
+            for term in terminals {
+                let result = match term {
+                    "gnome-terminal" => std::process::Command::new(term)
+                        .args(["--", &editor, &path])
+                        .spawn(),
+                    "konsole" | "alacritty" => std::process::Command::new(term)
+                        .args(["-e", &editor, &path])
+                        .spawn(),
+                    "kitty" => std::process::Command::new(term)
+                        .args(["--", &editor, &path])
+                        .spawn(),
+                    "wezterm" => std::process::Command::new(term)
+                        .args(["start", "--", &editor, &path])
+                        .spawn(),
+                    "foot" => std::process::Command::new(term)
+                        .args(["--", &editor, &path])
+                        .spawn(),
+                    _ => std::process::Command::new(term)
+                        .args(["-e", &format!("{} '{}'", editor, escaped_path)])
+                        .spawn(),
+                };
+
+                if result.is_ok() {
+                    spawned = true;
+                    break;
+                }
+            }
+        }
+
+        if !spawned {
+            return Err("Could not find a terminal emulator. Set the $TERMINAL environment variable to your preferred terminal.".to_string());
         }
     }
 
@@ -2179,61 +2252,67 @@ fn list_directories(path: String) -> Result<Vec<String>, String> {
 
 // Read shell history
 #[tauri::command]
-fn get_shell_history(limit: Option<usize>) -> Result<Vec<String>, String> {
-    let limit = limit.unwrap_or(500);
+async fn get_shell_history(limit: Option<usize>) -> Result<Vec<String>, String> {
+    tokio::task::spawn_blocking(move || {
+        let limit = limit.unwrap_or(500);
 
-    let mut history_paths: Vec<String> = Vec::new();
+        let mut history_paths: Vec<String> = Vec::new();
 
-    #[cfg(target_os = "windows")]
-    {
-        // PowerShell history file location
-        if let Ok(appdata) = std::env::var("APPDATA") {
-            history_paths.push(format!(
-                "{}\\Microsoft\\Windows\\PowerShell\\PSReadLine\\ConsoleHost_history.txt",
-                appdata
-            ));
+        #[cfg(target_os = "windows")]
+        {
+            if let Ok(appdata) = std::env::var("APPDATA") {
+                history_paths.push(format!(
+                    "{}\\Microsoft\\Windows\\PowerShell\\PSReadLine\\ConsoleHost_history.txt",
+                    appdata
+                ));
+            }
         }
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        if let Ok(home) = std::env::var("HOME") {
-            // Try zsh history first, then bash
-            history_paths.push(format!("{}/.zsh_history", home));
-            history_paths.push(format!("{}/.bash_history", home));
+        #[cfg(not(target_os = "windows"))]
+        {
+            if let Ok(home) = std::env::var("HOME") {
+                // Respect $SHELL: if user's shell is bash, try bash first
+                let shell = std::env::var("SHELL").unwrap_or_default();
+                if shell.ends_with("/zsh") {
+                    history_paths.push(format!("{}/.zsh_history", home));
+                    history_paths.push(format!("{}/.bash_history", home));
+                } else {
+                    history_paths.push(format!("{}/.bash_history", home));
+                    history_paths.push(format!("{}/.zsh_history", home));
+                }
+            }
         }
-    }
 
-    for history_path in history_paths {
-        let path = std::path::Path::new(&history_path);
-        if path.exists() {
-            let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
-            let content = String::from_utf8_lossy(&bytes);
-            let mut commands: Vec<String> = content
-                .lines()
-                .filter_map(|line| {
-                    // zsh history format: ": timestamp:0;command" or just "command"
-                    let cmd = if line.starts_with(':') {
-                        line.splitn(2, ';').nth(1).map(|s| s.to_string())
-                    } else {
-                        Some(line.to_string())
-                    };
-                    cmd.filter(|s| !s.trim().is_empty())
-                })
-                .collect();
+        for history_path in history_paths {
+            let path = std::path::Path::new(&history_path);
+            if path.exists() {
+                let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+                let content = String::from_utf8_lossy(&bytes);
+                let mut commands: Vec<String> = content
+                    .lines()
+                    .filter_map(|line| {
+                        let cmd = if line.starts_with(':') {
+                            line.splitn(2, ';').nth(1).map(|s| s.to_string())
+                        } else {
+                            Some(line.to_string())
+                        };
+                        cmd.filter(|s| !s.trim().is_empty())
+                    })
+                    .collect();
 
-            // Remove duplicates while preserving order (keep last occurrence)
-            let mut seen = std::collections::HashSet::new();
-            commands.reverse();
-            commands.retain(|cmd| seen.insert(cmd.clone()));
-            commands.reverse();
+                let mut seen = std::collections::HashSet::new();
+                commands.reverse();
+                commands.retain(|cmd| seen.insert(cmd.clone()));
+                commands.reverse();
 
-            // Return most recent commands (up to limit)
-            let start = commands.len().saturating_sub(limit);
-            return Ok(commands[start..].to_vec());
+                let start = commands.len().saturating_sub(limit);
+                return Ok(commands[start..].to_vec());
+            }
         }
-    }
 
-    Ok(Vec::new())
+        Ok(Vec::new())
+    })
+    .await
+    .map_err(|e| format!("Task failed: {}", e))?
 }
 
 // Per-project shell history entry
@@ -2251,48 +2330,47 @@ fn get_orca_history_path() -> Option<PathBuf> {
 
 // Record a command to project-specific history
 #[tauri::command]
-fn record_project_command(command: String, project_path: String) -> Result<(), String> {
-    let command = command.trim().to_string();
-    if command.is_empty() {
-        return Ok(());
-    }
+async fn record_project_command(command: String, project_path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let command = command.trim().to_string();
+        if command.is_empty() {
+            return Ok(());
+        }
 
-    let history_path = get_orca_history_path().ok_or("Could not determine history path")?;
+        let history_path = get_orca_history_path().ok_or("Could not determine history path")?;
 
-    // Ensure directory exists
-    if let Some(parent) = history_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
+        if let Some(parent) = history_path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
 
-    // Load existing history
-    let mut entries: Vec<ShellHistoryEntry> = if history_path.exists() {
-        let content = std::fs::read_to_string(&history_path).unwrap_or_default();
-        serde_json::from_str(&content).unwrap_or_default()
-    } else {
-        Vec::new()
-    };
+        let mut entries: Vec<ShellHistoryEntry> = if history_path.exists() {
+            let content = std::fs::read_to_string(&history_path).unwrap_or_default();
+            serde_json::from_str(&content).unwrap_or_default()
+        } else {
+            Vec::new()
+        };
 
-    // Add new entry
-    let entry = ShellHistoryEntry {
-        command: command.clone(),
-        project_path: project_path.clone(),
-        timestamp: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(0),
-    };
-    entries.push(entry);
+        let entry = ShellHistoryEntry {
+            command: command.clone(),
+            project_path: project_path.clone(),
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0),
+        };
+        entries.push(entry);
 
-    // Keep only last 5000 entries total to prevent unbounded growth
-    if entries.len() > 5000 {
-        entries = entries.split_off(entries.len() - 5000);
-    }
+        if entries.len() > 5000 {
+            entries = entries.split_off(entries.len() - 5000);
+        }
 
-    // Save back
-    let content = serde_json::to_string(&entries).map_err(|e| e.to_string())?;
-    std::fs::write(&history_path, content).map_err(|e| e.to_string())?;
+        let content = serde_json::to_string(&entries).map_err(|e| e.to_string())?;
+        std::fs::write(&history_path, content).map_err(|e| e.to_string())?;
 
-    Ok(())
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("Task failed: {}", e))?
 }
 
 // Get project-specific shell history
@@ -2382,6 +2460,51 @@ fn find_command_path(cmd: &str) -> Option<std::path::PathBuf> {
         }
     }
 
+    #[cfg(target_os = "linux")]
+    {
+        use std::path::Path;
+
+        if let Some(home) = std::env::var_os("HOME") {
+            let home = Path::new(&home);
+
+            let linux_paths = [
+                home.join(".local/bin").join(cmd),
+                home.join(".cargo/bin").join(cmd),
+                home.join(".npm-global/bin").join(cmd),
+            ];
+
+            for path in &linux_paths {
+                if path.exists() {
+                    return Some(path.clone());
+                }
+            }
+
+            // Check nvm versions directory for any installed node version
+            let nvm_versions = home.join(".nvm/versions/node");
+            if nvm_versions.exists() {
+                if let Ok(entries) = std::fs::read_dir(&nvm_versions) {
+                    for entry in entries.flatten() {
+                        let bin_path = entry.path().join("bin").join(cmd);
+                        if bin_path.exists() {
+                            return Some(bin_path);
+                        }
+                    }
+                }
+            }
+        }
+
+        let linux_system_paths = [
+            std::path::Path::new("/snap/bin").join(cmd),
+            std::path::Path::new("/usr/local/bin").join(cmd),
+        ];
+
+        for path in &linux_system_paths {
+            if path.exists() {
+                return Some(path.clone());
+            }
+        }
+    }
+
     None
 }
 
@@ -2429,154 +2552,182 @@ fn check_installed_assistants() -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
-fn check_commands_installed(commands: Vec<String>) -> Result<Vec<String>, String> {
-    // First try the fast in-process check
-    let mut installed: Vec<String> = commands.iter()
-        .filter(|cmd| command_exists(cmd))
-        .cloned()
-        .collect();
+async fn check_commands_installed(commands: Vec<String>) -> Result<Vec<String>, String> {
+    tokio::task::spawn_blocking(move || {
+        // First try the fast in-process check
+        let mut installed: Vec<String> = commands.iter()
+            .filter(|cmd| command_exists(cmd))
+            .cloned()
+            .collect();
 
-    // For any commands not found, scan the augmented PATH directories directly
-    // (same paths that spawn_terminal provides to child processes)
-    let not_found: Vec<&String> = commands.iter()
-        .filter(|cmd| !installed.contains(cmd))
-        .collect();
+        // For any commands not found, scan the augmented PATH directories directly
+        let not_found: Vec<&String> = commands.iter()
+            .filter(|cmd| !installed.contains(cmd))
+            .collect();
 
-    if !not_found.is_empty() {
-        let current_path = std::env::var("PATH").unwrap_or_default();
-        let mut search_dirs: Vec<String> = Vec::new();
+        if !not_found.is_empty() {
+            let current_path = std::env::var("PATH").unwrap_or_default();
+            let mut search_dirs: Vec<String> = Vec::new();
 
-        #[cfg(not(target_os = "windows"))]
-        {
-            let home = std::env::var("HOME").unwrap_or_else(|_| {
+            #[cfg(not(target_os = "windows"))]
+            {
+                let home = std::env::var("HOME").unwrap_or_else(|_| {
+                    #[cfg(target_os = "macos")]
+                    { "/Users".to_string() }
+                    #[cfg(not(target_os = "macos"))]
+                    { "/home".to_string() }
+                });
+
+                search_dirs.extend(vec![
+                    format!("{}/bin", home),
+                    format!("{}/.local/bin", home),
+                    format!("{}/.cargo/bin", home),
+                    format!("{}/.pyenv/bin", home),
+                    format!("{}/.pyenv/shims", home),
+                    format!("{}/.nvm/versions/node/default/bin", home),
+                    "/usr/local/bin".to_string(),
+                    "/usr/local/sbin".to_string(),
+                ]);
+
                 #[cfg(target_os = "macos")]
-                { "/Users".to_string() }
-                #[cfg(not(target_os = "macos"))]
-                { "/home".to_string() }
-            });
+                {
+                    search_dirs.push("/opt/homebrew/bin".to_string());
+                    search_dirs.push("/opt/homebrew/sbin".to_string());
+                }
 
-            // Build the same augmented PATH that spawn_terminal uses
-            search_dirs.extend(vec![
-                format!("{}/bin", home),
-                format!("{}/.local/bin", home),
-                format!("{}/.cargo/bin", home),
-                format!("{}/.pyenv/bin", home),
-                format!("{}/.pyenv/shims", home),
-                format!("{}/.nvm/versions/node/default/bin", home),
-                "/opt/homebrew/bin".to_string(),
-                "/opt/homebrew/sbin".to_string(),
-                "/usr/local/bin".to_string(),
-                "/usr/local/sbin".to_string(),
-            ]);
+                #[cfg(target_os = "linux")]
+                {
+                    search_dirs.push("/snap/bin".to_string());
+                    search_dirs.push(format!("{}/.npm-global/bin", home));
+                    if let Ok(nix_profile) = std::env::var("NIX_PROFILE") {
+                        search_dirs.push(format!("{}/bin", nix_profile));
+                    }
+                    search_dirs.push(format!("{}/.nix-profile/bin", home));
+                    // Flatpak export paths
+                    search_dirs.push("/var/lib/flatpak/exports/bin".to_string());
+                    search_dirs.push(format!("{}/.local/share/flatpak/exports/bin", home));
+                }
 
-            // Also scan all nvm node version bin dirs
-            let nvm_versions = format!("{}/.nvm/versions/node", home);
-            if let Ok(entries) = std::fs::read_dir(&nvm_versions) {
-                for entry in entries.flatten() {
-                    let bin_dir = entry.path().join("bin");
-                    if bin_dir.exists() {
-                        search_dirs.push(bin_dir.to_string_lossy().to_string());
+                // Also scan all nvm node version bin dirs
+                let nvm_versions = format!("{}/.nvm/versions/node", home);
+                if let Ok(entries) = std::fs::read_dir(&nvm_versions) {
+                    for entry in entries.flatten() {
+                        let bin_dir = entry.path().join("bin");
+                        if bin_dir.exists() {
+                            search_dirs.push(bin_dir.to_string_lossy().to_string());
+                        }
                     }
                 }
             }
-        }
 
-        #[cfg(target_os = "windows")]
-        {
-            let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\Users".to_string());
-            search_dirs.extend(vec![
-                format!("{}\\.cargo\\bin", home),
-                format!("{}\\AppData\\Local\\Programs", home),
-                format!("{}\\AppData\\Local\\Microsoft\\WindowsApps", home),
-                format!("{}\\AppData\\Roaming\\npm", home),
-                format!("{}\\.local\\bin", home),
-            ]);
-        }
-
-        // Add existing PATH entries (use platform-appropriate separator)
-        #[cfg(target_os = "windows")]
-        let path_separator = ';';
-        #[cfg(not(target_os = "windows"))]
-        let path_separator = ':';
-
-        for dir in current_path.split(path_separator) {
-            if !dir.is_empty() && !search_dirs.contains(&dir.to_string()) {
-                search_dirs.push(dir.to_string());
+            #[cfg(target_os = "windows")]
+            {
+                let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\Users".to_string());
+                search_dirs.extend(vec![
+                    format!("{}\\.cargo\\bin", home),
+                    format!("{}\\AppData\\Local\\Programs", home),
+                    format!("{}\\AppData\\Local\\Microsoft\\WindowsApps", home),
+                    format!("{}\\AppData\\Roaming\\npm", home),
+                    format!("{}\\.local\\bin", home),
+                ]);
             }
-        }
 
-        for cmd in &not_found {
-            let mut found = false;
-            for dir in &search_dirs {
-                // On Windows, also check common executable extensions
-                #[cfg(target_os = "windows")]
-                {
-                    let extensions = ["", ".exe", ".cmd", ".bat", ".ps1"];
-                    for ext in &extensions {
-                        let candidate = std::path::Path::new(dir).join(format!("{}{}", cmd, ext));
+            #[cfg(target_os = "windows")]
+            let path_separator = ';';
+            #[cfg(not(target_os = "windows"))]
+            let path_separator = ':';
+
+            for dir in current_path.split(path_separator) {
+                if !dir.is_empty() && !search_dirs.contains(&dir.to_string()) {
+                    search_dirs.push(dir.to_string());
+                }
+            }
+
+            for cmd in &not_found {
+                let mut found = false;
+                for dir in &search_dirs {
+                    #[cfg(target_os = "windows")]
+                    {
+                        let extensions = ["", ".exe", ".cmd", ".bat", ".ps1"];
+                        for ext in &extensions {
+                            let candidate = std::path::Path::new(dir).join(format!("{}{}", cmd, ext));
+                            if candidate.exists() {
+                                installed.push((*cmd).clone());
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                    #[cfg(not(target_os = "windows"))]
+                    {
+                        let candidate = std::path::Path::new(dir).join(cmd.as_str());
                         if candidate.exists() {
                             installed.push((*cmd).clone());
                             found = true;
-                            break;
+                        }
+                    }
+                    if found { break; }
+                }
+            }
+
+            // Last resort: try shell for anything still missing
+            let still_not_found: Vec<&&String> = not_found.iter()
+                .filter(|cmd| !installed.contains(cmd))
+                .collect();
+
+            if !still_not_found.is_empty() {
+                #[cfg(target_os = "windows")]
+                {
+                    for cmd in &still_not_found {
+                        let output = std::process::Command::new("cmd.exe")
+                            .args(["/C", &format!("where {}", cmd)])
+                            .stdin(std::process::Stdio::null())
+                            .output();
+                        if let Ok(output) = output {
+                            if output.status.success() {
+                                installed.push((**cmd).clone());
+                            }
                         }
                     }
                 }
                 #[cfg(not(target_os = "windows"))]
                 {
-                    let candidate = std::path::Path::new(dir).join(cmd.as_str());
-                    if candidate.exists() {
-                        installed.push((*cmd).clone());
-                        found = true;
-                    }
-                }
-                if found { break; }
-            }
-        }
-
-        // Last resort: try shell for anything still missing
-        let still_not_found: Vec<&&String> = not_found.iter()
-            .filter(|cmd| !installed.contains(cmd))
-            .collect();
-
-        if !still_not_found.is_empty() {
-            #[cfg(target_os = "windows")]
-            {
-                // On Windows, use 'where' command to find executables
-                for cmd in &still_not_found {
-                    let output = std::process::Command::new("cmd.exe")
-                        .args(["/C", &format!("where {}", cmd)])
-                        .output();
-                    if let Ok(output) = output {
-                        if output.status.success() {
-                            installed.push((**cmd).clone());
-                        }
-                    }
-                }
-            }
-            #[cfg(not(target_os = "windows"))]
-            {
-                // On Unix, try an interactive login shell
-                let shell_path = std::env::var("SHELL").unwrap_or_else(|_| {
-                    #[cfg(target_os = "macos")]
-                    { "/bin/zsh".to_string() }
-                    #[cfg(not(target_os = "macos"))]
-                    { "/bin/bash".to_string() }
-                });
-                for cmd in &still_not_found {
-                    let output = std::process::Command::new(&shell_path)
-                        .args(["-i", "-l", "-c", &format!("command -v {}", cmd)])
-                        .output();
-                    if let Ok(output) = output {
-                        if output.status.success() {
-                            installed.push((**cmd).clone());
+                    // Use a login shell (no -i to avoid sourcing .bashrc which can hang)
+                    let shell_path = std::env::var("SHELL").unwrap_or_else(|_| {
+                        #[cfg(target_os = "macos")]
+                        { "/bin/zsh".to_string() }
+                        #[cfg(not(target_os = "macos"))]
+                        { "/bin/bash".to_string() }
+                    });
+                    for cmd in &still_not_found {
+                        use std::time::Instant;
+                        let start = Instant::now();
+                        let child = std::process::Command::new(&shell_path)
+                            .args(["-l", "-c", &format!("command -v {}", cmd)])
+                            .stdin(std::process::Stdio::null())
+                            .stdout(std::process::Stdio::piped())
+                            .stderr(std::process::Stdio::null())
+                            .spawn();
+                        if let Ok(child) = child {
+                            // 5 second timeout per command
+                            let output = child.wait_with_output();
+                            if start.elapsed() < Duration::from_secs(5) {
+                                if let Ok(output) = output {
+                                    if output.status.success() {
+                                        installed.push((**cmd).clone());
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-    }
 
-    Ok(installed)
+        Ok(installed)
+    })
+    .await
+    .map_err(|e| format!("Task failed: {}", e))?
 }
 
 #[tauri::command]
@@ -3469,7 +3620,7 @@ fn execute_tool_call(tool_name: &str, arguments_json: &str, cwd: &str) -> String
                 Ok(p) => p.to_string_lossy().to_string(),
                 Err(e) => return e,
             };
-            match search_file_contents(search_root, query.to_string(), false, Some(50)) {
+            match search_file_contents_sync(search_root, query.to_string(), false, Some(50)) {
                 Ok(result) => {
                     if result.matches.is_empty() {
                         "No matches found.".to_string()
@@ -4033,8 +4184,13 @@ pub fn run() {
         .join("orca");
     std::fs::create_dir_all(&data_dir).ok();
 
-    let db = Database::new(data_dir.join("orca.db"))
-        .expect("Failed to initialize database");
+    let db = match Database::new(data_dir.join("orca.db")) {
+        Ok(db) => db,
+        Err(e) => {
+            eprintln!("Failed to initialize database: {}", e);
+            std::process::exit(1);
+        }
+    };
 
     // Load portal config from database
     let portal_config = db.get_portal_config().unwrap_or_default();

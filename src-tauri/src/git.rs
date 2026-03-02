@@ -374,7 +374,9 @@ impl GitService {
 
         match reference {
             Some(gref) => {
-                repo.set_head(gref.name().unwrap())
+                let name = gref.name()
+                    .ok_or_else(|| "Branch reference name is not valid UTF-8".to_string())?;
+                repo.set_head(name)
                     .map_err(|e| e.to_string())?;
             }
             None => {
@@ -928,7 +930,7 @@ impl GitService {
                 if let Some(wt) = current.take() {
                     worktrees.push(wt);
                 }
-                let path = line.strip_prefix("worktree ").unwrap().to_string();
+                let path = line.strip_prefix("worktree ").unwrap_or("").to_string();
                 let name = std::path::Path::new(&path)
                     .file_name()
                     .map(|n| n.to_string_lossy().to_string())
@@ -946,9 +948,9 @@ impl GitService {
                 is_first = false;
             } else if let Some(ref mut wt) = current {
                 if line.starts_with("HEAD ") {
-                    wt.head_sha = Some(line.strip_prefix("HEAD ").unwrap().to_string());
+                    wt.head_sha = Some(line.strip_prefix("HEAD ").unwrap_or("").to_string());
                 } else if line.starts_with("branch ") {
-                    let branch = line.strip_prefix("branch ").unwrap();
+                    let branch = line.strip_prefix("branch ").unwrap_or("");
                     // Strip refs/heads/ prefix
                     let branch = branch.strip_prefix("refs/heads/").unwrap_or(branch);
                     wt.branch = Some(branch.to_string());
@@ -956,7 +958,7 @@ impl GitService {
                     wt.is_locked = true;
                 } else if line.starts_with("locked ") {
                     wt.is_locked = true;
-                    wt.lock_reason = Some(line.strip_prefix("locked ").unwrap().to_string());
+                    wt.lock_reason = Some(line.strip_prefix("locked ").unwrap_or("").to_string());
                 } else if line == "prunable" {
                     wt.is_prunable = true;
                 }
@@ -1626,24 +1628,22 @@ impl GitService {
             line_ranges.iter().any(|(start, end)| new_line >= *start && new_line <= *end)
         };
 
-        let mut filtered_lines = Vec::new();
+        let mut filtered_lines: Vec<std::borrow::Cow<'_, str>> = Vec::new();
         for (line, new_line_no) in lines {
             if line.starts_with('+') {
                 if let Some(n) = new_line_no {
                     if is_line_selected(*n) {
-                        filtered_lines.push(line.as_str());
+                        filtered_lines.push(std::borrow::Cow::Borrowed(line.as_str()));
                     } else {
                         // Convert unselected addition to context
                         let ctx = format!(" {}", &line[1..]);
-                        filtered_lines.push(Box::leak(ctx.into_boxed_str()));
+                        filtered_lines.push(std::borrow::Cow::Owned(ctx));
                     }
                 }
             } else if line.starts_with('-') {
-                // Include deletions that are adjacent to selected additions, or check context
-                // For simplicity, include all deletions in hunks that have selected lines
-                filtered_lines.push(line.as_str());
+                filtered_lines.push(std::borrow::Cow::Borrowed(line.as_str()));
             } else {
-                filtered_lines.push(line.as_str());
+                filtered_lines.push(std::borrow::Cow::Borrowed(line.as_str()));
             }
         }
 
@@ -1699,5 +1699,212 @@ impl GitService {
         let blob = repo.find_blob(entry.id())
             .map_err(|e| format!("Failed to read blob: {}", e))?;
         Ok(blob.content().to_vec())
+    }
+
+    // === Async network operations with timeouts ===
+
+    pub async fn clone_repo_async(url: &str, path: &str) -> Result<String, String> {
+        let child = tokio::process::Command::new("git")
+            .arg("clone")
+            .arg(url)
+            .arg(path)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .env("GIT_SSH_COMMAND", "ssh -o BatchMode=yes")
+            .spawn()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        let output = tokio::time::timeout(std::time::Duration::from_secs(300), child.wait_with_output())
+            .await
+            .map_err(|_| "git clone timed out after 300s".to_string())?
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(stderr.trim().to_string());
+        }
+
+        Ok(path.to_string())
+    }
+
+    pub async fn fetch_async(repo_path: &str, remote: &str) -> Result<(), String> {
+        let child = tokio::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("fetch")
+            .arg(remote)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .env("GIT_SSH_COMMAND", "ssh -o BatchMode=yes")
+            .spawn()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        let output = tokio::time::timeout(std::time::Duration::from_secs(120), child.wait_with_output())
+            .await
+            .map_err(|_| "git fetch timed out after 120s".to_string())?
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git fetch failed: {}", stderr.trim()));
+        }
+
+        Ok(())
+    }
+
+    pub async fn pull_async(repo_path: &str, remote: &str) -> Result<(), String> {
+        let repo_path_owned = repo_path.to_string();
+        let child = tokio::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("pull")
+            .arg("--rebase")
+            .arg("--autostash")
+            .arg(remote)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .env("GIT_SSH_COMMAND", "ssh -o BatchMode=yes")
+            .spawn()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        let output = tokio::time::timeout(std::time::Duration::from_secs(120), child.wait_with_output())
+            .await
+            .map_err(|_| "git pull timed out after 120s".to_string())?
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stderr_lower = stderr.to_lowercase();
+
+            if stderr_lower.contains("conflict") || stderr_lower.contains("could not apply") {
+                let _ = tokio::process::Command::new("git")
+                    .arg("-C")
+                    .arg(&repo_path_owned)
+                    .arg("rebase")
+                    .arg("--abort")
+                    .output()
+                    .await;
+                return Err("Pull failed: conflicts detected. Please resolve conflicts manually.".to_string());
+            }
+
+            if stderr_lower.contains("uncommitted changes") || stderr_lower.contains("unstaged changes") {
+                return Err("Pull failed: you have uncommitted changes. Commit or stash them first.".to_string());
+            }
+
+            return Err(format!("git pull failed: {}", stderr.trim()));
+        }
+
+        Ok(())
+    }
+
+    pub async fn push_async(repo_path: &str, remote: &str) -> Result<(), String> {
+        let child = tokio::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("push")
+            .arg(remote)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .env("GIT_SSH_COMMAND", "ssh -o BatchMode=yes")
+            .spawn()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        let output = tokio::time::timeout(std::time::Duration::from_secs(120), child.wait_with_output())
+            .await
+            .map_err(|_| "git push timed out after 120s".to_string())?
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stderr_lower = stderr.to_lowercase();
+
+            if stderr_lower.contains("rejected") || stderr_lower.contains("non-fast-forward") || stderr_lower.contains("fetch first") {
+                return Err("Push rejected: remote has changes. Pull first.".to_string());
+            }
+
+            if stderr_lower.contains("no upstream branch") || stderr_lower.contains("has no upstream") {
+                return Err("NO_UPSTREAM".to_string());
+            }
+
+            return Err(format!("git push failed: {}", stderr.trim()));
+        }
+
+        Ok(())
+    }
+
+    pub async fn publish_branch_async(repo_path: &str, remote: &str) -> Result<(), String> {
+        let branch_output = tokio::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("rev-parse")
+            .arg("--abbrev-ref")
+            .arg("HEAD")
+            .output()
+            .await
+            .map_err(|e| format!("Failed to get current branch: {}", e))?;
+
+        let branch_name = String::from_utf8_lossy(&branch_output.stdout).trim().to_string();
+
+        let child = tokio::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("push")
+            .arg("-u")
+            .arg(remote)
+            .arg(&branch_name)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .env("GIT_SSH_COMMAND", "ssh -o BatchMode=yes")
+            .spawn()
+            .map_err(|e| format!("Failed to publish branch: {}", e))?;
+
+        let output = tokio::time::timeout(std::time::Duration::from_secs(120), child.wait_with_output())
+            .await
+            .map_err(|_| "git push timed out after 120s".to_string())?
+            .map_err(|e| format!("Failed to publish branch: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("Failed to publish branch: {}", stderr.trim()));
+        }
+
+        Ok(())
+    }
+
+    pub async fn push_tag_async(repo_path: &str, tag: &str, remote: &str) -> Result<(), String> {
+        let child = tokio::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("push")
+            .arg(remote)
+            .arg(tag)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .env("GIT_SSH_COMMAND", "ssh -o BatchMode=yes")
+            .spawn()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        let output = tokio::time::timeout(std::time::Duration::from_secs(120), child.wait_with_output())
+            .await
+            .map_err(|_| "git push tag timed out after 120s".to_string())?
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git push tag failed: {}", stderr.trim()));
+        }
+        Ok(())
     }
 }
