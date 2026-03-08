@@ -211,6 +211,12 @@ impl GitHubClient {
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
+            if status == 405 || body.contains("not mergeable") {
+                return Err("MERGE_CONFLICT: This pull request has merge conflicts that must be resolved before it can be merged.".to_string());
+            }
+            if status == 409 || body.contains("Head branch was modified") {
+                return Err("HEAD_BEHIND: The base branch has been updated. Try updating your branch first.".to_string());
+            }
             return Err(format!("GitHub API error ({}): {}", status, body));
         }
 

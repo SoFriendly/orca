@@ -1693,7 +1693,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     }
   };
 
-  const handleMergePr = async (prNumber: number, prTitle: string) => {
+  const handleMergePr = async (prNumber: number, prTitle: string, prUrl: string) => {
     const token = await resolveGithubToken(true);
     if (!token) return;
     setMergingPrNumber(prNumber);
@@ -1711,7 +1711,24 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
       refreshPullRequests();
       onRefresh();
     } catch (error) {
-      toast.error(`Failed to merge PR: ${error}`);
+      const errorStr = String(error);
+      if (errorStr.includes("MERGE_CONFLICT")) {
+        toast.error(`PR #${prNumber} has merge conflicts that need to be resolved`, {
+          action: {
+            label: "Open on GitHub",
+            onClick: () => openUrl(prUrl),
+          },
+        });
+      } else if (errorStr.includes("HEAD_BEHIND")) {
+        toast.error(`PR #${prNumber} is out of date — update the branch and try again`, {
+          action: {
+            label: "Open on GitHub",
+            onClick: () => openUrl(prUrl),
+          },
+        });
+      } else {
+        toast.error(`Failed to merge PR #${prNumber}: ${errorStr}`);
+      }
     } finally {
       setMergingPrNumber(null);
     }
@@ -3081,7 +3098,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                                 <GitBranch className="mr-2 h-4 w-4" />
                                 Checkout Branch
                               </ContextMenuItem>
-                              <ContextMenuItem onClick={() => handleMergePr(pr.number, pr.title)}>
+                              <ContextMenuItem onClick={() => handleMergePr(pr.number, pr.title, pr.url)}>
                                 <GitMerge className="mr-2 h-4 w-4" />
                                 Merge PR
                               </ContextMenuItem>
