@@ -3227,7 +3227,7 @@ export default function ProjectPage() {
             {shellHistory.map((cmd, index) => (
               <CommandItem
                 key={`${cmd}-${index}`}
-                value={cmd}
+                value={`${index}-${cmd.replace(/:/g, " ")}`}
                 onSelect={() => handleHistorySelect(cmd)}
                 className="font-mono text-xs"
               >
