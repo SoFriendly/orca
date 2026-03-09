@@ -175,13 +175,17 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
       column: link.column ?? null,
     }).catch((err) => {
       console.error("Failed to open file in editor:", err);
+      toast.error(`Could not open file: ${err}`);
       invoke("reveal_in_file_manager", { path: link.fullPath }).catch(console.error);
     });
     closeContextMenu();
   }, [closeContextMenu]);
 
   const handleRevealInFileManager = useCallback((link: HoveredLinkInfo) => {
-    invoke("reveal_in_file_manager", { path: link.fullPath }).catch(console.error);
+    invoke("reveal_in_file_manager", { path: link.fullPath }).catch((err) => {
+      console.error("Failed to reveal in file manager:", err);
+      toast.error(`Could not reveal in Finder: ${err}`);
+    });
     closeContextMenu();
   }, [closeContextMenu]);
 
@@ -272,16 +276,31 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
 
       const fitAddon = new FitAddon();
       terminal.loadAddon(fitAddon);
+      // Clean trailing chars that terminal text appends but aren't part of URLs
+      const cleanWebUri = (uri: string) => {
+        let clean = uri.replace(/[)>\].,;:!?'"]+$/, '');
+        const open = (clean.match(/\(/g) || []).length;
+        const close = (clean.match(/\)/g) || []).length;
+        if (close > open) clean = clean.replace(/\)+$/, (m) => m.slice(0, m.length - (close - open)));
+        return clean;
+      };
       terminal.loadAddon(new WebLinksAddon((e, uri) => {
-        if (navigator.platform.toUpperCase().includes('MAC') ? e.metaKey : e.ctrlKey) openUrl(uri).catch(() => {});
+        const isMac = navigator.platform.toUpperCase().includes('MAC');
+        if (isMac ? e.metaKey : e.ctrlKey) {
+          const cleanUri = cleanWebUri(uri);
+          openUrl(cleanUri).catch((err) => {
+            console.error("[Terminal] Failed to open URL:", cleanUri, err);
+            navigator.clipboard.writeText(cleanUri).catch(() => {});
+          });
+        }
       }, {
-        hover: (_e, uri) => { hoveredWebLinkRef.current = uri; },
+        hover: (_e, uri) => { hoveredWebLinkRef.current = cleanWebUri(uri); },
         leave: () => { hoveredWebLinkRef.current = null; },
       }));
       terminal.loadAddon(new Unicode11Addon());
       terminal.unicode.activeVersion = "11";
       terminal.open(container);
-      const linkProvider = new FilePathLinkProvider(terminal, cwd);
+      const linkProvider = new FilePathLinkProvider(terminal, cwd, 100, (msg) => toast.error(msg));
       linkProviderRef.current = linkProvider;
       terminal.registerLinkProvider(linkProvider);
       terminal.parser.registerCsiHandler({ prefix: "?", final: "h" }, (params) => {

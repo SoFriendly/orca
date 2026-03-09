@@ -119,11 +119,13 @@ export class FilePathLinkProvider implements ILinkProvider {
   private lastBufferLength = 0;
   private writeCount = 0;
   private _hoveredLink: HoveredLinkInfo | null = null;
+  private onError?: (msg: string) => void;
 
-  constructor(terminal: Terminal, cwd: string, cacheSize = 100) {
+  constructor(terminal: Terminal, cwd: string, cacheSize = 100, onError?: (msg: string) => void) {
     this.terminal = terminal;
     this.cwd = cwd;
     this.cache = new LRUCache(cacheSize);
+    this.onError = onError;
 
     // Invalidate cache periodically on writes, not on every write
     // This batches invalidation to reduce overhead
@@ -305,6 +307,7 @@ export class FilePathLinkProvider implements ILinkProvider {
           // Require Cmd (Mac) or Ctrl (Windows/Linux) + Click to open
           const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
           const modifierPressed = isMac ? event.metaKey : event.ctrlKey;
+          console.log("[FileLink] activate called:", { path: cached.path, metaKey: event.metaKey, ctrlKey: event.ctrlKey, isMac, modifierPressed, platform: navigator.platform });
           if (modifierPressed) {
             this.handleLinkActivation(cached.path, cached.line, cached.column);
           }
@@ -348,8 +351,11 @@ export class FilePathLinkProvider implements ILinkProvider {
       column: column ?? null,
     }).catch((err) => {
       console.error("Failed to open file in editor:", err);
+      this.onError?.(`Could not open file: ${err}`);
       // Fallback: reveal in file manager
-      invoke("reveal_in_file_manager", { path: fullPath }).catch(console.error);
+      invoke("reveal_in_file_manager", { path: fullPath }).catch((err2) => {
+        console.error("Failed to reveal in file manager:", err2);
+      });
     });
   }
 
