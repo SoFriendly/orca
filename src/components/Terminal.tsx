@@ -386,12 +386,25 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
         if (data === "\r") {
           const buf = terminal.buffer.active;
           const lineY = buf.baseY + buf.cursorY;
-          const line = buf.getLine(lineY);
-          if (line) {
-            const lineText = line.translateToString(true);
-            console.log("[shell-history] lineText:", JSON.stringify(lineText), "chars:", [...lineText].map(c => c.codePointAt(0)?.toString(16)));
+
+          // Walk backwards to find the start of the logical line (handles wrapped commands)
+          let startY = lineY;
+          while (startY > 0) {
+            const l = buf.getLine(startY);
+            if (!l || !l.isWrapped) break;
+            startY--;
+          }
+
+          // Join all wrapped lines into one logical line
+          const parts: string[] = [];
+          for (let y = startY; y <= lineY; y++) {
+            const l = buf.getLine(y);
+            if (l) parts.push(l.translateToString(true));
+          }
+          const lineText = parts.join('');
+
+          if (lineText) {
             const cmd = lineText.replace(/^.*[$%>#)✗✓❯➜→]\s*(?:[~\/]\S*\s+)?/, "").trim();
-            console.log("[shell-history] cmd:", JSON.stringify(cmd));
             if (cmd) {
               invoke("record_project_command", { command: cmd, projectPath: cwd }).catch(() => {});
             }

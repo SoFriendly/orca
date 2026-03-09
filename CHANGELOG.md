@@ -2,6 +2,17 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.2.9]
+
+### Improvements
+- **Merge Conflict Handling**: Merging a PR with conflicts now shows a clear message ("has merge conflicts that need to be resolved") with an "Open on GitHub" action button, instead of dumping raw API errors. Also handles out-of-date branches with a helpful message.
+- **Terminal Link Error Visibility**: CMD+click and context menu actions on file/web links now show toast notifications on failure instead of silently logging to console. Includes fallback to copy URL to clipboard when a web link fails to open.
+- **Terminal Web Link Cleaning**: Web URLs detected in terminal output are now cleaned of trailing punctuation and unbalanced parentheses before opening, fixing CMD+click failures on URLs embedded in markdown or prose.
+
+### Bug Fixes
+- **Shell History Search Colon Bug**: Fixed selecting commands containing colons (e.g., `run:ios --device`) from shell history search inserting garbled text. The cmdk library was treating colons in the `value` prop as special delimiters.
+- **File Link Click Diagnostics**: Added diagnostic logging for CMD+click on file paths to help identify why link activation may fail intermittently in the assistant pane.
+
 ## [0.2.8]
 
 ### Bug Fixes
