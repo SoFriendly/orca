@@ -312,6 +312,8 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
       // Keyboard shortcuts
       terminal.attachCustomKeyEventHandler((e) => {
         const isMac = navigator.platform.toUpperCase().includes('MAC');
+        const modifier = isMac ? e.metaKey : e.ctrlKey;
+        if (modifier && e.key >= '1' && e.key <= '9') return true;
         if (e.type === 'keydown') {
           if (e.shiftKey && e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); terminal.input('\n'); return false; }
           if (!isMac && e.ctrlKey && e.key === 'c') { const s = terminal.getSelection(); if (s) { navigator.clipboard.writeText(s); return false; } return true; }

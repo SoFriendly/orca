@@ -452,10 +452,19 @@ export default function ProjectPage() {
         loadFileTree();
         setShowFileSearch(true);
       }
+
+      // Tab switching (Cmd+1-9 / Ctrl+1-9)
+      if (modifier && e.key >= '1' && e.key <= '9') {
+        e.preventDefault();
+        const index = parseInt(e.key) - 1;
+        if (index < terminalTabs.length) {
+          setActiveTabId(terminalTabs[index].id);
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [terminalTabs]);
 
   // Count visible panels - must always have at least one
   const visiblePanelCount = [showGitPanel, showAssistantPanel, showShellPanel, showNotesPanel, showMarkdownPanel].filter(Boolean).length;

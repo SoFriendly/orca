@@ -1097,6 +1097,12 @@ export default function SettingsSheet({ open, onOpenChange }: SettingsSheetProps
                           Cmd ,
                         </kbd>
                       </div>
+                      <div className="flex items-center justify-between py-2">
+                        <p className="text-sm">Switch Tab (1-9)</p>
+                        <kbd className="rounded bg-muted px-2 py-1 text-xs font-mono">
+                          Cmd 1-9
+                        </kbd>
+                      </div>
                     </div>
                   </section>
                 </div>

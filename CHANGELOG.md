@@ -2,6 +2,14 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.3.0]
+
+### New Features
+- **Tab Switching Shortcuts**: Press Cmd+1-9 (macOS) or Ctrl+1-9 (Windows/Linux) to switch between assistant tabs by index. Documented in Settings > Keyboard Shortcuts.
+
+### Bug Fixes
+- **Linux X11 Threading Crash**: Fixed app crashing on Linux with `xcb_xlib_threads_sequence_lost` assertion failure. Added `XInitThreads()` call before GUI initialization to enable multi-threaded X11 client support.
+
 ## [0.2.9]
 
 ### Improvements
