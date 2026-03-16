@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
@@ -12,7 +12,6 @@ import {
   Settings,
   Trash2,
   FolderOpen,
-  ArrowRight,
   Search,
   X,
   HelpCircle,
@@ -156,7 +155,24 @@ export default function HomePage() {
         });
         addProject(project);
         await invoke("add_project", { project });
-        navigate(`/project/${project.id}`);
+        const webview = new WebviewWindow(`orca-${Date.now()}`, {
+          url: `/project/${project.id}`,
+          title: project.name,
+          width: 1200,
+          height: 800,
+          minWidth: 1024,
+          minHeight: 600,
+          center: true,
+          titleBarStyle: "overlay",
+          hiddenTitle: true,
+          visible: false,
+          backgroundColor: appBgColor,
+        });
+        webview.once("tauri://created", () => { webview.show(); });
+        webview.once("tauri://error", (e) => {
+          console.error("Failed to create window:", e);
+          toast.error("Failed to open new window");
+        });
       }
     } catch (error) {
       toast.error("Failed to open project");
@@ -333,18 +349,10 @@ export default function HomePage() {
     "rounded-2xl bg-card shadow-[var(--panel-shadow)]";
 
   return (
-    <div
-      className="relative flex h-full"
-      onMouseDown={(e) => {
-        // Only start dragging if clicking in the top 32px and not on interactive elements
-        if (e.clientY <= 32) {
-          const target = e.target as HTMLElement;
-          if (!target.closest('button, a, input, [role="button"]')) {
-            getCurrentWindow().startDragging();
-          }
-        }
-      }}
-    >
+    <div className="relative flex h-full">
+      {/* Titlebar drag region — native drag + double-click to maximize */}
+      <div data-tauri-drag-region className="absolute inset-x-0 top-0 z-40 h-8" />
+
       {/* Left icon sidebar */}
       <nav
         ref={sidebarNavRef}
@@ -442,58 +450,43 @@ export default function HomePage() {
             </div>
 
             {/* Quick actions */}
-            <div className="space-y-3 mt-8 shrink-0">
+            <div className="flex gap-3 mt-6 shrink-0">
               <button
                 onClick={() => setShowCloneDialog(true)}
-                className="group flex w-full items-center gap-4 rounded-xl p-4 text-left transition-all hover:bg-primary/[0.06]"
+                className="flex flex-1 items-start gap-2.5 rounded-lg bg-primary/[0.08] px-3 py-2.5 text-left transition-colors hover:bg-primary/[0.15]"
               >
-                <div className="flex h-10 w-10 items-center justify-center">
-                  <Download className="h-5 w-5 text-primary/70 group-hover:text-primary" />
+                <Download className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Clone</p>
+                  <p className="text-[11px] text-muted-foreground">From URL</p>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Clone repository</p>
-                  <p className="text-xs text-muted-foreground">
-                    Clone from GitHub, GitLab, or any URL
-                  </p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
               </button>
 
               <button
                 onClick={handleOpenProject}
-                className="group flex w-full items-center gap-4 rounded-xl p-4 text-left transition-all hover:bg-primary/[0.06]"
+                className="flex flex-1 items-start gap-2.5 rounded-lg bg-primary/[0.08] px-3 py-2.5 text-left transition-colors hover:bg-primary/[0.15]"
               >
-                <div className="flex h-10 w-10 items-center justify-center">
-                  <FolderOpen className="h-5 w-5 text-primary/70 group-hover:text-primary" />
+                <FolderOpen className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Open</p>
+                  <p className="text-[11px] text-muted-foreground">Local folder</p>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Open existing folder</p>
-                  <p className="text-xs text-muted-foreground">
-                    Browse to a local project folder
-                  </p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
               </button>
 
               <button
                 onClick={() => setShowCreateDialog(true)}
-                className="group flex w-full items-center gap-4 rounded-xl p-4 text-left transition-all hover:bg-primary/[0.06]"
+                className="flex flex-1 items-start gap-2.5 rounded-lg bg-primary/[0.08] px-3 py-2.5 text-left transition-colors hover:bg-primary/[0.15]"
               >
-                <div className="flex h-10 w-10 items-center justify-center">
-                  <Plus className="h-5 w-5 text-primary/70 group-hover:text-primary" />
+                <Plus className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Create</p>
+                  <p className="text-[11px] text-muted-foreground">New repo</p>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Create new repository</p>
-                  <p className="text-xs text-muted-foreground">
-                    Initialize a new git repository
-                  </p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
               </button>
             </div>
 
             {/* Recent projects */}
-            <div className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl p-2">
+            <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl p-2">
               <div className="flex items-center justify-between px-1 mb-3 shrink-0">
                 {showProjectSearch ? (
                   <div className="flex items-center gap-2 flex-1">

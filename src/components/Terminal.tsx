@@ -420,9 +420,16 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
         try {
           if (container.offsetWidth > 0 && container.offsetHeight > 0) {
             const vp = container.querySelector('.xterm-viewport') as HTMLElement;
-            const ps = vp?.scrollTop ?? savedScrollTopRef.current;
+            const prevScrollTop = vp?.scrollTop ?? savedScrollTopRef.current;
+            const wasAtBottom = vp ? (vp.scrollHeight - vp.scrollTop - vp.clientHeight < 5) : true;
             fitAddon.fit();
-            if (vp && ps > 0) vp.scrollTop = Math.min(ps, vp.scrollHeight - vp.clientHeight);
+            if (vp) {
+              if (wasAtBottom) {
+                vp.scrollTop = vp.scrollHeight - vp.clientHeight;
+              } else if (prevScrollTop > 0) {
+                vp.scrollTop = Math.min(prevScrollTop, vp.scrollHeight - vp.clientHeight);
+              }
+            }
             if (terminal.cols !== lastCols || terminal.rows !== lastRows) {
               lastCols = terminal.cols; lastRows = terminal.rows;
               invoke("resize_terminal", { id: activeId, cols: terminal.cols, rows: terminal.rows }).catch(() => {});

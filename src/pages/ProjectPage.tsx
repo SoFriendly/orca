@@ -2011,21 +2011,12 @@ export default function ProjectPage() {
     "rounded-2xl bg-card shadow-[var(--panel-shadow)] transition-opacity duration-150";
 
   return (
-    <div
-      className="relative flex h-full bg-background"
-      onMouseDown={(e) => {
-        // Only start dragging if clicking in the top 40px and not on interactive elements
-        if (e.clientY <= 40) {
-          const target = e.target as HTMLElement;
-          // Exclude interactive elements and tab items (but allow empty tab bar space)
-          if (!target.closest('button, a, input, [role="button"], [data-tab-item]')) {
-            getCurrentWindow().startDragging();
-          }
-        }
-      }}
-    >
+    <div className="relative flex h-full bg-background">
+      {/* Titlebar drag region — native drag + double-click to maximize */}
+      <div data-tauri-drag-region className="absolute inset-x-0 top-0 z-40 h-10" />
+
       {/* Centered header with project/folder name and branch selector */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 h-12 mt-0.5">
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 h-12 mt-0.5">
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
             <Button
@@ -2257,7 +2248,24 @@ export default function ProjectPage() {
                     });
                     addProject(project);
                     await invoke("add_project", { project });
-                    navigate(`/project/${project.id}`);
+                    const webview = new WebviewWindow(`orca-${Date.now()}`, {
+                      url: `/project/${project.id}`,
+                      title: project.name,
+                      width: 1200,
+                      height: 800,
+                      minWidth: 1024,
+                      minHeight: 600,
+                      center: true,
+                      titleBarStyle: "overlay",
+                      hiddenTitle: true,
+                      visible: false,
+                      backgroundColor: appBgColor,
+                    });
+                    webview.once("tauri://created", () => { webview.show(); });
+                    webview.once("tauri://error", (e) => {
+                      console.error("Failed to create window:", e);
+                      toast.error("Failed to open new window");
+                    });
                   }
                 }}
                 aria-label="Open folder"

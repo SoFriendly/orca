@@ -2,6 +2,16 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.3.1]
+
+### Improvements
+- **Home Screen Layout**: Reorganized home screen layout to optimize for longer projects list
+- **Sidebar New Window**: Changed open folder icon in sidebar to always open a new window
+- **Titlebar Double-Click**: Double-clicking the titlebar now maximizes/restores the window like native macOS windows
+
+### Bug Fixes
+- **Assistant Panel Scroll**: Fixed assistant panel randomly scrolling to the top instead of staying pinned to the bottom during panel resizes
+
 ## [0.3.0]
 
 ### New Features
