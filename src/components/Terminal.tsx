@@ -138,7 +138,8 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
   const getTerminalTheme = useCallback((): ITheme => {
     if (theme === "custom" && customTheme) {
       const baseTheme = TERMINAL_THEMES[customTheme.baseTheme] || TERMINAL_THEMES.dark;
-      return { ...baseTheme, background: customTheme.colors.card, cursorAccent: customTheme.colors.card };
+      const transparentBg = customTheme.colors.card + "00";
+      return { ...baseTheme, background: transparentBg, cursorAccent: transparentBg };
     }
     return TERMINAL_THEMES[theme] || TERMINAL_THEMES.dark;
   }, [theme, customTheme]);

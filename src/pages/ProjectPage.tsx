@@ -1996,7 +1996,7 @@ export default function ProjectPage() {
 
   const assistantOptions = getAssistantOptions();
   const navButtonBase =
-    "flex h-8 w-8 items-center justify-center rounded-lg text-white/70 transition-all duration-200";
+    "flex h-8 w-8 items-center justify-center rounded-lg text-foreground/70 transition-all duration-200";
   const panelShellClass =
     "rounded-2xl bg-[hsl(var(--card)/0.5)] shadow-xl border border-[hsl(var(--glass-border))] shadow-[var(--panel-shadow)] transition-opacity duration-150";
 
@@ -2211,7 +2211,7 @@ export default function ProjectPage() {
               <button
                 onClick={handleNewWindow}
                 aria-label="New window"
-                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-white/15")}
+                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-foreground/15")}
               >
                 <LayoutGrid className="h-5 w-5" />
               </button>
@@ -2259,7 +2259,7 @@ export default function ProjectPage() {
                   }
                 }}
                 aria-label="Open folder"
-                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-white/15")}
+                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-foreground/15")}
               >
                 <FolderOpen className="h-5 w-5" />
               </button>
@@ -2278,8 +2278,8 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   activeSidebarItem === "settings"
-                    ? "bg-white/10"
-                    : "hover:text-foreground/70 hover:bg-white/15"
+                    ? "liquid-glass"
+                    : "hover:text-foreground/70 hover:bg-foreground/15"
                 )}
               >
                 <Settings className="h-5 w-5" />
@@ -2304,8 +2304,8 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   showGitPanel
-                    ? "bg-white/10"
-                    : "hover:text-foreground/70 hover:bg-white/15",
+                    ? "liquid-glass"
+                    : "hover:text-foreground/70 hover:bg-foreground/15",
                   showGitPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2327,8 +2327,8 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   showAssistantPanel
-                    ? "bg-white/10"
-                    : "hover:text-foreground/70 hover:bg-white/15",
+                    ? "liquid-glass"
+                    : "hover:text-foreground/70 hover:bg-foreground/15",
                   showAssistantPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2350,8 +2350,8 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   showShellPanel
-                    ? "bg-white/10"
-                    : "hover:text-foreground/70 hover:bg-white/15",
+                    ? "liquid-glass"
+                    : "hover:text-foreground/70 hover:bg-foreground/15",
                   showShellPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2373,8 +2373,8 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   showNotesPanel
-                    ? "bg-white/10"
-                    : "hover:text-foreground/70 hover:bg-white/15",
+                    ? "liquid-glass"
+                    : "hover:text-foreground/70 hover:bg-foreground/15",
                   showNotesPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2398,7 +2398,7 @@ export default function ProjectPage() {
                 <button
                   aria-label="Help"
                   onClick={() => setHasSeenOnboarding(false)}
-                  className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-white/15")}
+                  className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-foreground/15")}
                 >
                   <HelpCircle className="h-5 w-5" />
                 </button>
@@ -2519,12 +2519,12 @@ export default function ProjectPage() {
                       else tabRefs.current.delete(tab.id);
                     }}
                     className={cn(
-                      "group flex h-7 shrink-0 cursor-grab items-center gap-1.5 pl-3 pr-3 group-hover:pr-2 my-1.5 mx-0.5 rounded-full text-sm font-medium transition-all duration-200",
+                      "group flex h-7 shrink-0 cursor-grab items-center gap-1.5 pl-3 pr-3 group-hover:pr-2 my-1.5 mx-0.5 rounded-lg text-sm font-medium transition-all duration-200",
                       activeTabId === tab.id
-                        ? "text-white bg-white/10"
-                        : "text-white/50 hover:text-white/80 hover:bg-white/5",
+                        ? "text-foreground liquid-glass"
+                        : "text-foreground/50 hover:text-foreground/80 hover:bg-foreground/5",
                       draggingTabId === tab.id && "opacity-60 cursor-grabbing",
-                      dragOverTabId === tab.id && draggingTabId !== tab.id && "bg-white/10"
+                      dragOverTabId === tab.id && draggingTabId !== tab.id && "liquid-glass"
                     )}
                     onClick={() => !draggingTabId && setActiveTabId(tab.id)}
                     onMouseDown={(event) => handleTabMouseDown(event, tab.id)}
@@ -2561,7 +2561,7 @@ export default function ProjectPage() {
                       closeTab(tab.id);
                     }}
                     aria-label={`Close ${tab.name} tab`}
-                    className="ml-1 shrink-0 rounded-full p-0.5 hidden group-hover:flex hover:bg-white/15 transition-opacity"
+                    className="ml-1 shrink-0 rounded-full p-0.5 hidden group-hover:flex hover:bg-foreground/15 transition-opacity"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -2573,7 +2573,7 @@ export default function ProjectPage() {
               <DropdownMenuTrigger asChild>
                 <button
                   aria-label="New tab"
-                  className="flex h-7 w-7 items-center justify-center my-1.5 mx-0.5 rounded-full text-white/50 transition-all duration-200 hover:bg-white/10 hover:text-white/80"
+                  className="flex h-7 w-7 items-center justify-center my-1.5 mx-0.5 rounded-lg text-foreground/50 transition-all duration-200 hover:bg-foreground/10 hover:text-foreground/80"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -2801,7 +2801,7 @@ export default function ProjectPage() {
           onDrop={handleShellPanelDrop}
         >
           {/* Header */}
-          <div className="flex h-10 items-center justify-between px-3 text-muted-foreground/60">
+          <div className="flex h-10 items-center justify-between px-3 text-foreground/60">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {shellCwd && (
                 <DropdownMenu onOpenChange={(open) => open && loadShellDirectories(shellCwd)}>
@@ -2846,8 +2846,8 @@ export default function ProjectPage() {
                         size="icon"
                         aria-label="Natural language terminal"
                         className={cn(
-                          "h-7 w-7 shrink-0 text-inherit hover:text-foreground",
-                          showNlt && "!text-primary"
+                          "h-7 w-7 shrink-0 rounded-lg text-inherit hover:text-foreground",
+                          showNlt && "liquid-glass text-foreground"
                         )}
                         onClick={() => setShowNlt(!showNlt)}
                       >
@@ -2862,7 +2862,10 @@ export default function ProjectPage() {
                         variant="ghost"
                         size="icon"
                         aria-label="Search history"
-                        className="h-7 w-7 shrink-0 text-inherit hover:text-foreground"
+                        className={cn(
+                          "h-7 w-7 shrink-0 rounded-lg text-inherit hover:text-foreground",
+                          showHistorySearch && "liquid-glass text-foreground"
+                        )}
                         onClick={() => {
                           loadShellHistory();
                           setShowHistorySearch(true);

@@ -58,8 +58,8 @@
     --radius: 0.375rem;
     --panel-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
     --nav-bg: 257 22% 97%;
-    --glass-bg: 257 20% 100% / 0.15;
-    --glass-border: 0 0% 0% / 0.06;
+    --glass-bg: 257 20% 98% / 0.68;
+    --glass-border: 0 0% 0% / 0.12;
   }
 
   .dark {
@@ -84,7 +84,7 @@
     --ring: 257 66% 48%;
     --panel-shadow: 0 2px 8px rgba(0,0,0,0.2), 0 8px 24px rgba(10,0,30,0.35);
     --nav-bg: 255 16% 9%;
-    --glass-bg: 255 20% 2% / 0.82;
+    --glass-bg: 255 20% 2% / 0.88;
     --glass-border: 0 0% 100% / 0.08;
   }
 
@@ -420,4 +420,16 @@
 .custom [data-slot="dropdown-menu-content"] {
   box-shadow: 0 8px 24px hsl(0 0% 0% / 0.3);
   border-radius: 0.75rem;
+}
+
+/* Liquid Glass active states — macOS 26+ with fallback */
+.liquid-glass {
+  background: hsl(var(--foreground) / 0.1);
+}
+
+@supports (-apple-visual-effect: -apple-system-glass-material) {
+  .liquid-glass {
+    background: transparent;
+    -apple-visual-effect: -apple-system-glass-material;
+  }
 }

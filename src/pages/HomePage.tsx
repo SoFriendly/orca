@@ -339,7 +339,7 @@ export default function HomePage() {
   };
 
   const navButtonBase =
-    "flex h-8 w-8 items-center justify-center rounded-lg text-white/70 transition-all duration-200";
+    "flex h-8 w-8 items-center justify-center rounded-lg text-foreground/70 transition-all duration-200";
   const panelShellClass =
     "rounded-2xl bg-[hsl(var(--card)/0.5)] shadow-xl border border-[hsl(var(--glass-border))] shadow-[var(--panel-shadow)]";
 
@@ -362,7 +362,7 @@ export default function HomePage() {
               <button
                 onClick={handleNewWindow}
                 aria-label="New window"
-                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-white/15")}
+                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-foreground/15")}
               >
                 <LayoutGrid className="h-5 w-5" />
               </button>
@@ -375,7 +375,7 @@ export default function HomePage() {
               <button
                 onClick={handleOpenProject}
                 aria-label="Open folder"
-                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-white/15")}
+                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-foreground/15")}
               >
                 <FolderOpen className="h-5 w-5" />
               </button>
@@ -394,8 +394,8 @@ export default function HomePage() {
                 className={cn(
                   navButtonBase,
                   activeSidebarItem === "settings"
-                    ? "bg-white/10"
-                    : "hover:text-foreground/70 hover:bg-white/15"
+                    ? "liquid-glass"
+                    : "hover:text-foreground/70 hover:bg-foreground/15"
                 )}
               >
                 <Settings className="h-5 w-5" />
@@ -417,7 +417,7 @@ export default function HomePage() {
                 <button
                   onClick={() => setHasSeenOnboarding(false)}
                   aria-label="Show tour"
-                  className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-white/15")}
+                  className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-foreground/15")}
                 >
                   <HelpCircle className="h-5 w-5" />
                 </button>
@@ -448,7 +448,7 @@ export default function HomePage() {
             <div className="flex gap-3 mt-6 shrink-0">
               <button
                 onClick={() => setShowCloneDialog(true)}
-                className="flex flex-1 items-start gap-2.5 rounded-lg bg-primary/[0.08] px-3 py-2.5 text-left transition-colors hover:bg-primary/[0.15]"
+                className="flex flex-1 items-start gap-2.5 rounded-lg bg-primary/[0.08] backdrop-blur-md border border-primary/[0.1] px-3 py-2.5 text-left transition-colors hover:bg-primary/[0.15]"
               >
                 <Download className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
                 <div className="min-w-0">
@@ -459,7 +459,7 @@ export default function HomePage() {
 
               <button
                 onClick={handleOpenProject}
-                className="flex flex-1 items-start gap-2.5 rounded-lg bg-primary/[0.08] px-3 py-2.5 text-left transition-colors hover:bg-primary/[0.15]"
+                className="flex flex-1 items-start gap-2.5 rounded-lg bg-primary/[0.08] backdrop-blur-md border border-primary/[0.1] px-3 py-2.5 text-left transition-colors hover:bg-primary/[0.15]"
               >
                 <FolderOpen className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
                 <div className="min-w-0">
@@ -470,7 +470,7 @@ export default function HomePage() {
 
               <button
                 onClick={() => setShowCreateDialog(true)}
-                className="flex flex-1 items-start gap-2.5 rounded-lg bg-primary/[0.08] px-3 py-2.5 text-left transition-colors hover:bg-primary/[0.15]"
+                className="flex flex-1 items-start gap-2.5 rounded-lg bg-primary/[0.08] backdrop-blur-md border border-primary/[0.1] px-3 py-2.5 text-left transition-colors hover:bg-primary/[0.15]"
               >
                 <Plus className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
                 <div className="min-w-0">
