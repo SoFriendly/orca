@@ -2927,7 +2927,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Show changes"
-                className={cn("h-7 w-7 rounded-lg text-inherit hover:text-foreground", viewMode === "changes" && "liquid-glass text-foreground")}
+                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "changes" && "liquid-glass text-foreground")}
                 onClick={() => setViewMode("changes")}
               >
                 <GitBranch className="h-3.5 w-3.5" />
@@ -2942,7 +2942,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Show history"
-                className={cn("h-7 w-7 rounded-lg text-inherit hover:text-foreground", viewMode === "history" && "liquid-glass text-foreground")}
+                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "history" && "liquid-glass text-foreground")}
                 onClick={() => setViewMode("history")}
               >
                 <History className="h-3.5 w-3.5" />
@@ -2957,7 +2957,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Worktrees"
-                className={cn("h-7 w-7 rounded-lg text-inherit hover:text-foreground", viewMode === "worktrees" && "liquid-glass text-foreground")}
+                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "worktrees" && "liquid-glass text-foreground")}
                 onClick={() => setViewMode("worktrees")}
               >
                 <GitFork className="h-3.5 w-3.5" />
@@ -2972,7 +2972,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                 variant="ghost"
                 size="icon"
                 aria-label="Browse files"
-                className={cn("h-7 w-7 rounded-lg text-inherit hover:text-foreground", viewMode === "files" && "liquid-glass text-foreground")}
+                className={cn("h-7 w-7 text-inherit hover:text-foreground", viewMode === "files" && "liquid-glass text-foreground")}
                 onClick={() => setViewMode("files")}
               >
                 <FolderTree className="h-3.5 w-3.5" />
@@ -4203,7 +4203,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
             <Button
               variant="ghost"
               size="sm"
-              className="w-full text-xs text-muted-foreground hover:text-foreground rounded-lg"
+              className="w-full text-xs text-muted-foreground hover:text-foreground"
               onClick={generateCommitMessage}
               disabled={isGenerating}
             >
@@ -4215,7 +4215,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
           {/* Commit or Undo Commit button */}
           {status && filesToCommit.size === 0 && history.length > 1 && status.ahead > 0 ? (
             <Button
-              className="w-full bg-muted hover:bg-muted/80 text-foreground font-medium rounded-lg"
+              className="w-full bg-muted hover:bg-muted/80 text-foreground font-medium"
               onClick={handleUndoCommit}
               disabled={isUndoing}
             >
@@ -4226,7 +4226,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
             </Button>
           ) : (
             <Button
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-lg"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
               onClick={handleCommit}
               disabled={isCommitting || !commitSubject.trim() || filesToCommit.size === 0}
             >
@@ -4244,7 +4244,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
       ) : (
         <div className="border-t border-border p-4">
           <Button
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-2 rounded-lg"
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-2"
             onClick={handleInitRepo}
             disabled={isInitializing}
           >

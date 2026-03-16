@@ -2,6 +2,12 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.3.3]
+
+### Improvements
+- **Cross-Platform Compatibility**: Glassmorphism effects (transparent windows, vibrancy, transparent terminals) are now macOS-only; Windows and Linux use opaque backgrounds to prevent see-through windows
+- **Unified Button Shape**: Changed base button component from `rounded-full` to `rounded-lg`, giving all buttons across the app (settings, dialogs, git panel, etc.) consistent corner radius
+
 ## [0.3.2]
 
 ### Visual Overhaul

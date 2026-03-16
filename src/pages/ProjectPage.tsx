@@ -2853,7 +2853,7 @@ export default function ProjectPage() {
                         size="icon"
                         aria-label="Natural language terminal"
                         className={cn(
-                          "h-7 w-7 shrink-0 rounded-lg text-inherit hover:text-foreground",
+                          "h-7 w-7 shrink-0 text-inherit hover:text-foreground",
                           showNlt && "liquid-glass text-foreground"
                         )}
                         onClick={() => setShowNlt(!showNlt)}
@@ -2870,7 +2870,7 @@ export default function ProjectPage() {
                         size="icon"
                         aria-label="Search history"
                         className={cn(
-                          "h-7 w-7 shrink-0 rounded-lg text-inherit hover:text-foreground",
+                          "h-7 w-7 shrink-0 text-inherit hover:text-foreground",
                           showHistorySearch && "liquid-glass text-foreground"
                         )}
                         onClick={() => {
