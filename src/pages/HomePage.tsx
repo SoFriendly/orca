@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { Effect, EffectState } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   FolderGit2,
@@ -98,10 +99,14 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, []);
 
-  // Make webview transparent so native vibrancy shows through (macOS)
+  const isMacOS = navigator.platform.toUpperCase().includes("MAC");
+
+  // Make webview transparent so native vibrancy shows through (macOS only)
   useEffect(() => {
-    getCurrentWebview().setBackgroundColor("#00000000").catch(() => {});
-  }, []);
+    if (isMacOS) {
+      getCurrentWebview().setBackgroundColor("#00000000").catch(() => {});
+    }
+  }, [isMacOS]);
 
   const handleNewWindow = async () => {
     try {
@@ -116,8 +121,8 @@ export default function HomePage() {
         titleBarStyle: "overlay",
         hiddenTitle: true,
         visible: false,
-        transparent: true,
-        windowEffects: { effects: ["hudWindow"], state: "active" },
+        transparent: isMacOS,
+        ...(isMacOS && { windowEffects: { effects: [Effect.HudWindow], state: EffectState.Active } }),
       });
       webview.once("tauri://created", () => {
         webview.show();
@@ -340,11 +345,13 @@ export default function HomePage() {
 
   const navButtonBase =
     "flex h-8 w-8 items-center justify-center rounded-lg text-foreground/70 transition-all duration-200";
-  const panelShellClass =
-    "rounded-2xl bg-[hsl(var(--card)/0.5)] shadow-xl border border-[hsl(var(--glass-border))] shadow-[var(--panel-shadow)]";
+  const panelShellClass = cn(
+    "rounded-2xl shadow-xl border border-[hsl(var(--glass-border))] shadow-[var(--panel-shadow)]",
+    isMacOS ? "bg-[hsl(var(--card)/0.5)]" : "bg-card"
+  );
 
   return (
-    <div className="relative flex h-full bg-[hsl(var(--glass-bg))]">
+    <div className={cn("relative flex h-full", isMacOS ? "bg-[hsl(var(--glass-bg))]" : "bg-background")}>
       {/* Titlebar drag region — native drag + double-click to maximize */}
       <div data-tauri-drag-region className="absolute inset-x-0 top-0 z-40 h-8" />
 

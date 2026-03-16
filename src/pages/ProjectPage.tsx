@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { getCurrentWindow, LogicalSize, currentMonitor } from "@tauri-apps/api/window";
+import { getCurrentWindow, LogicalSize, currentMonitor, Effect, EffectState } from "@tauri-apps/api/window";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -343,10 +343,14 @@ export default function ProjectPage() {
   const { assistantArgs, defaultAssistant, autoFetchRemote, theme, customTheme, customAssistants, hiddenAssistantIds, hasSeenOnboarding, setHasSeenOnboarding, defaultPanels } = useSettingsStore();
 
 
-  // Make webview transparent so native vibrancy shows through (macOS)
+  const isMacOS = navigator.platform.toUpperCase().includes("MAC");
+
+  // Make webview transparent so native vibrancy shows through (macOS only)
   useEffect(() => {
-    getCurrentWebview().setBackgroundColor("#00000000").catch(() => {});
-  }, []);
+    if (isMacOS) {
+      getCurrentWebview().setBackgroundColor("#00000000").catch(() => {});
+    }
+  }, [isMacOS]);
 
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -741,6 +745,7 @@ export default function ProjectPage() {
   // Open a new window
   const handleNewWindow = async () => {
     try {
+      const isMac = navigator.platform.toUpperCase().includes("MAC");
       const webview = new WebviewWindow(`orca-${Date.now()}`, {
         url: "/",
         title: "Orca",
@@ -752,8 +757,8 @@ export default function ProjectPage() {
         titleBarStyle: "overlay",
         hiddenTitle: true,
         visible: false,
-        transparent: true,
-        windowEffects: { effects: ["hudWindow"], state: "active" },
+        transparent: isMac,
+        ...(isMac && { windowEffects: { effects: [Effect.HudWindow], state: EffectState.Active } }),
       });
       webview.once("tauri://created", () => {
         webview.show();
@@ -1997,11 +2002,13 @@ export default function ProjectPage() {
   const assistantOptions = getAssistantOptions();
   const navButtonBase =
     "flex h-8 w-8 items-center justify-center rounded-lg text-foreground/70 transition-all duration-200";
-  const panelShellClass =
-    "rounded-2xl bg-[hsl(var(--card)/0.5)] shadow-xl border border-[hsl(var(--glass-border))] shadow-[var(--panel-shadow)] transition-opacity duration-150";
+  const panelShellClass = cn(
+    "rounded-2xl shadow-xl border border-[hsl(var(--glass-border))] shadow-[var(--panel-shadow)] transition-opacity duration-150",
+    isMacOS ? "bg-[hsl(var(--card)/0.5)]" : "bg-card"
+  );
 
   return (
-    <div className="relative flex h-full bg-[hsl(var(--glass-bg))]">
+    <div className={cn("relative flex h-full", isMacOS ? "bg-[hsl(var(--glass-bg))]" : "bg-background")}>
       {/* Titlebar drag region — native drag + double-click to maximize */}
       <div data-tauri-drag-region className="absolute inset-x-0 top-0 z-40 h-10" />
 

@@ -18,10 +18,12 @@ import { ExternalLink, FolderOpen, Copy, SquareTerminal } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
 
 // Compute background colors from CSS variables to ensure they match
+const IS_MACOS = navigator.platform.toUpperCase().includes("MAC");
+const BG_SUFFIX = IS_MACOS ? "00" : ""; // Transparent on macOS (vibrancy), opaque elsewhere
 const THEME_BACKGROUNDS = {
-  dark: hslToHex(THEME_DEFAULTS.dark.card) + "00",
-  tokyo: hslToHex(THEME_DEFAULTS.tokyo.card) + "00",
-  light: hslToHex(THEME_DEFAULTS.light.card) + "00",
+  dark: hslToHex(THEME_DEFAULTS.dark.card) + BG_SUFFIX,
+  tokyo: hslToHex(THEME_DEFAULTS.tokyo.card) + BG_SUFFIX,
+  light: hslToHex(THEME_DEFAULTS.light.card) + BG_SUFFIX,
 };
 
 interface TerminalProps {
@@ -138,8 +140,8 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
   const getTerminalTheme = useCallback((): ITheme => {
     if (theme === "custom" && customTheme) {
       const baseTheme = TERMINAL_THEMES[customTheme.baseTheme] || TERMINAL_THEMES.dark;
-      const transparentBg = customTheme.colors.card + "00";
-      return { ...baseTheme, background: transparentBg, cursorAccent: transparentBg };
+      const bg = customTheme.colors.card + BG_SUFFIX;
+      return { ...baseTheme, background: bg, cursorAccent: bg };
     }
     return TERMINAL_THEMES[theme] || TERMINAL_THEMES.dark;
   }, [theme, customTheme]);
@@ -271,7 +273,7 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
         theme: getTerminalTheme(),
         fontFamily: '"MesloLGS NF", "Hack Nerd Font", "FiraCode Nerd Font", "JetBrains Mono", "Fira Code", "SF Mono", "Menlo", monospace',
         fontSize: 13, lineHeight: 1.2, cursorBlink: false, cursorStyle: "bar",
-        allowProposedApi: true, allowTransparency: true, scrollback: 5000, fastScrollModifier: "alt",
+        allowProposedApi: true, allowTransparency: IS_MACOS, scrollback: 5000, fastScrollModifier: "alt",
         fastScrollSensitivity: 5, smoothScrollDuration: 0,
       });
 
@@ -509,7 +511,6 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
     return () => { unlisten.then(fn => fn()); };
   }, [visible, autoFocusOnWindowFocus]);
 
-  const bgColor = getTerminalTheme().background;
 
   return (
     <>

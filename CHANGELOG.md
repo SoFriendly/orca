@@ -4,6 +4,19 @@ All notable changes to Orca will be documented in this file.
 
 ## [0.3.2]
 
+### Visual Overhaul
+- **Glassmorphism UI**: Complete visual refresh with frosted glass aesthetic across all panels, sidebar, and titlebar
+- **Native macOS Vibrancy**: Uses HudWindow vibrancy effect for real OS-level blur behind the app, with CSS tint layers on top
+- **Transparent Panels**: Panels now use semi-transparent backgrounds that blend with the vibrancy layer, creating a layered glass effect
+- **Transparent Terminals**: Terminal backgrounds are fully transparent, matching panel aesthetics
+- **Liquid Glass Active States**: Sidebar icons, git panel view mode buttons, assistant tabs, and shell panel buttons use Apple's `-apple-visual-effect` CSS property on macOS 26+ with fallback for older systems
+- **Unified Corner Radius**: All interactive elements (buttons, tabs, icon toggles) use consistent `rounded-lg` styling
+- **Theme-Aware Colors**: Replaced all hardcoded `text-white` and `bg-white` values with `text-foreground` and `bg-foreground` variants that adapt to light, dark, and custom themes
+- **Theme Simplification**: Removed Tokyo Night theme; themes are now Dark, Light, and Custom
+- **Glass CSS Variables**: Added `--glass-bg` and `--glass-border` variables to all themes (including custom) for consistent vibrancy tinting
+- **Custom Theme Vibrancy**: Custom themes now get the same glass background, transparent terminals, and panel shadow treatment as stock themes
+- **New Window Vibrancy**: Windows opened from the app inherit HudWindow vibrancy effects
+
 ### Bug Fixes
 - **Binary File Conflict Resolution**: Fixed merge conflicts on binary files (e.g., `.DS_Store`) showing no resolution options in the conflict resolver dialog. Binary conflicts now display "Use Ours" and "Use Theirs" buttons that resolve via `git checkout --ours/--theirs`.
 - **Empty Merge Commit Message**: Fixed "Continue Merge" failing with "Aborting commit due to empty commit message" when `.git/MERGE_MSG` is missing. Now falls back to a default merge commit message.
