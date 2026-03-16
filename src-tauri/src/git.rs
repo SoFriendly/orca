@@ -1102,9 +1102,16 @@ impl GitService {
 
     pub fn continue_merge(repo_path: &str, message: Option<&str>) -> Result<(), String> {
         let mut cmd = std::process::Command::new("git");
-        cmd.arg("-C").arg(repo_path).arg("commit").arg("--no-edit");
+        cmd.arg("-C").arg(repo_path).arg("commit");
+
+        // Check if MERGE_MSG exists for --no-edit, otherwise provide a default message
+        let merge_msg_path = std::path::Path::new(repo_path).join(".git").join("MERGE_MSG");
         if let Some(msg) = message {
             cmd.arg("-m").arg(msg);
+        } else if merge_msg_path.exists() {
+            cmd.arg("--no-edit");
+        } else {
+            cmd.arg("-m").arg("Merge commit");
         }
         let output = cmd
             .stdin(std::process::Stdio::null())
@@ -1140,6 +1147,45 @@ impl GitService {
         let full_path = std::path::Path::new(repo_path).join(file_path);
         std::fs::read_to_string(&full_path)
             .map_err(|e| format!("Failed to read file: {}", e))
+    }
+
+    pub fn resolve_conflict_with_side(repo_path: &str, file_path: &str, side: &str) -> Result<(), String> {
+        let side_flag = match side {
+            "ours" => "--ours",
+            "theirs" => "--theirs",
+            _ => return Err(format!("Invalid side: {}. Must be 'ours' or 'theirs'", side)),
+        };
+
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("checkout")
+            .arg(side_flag)
+            .arg("--")
+            .arg(file_path)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git checkout {} failed: {}", side_flag, stderr.trim()));
+        }
+
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_path)
+            .arg("add")
+            .arg(file_path)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run git: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git add failed: {}", stderr.trim()));
+        }
+        Ok(())
     }
 
     pub fn resolve_conflict(repo_path: &str, file_path: &str, content: &str) -> Result<(), String> {

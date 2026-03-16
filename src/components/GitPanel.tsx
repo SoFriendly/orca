@@ -498,6 +498,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
   const [showConflictResolver, setShowConflictResolver] = useState(false);
   const [conflictContent, setConflictContent] = useState<Record<string, string>>({});
   const [resolvedFiles, setResolvedFiles] = useState<Set<string>>(new Set());
+  const [binaryConflictFiles, setBinaryConflictFiles] = useState<Set<string>>(new Set());
   // Merge state
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [mergeBranch, setMergeBranch] = useState("");
@@ -1535,8 +1536,8 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     try {
       const content = await invoke<string>("get_conflict_content", { repoPath: gitRepoPath, filePath });
       setConflictContent(prev => ({ ...prev, [filePath]: content }));
-    } catch (error) {
-      toast.error(`Failed to load conflict content: ${error}`);
+    } catch {
+      setBinaryConflictFiles(prev => new Set([...prev, filePath]));
     }
   };
 
@@ -1551,6 +1552,17 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     }
   };
 
+  const handleResolveConflictWithSide = async (filePath: string, side: "ours" | "theirs") => {
+    try {
+      await invoke("resolve_conflict_with_side", { repoPath: gitRepoPath, filePath, side });
+      setResolvedFiles(prev => new Set([...prev, filePath]));
+      toast.success(`Resolved ${filePath} using ${side}`);
+      refreshConflicts();
+    } catch (error) {
+      toast.error(`Failed to resolve conflict: ${error}`);
+    }
+  };
+
   const handleAbortMerge = async () => {
     try {
       await invoke("abort_merge", { repoPath: gitRepoPath });
@@ -1558,6 +1570,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
       setConflictedFiles([]);
       setShowConflictResolver(false);
       setResolvedFiles(new Set());
+      setBinaryConflictFiles(new Set());
       onRefresh();
     } catch (error) {
       toast.error(`Failed to abort merge: ${error}`);
@@ -1571,6 +1584,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
       setConflictedFiles([]);
       setShowConflictResolver(false);
       setResolvedFiles(new Set());
+      setBinaryConflictFiles(new Set());
       onRefresh();
     } catch (error) {
       toast.error(`Failed to continue merge: ${error}`);
@@ -4625,6 +4639,29 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                       <span className="text-xs text-destructive font-medium">Conflicted</span>
                     )}
                   </div>
+                  {!content && !isResolved && binaryConflictFiles.has(filePath) && (
+                    <div className="space-y-2">
+                      <div className="text-xs text-muted-foreground">Binary file — choose which version to keep</div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 text-xs"
+                          onClick={() => handleResolveConflictWithSide(filePath, "ours")}
+                        >
+                          Use Ours
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 text-xs"
+                          onClick={() => handleResolveConflictWithSide(filePath, "theirs")}
+                        >
+                          Use Theirs
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   {content && !isResolved && (
                     <div className="space-y-2">
                       {/* Parse conflict markers and show resolution options */}

@@ -2,6 +2,12 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.3.2]
+
+### Bug Fixes
+- **Binary File Conflict Resolution**: Fixed merge conflicts on binary files (e.g., `.DS_Store`) showing no resolution options in the conflict resolver dialog. Binary conflicts now display "Use Ours" and "Use Theirs" buttons that resolve via `git checkout --ours/--theirs`.
+- **Empty Merge Commit Message**: Fixed "Continue Merge" failing with "Aborting commit due to empty commit message" when `.git/MERGE_MSG` is missing. Now falls back to a default merge commit message.
+
 ## [0.3.1]
 
 ### Improvements
