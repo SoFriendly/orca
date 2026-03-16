@@ -74,7 +74,7 @@ function App() {
 
   return (
     <TooltipProvider>
-      <div className="h-screen w-screen overflow-hidden bg-background text-foreground">
+      <div className="h-screen w-screen overflow-hidden text-foreground">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/project/:projectId" element={<ProjectPage />} />

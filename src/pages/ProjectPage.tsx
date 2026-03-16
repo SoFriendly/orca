@@ -13,6 +13,7 @@ import {
   X,
   Trash2,
   Plus,
+  LayoutGrid,
   Bot,
   GitBranch,
   Folder,
@@ -311,7 +312,6 @@ const defineMonacoThemes = (
 // Map app theme to Monaco theme name
 const getMonacoTheme = (appTheme: string): string => {
   switch (appTheme) {
-    case 'tokyo': return 'orca-indigo';
     case 'light': return 'orca-light';
     case 'custom': return 'orca-custom';
     default: return 'orca-dark';
@@ -342,22 +342,11 @@ export default function ProjectPage() {
   const { diffs: storeDiffs, branches, worktrees, setStatus, setDiffs, setBranches, setHistory, setWorktrees, setLoading } = useGitStore();
   const { assistantArgs, defaultAssistant, autoFetchRemote, theme, customTheme, customAssistants, hiddenAssistantIds, hasSeenOnboarding, setHasSeenOnboarding, defaultPanels } = useSettingsStore();
 
-  // Terminal background colors per theme (computed from --card CSS variable)
-  const terminalBg =
-    theme === "custom" && customTheme
-      ? customTheme.colors.card
-      : hslToHex(THEME_DEFAULTS[theme as keyof typeof THEME_DEFAULTS]?.card || THEME_DEFAULTS.dark.card);
 
-  // App background colors per theme (computed from CSS --background values)
-  const appBgColor =
-    theme === "custom" && customTheme
-      ? customTheme.colors.background
-      : hslToHex(THEME_DEFAULTS[theme as keyof typeof THEME_DEFAULTS]?.background || THEME_DEFAULTS.dark.background);
-
-  // Set webview background color to match app surface (prevents edge tint mismatch)
+  // Make webview transparent so native vibrancy shows through (macOS)
   useEffect(() => {
-    getCurrentWebview().setBackgroundColor(appBgColor).catch(() => {});
-  }, [appBgColor]);
+    getCurrentWebview().setBackgroundColor("#00000000").catch(() => {});
+  }, []);
 
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -763,7 +752,8 @@ export default function ProjectPage() {
         titleBarStyle: "overlay",
         hiddenTitle: true,
         visible: false,
-        backgroundColor: appBgColor,
+        transparent: true,
+        windowEffects: { effects: ["hudWindow"], state: "active" },
       });
       webview.once("tauri://created", () => {
         webview.show();
@@ -2006,12 +1996,12 @@ export default function ProjectPage() {
 
   const assistantOptions = getAssistantOptions();
   const navButtonBase =
-    "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/50 transition-all duration-200";
+    "flex h-8 w-8 items-center justify-center rounded-lg text-white/70 transition-all duration-200";
   const panelShellClass =
-    "rounded-2xl bg-card shadow-[var(--panel-shadow)] transition-opacity duration-150";
+    "rounded-2xl bg-[hsl(var(--card)/0.5)] shadow-xl border border-[hsl(var(--glass-border))] shadow-[var(--panel-shadow)] transition-opacity duration-150";
 
   return (
-    <div className="relative flex h-full bg-background">
+    <div className="relative flex h-full bg-[hsl(var(--glass-bg))]">
       {/* Titlebar drag region — native drag + double-click to maximize */}
       <div data-tauri-drag-region className="absolute inset-x-0 top-0 z-40 h-10" />
 
@@ -2022,7 +2012,7 @@ export default function ProjectPage() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-7 p-0 mr-1 text-muted-foreground hover:text-foreground"
+              className="h-7 w-7 p-0 mr-1 text-foreground hover:text-foreground"
               onClick={() => {
                 loadFileTree();
                 setShowFileSearch(true);
@@ -2046,7 +2036,7 @@ export default function ProjectPage() {
                       className="h-6 gap-1 px-2.5 rounded-full text-sm font-medium hover:bg-muted/50"
                     >
                       <span className="truncate max-w-[150px]">{activeFolder?.name || currentProject.name}</span>
-                      <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <ChevronDown className="h-3 w-3 text-foreground shrink-0" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="center" className="w-56 max-h-80 overflow-y-auto">
@@ -2102,7 +2092,7 @@ export default function ProjectPage() {
         )}
         {isGitRepo && (
           <>
-            <span className="text-muted-foreground text-sm h-6 inline-flex items-center">/</span>
+            <span className="text-foreground text-sm h-6 inline-flex items-center">/</span>
             <ContextMenu>
               <ContextMenuTrigger asChild>
                 <div>
@@ -2111,7 +2101,7 @@ export default function ProjectPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 gap-1 px-2.5 rounded-full text-sm font-normal text-muted-foreground hover:text-foreground translate-y-px"
+                        className="h-6 gap-1 px-2.5 rounded-full text-sm font-normal text-foreground hover:text-foreground translate-y-px"
                         disabled={isSwitchingBranch}
                       >
                         <GitBranch className="h-3.5 w-3.5" />
@@ -2212,7 +2202,7 @@ export default function ProjectPage() {
       <nav
         ref={sidebarNavRef}
         aria-label="Sidebar"
-        className="relative z-20 flex w-14 flex-col pl-2 pb-2 pt-12 backdrop-blur-sm"
+        className="relative z-20 flex w-14 flex-col pl-2 pb-2 pt-12"
       >
         {/* Top icon container */}
         <div className="flex flex-col items-center gap-1.5 px-3 py-1">
@@ -2221,9 +2211,9 @@ export default function ProjectPage() {
               <button
                 onClick={handleNewWindow}
                 aria-label="New window"
-                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
+                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-white/15")}
               >
-                <Plus className="h-5 w-5" />
+                <LayoutGrid className="h-5 w-5" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="right">New Window</TooltipContent>
@@ -2259,7 +2249,7 @@ export default function ProjectPage() {
                       titleBarStyle: "overlay",
                       hiddenTitle: true,
                       visible: false,
-                      backgroundColor: appBgColor,
+                      transparent: true,
                     });
                     webview.once("tauri://created", () => { webview.show(); });
                     webview.once("tauri://error", (e) => {
@@ -2269,7 +2259,7 @@ export default function ProjectPage() {
                   }
                 }}
                 aria-label="Open folder"
-                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
+                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-white/15")}
               >
                 <FolderOpen className="h-5 w-5" />
               </button>
@@ -2288,8 +2278,8 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   activeSidebarItem === "settings"
-                    ? "bg-muted/30"
-                    : "hover:text-foreground/70 hover:bg-muted/20"
+                    ? "bg-white/10"
+                    : "hover:text-foreground/70 hover:bg-white/15"
                 )}
               >
                 <Settings className="h-5 w-5" />
@@ -2314,8 +2304,8 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   showGitPanel
-                    ? "bg-accent text-accent-foreground"
-                    : "hover:text-foreground/70 hover:bg-muted/20",
+                    ? "bg-white/10"
+                    : "hover:text-foreground/70 hover:bg-white/15",
                   showGitPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2337,8 +2327,8 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   showAssistantPanel
-                    ? "bg-accent text-accent-foreground"
-                    : "hover:text-foreground/70 hover:bg-muted/20",
+                    ? "bg-white/10"
+                    : "hover:text-foreground/70 hover:bg-white/15",
                   showAssistantPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2360,8 +2350,8 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   showShellPanel
-                    ? "bg-accent text-accent-foreground"
-                    : "hover:text-foreground/70 hover:bg-muted/20",
+                    ? "bg-white/10"
+                    : "hover:text-foreground/70 hover:bg-white/15",
                   showShellPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2383,8 +2373,8 @@ export default function ProjectPage() {
                 className={cn(
                   navButtonBase,
                   showNotesPanel
-                    ? "bg-accent text-accent-foreground"
-                    : "hover:text-foreground/70 hover:bg-muted/20",
+                    ? "bg-white/10"
+                    : "hover:text-foreground/70 hover:bg-white/15",
                   showNotesPanel && visiblePanelCount <= 1 && "cursor-not-allowed"
                 )}
               >
@@ -2408,7 +2398,7 @@ export default function ProjectPage() {
                 <button
                   aria-label="Help"
                   onClick={() => setHasSeenOnboarding(false)}
-                  className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
+                  className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-white/15")}
                 >
                   <HelpCircle className="h-5 w-5" />
                 </button>
@@ -2430,7 +2420,7 @@ export default function ProjectPage() {
           role="region"
           aria-label="Git panel"
           className={cn(
-            "relative h-full flex flex-col overflow-hidden after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-2 after:bg-card",
+            "relative h-full flex flex-col overflow-hidden",
             panelShellClass,
             !showGitPanel && "hidden"
           )}
@@ -2503,7 +2493,7 @@ export default function ProjectPage() {
             panelShellClass,
             !showAssistantPanel && "hidden"
           )}
-          style={{ flex: `1 1 ${assistantPanelWidth}px`, minWidth: 320, backgroundColor: terminalBg }}
+          style={{ flex: `1 1 ${assistantPanelWidth}px`, minWidth: 320 }}
           onDragOver={handlePanelDragOver}
           onDrop={handleAssistantPanelDrop}
         >
@@ -2531,10 +2521,10 @@ export default function ProjectPage() {
                     className={cn(
                       "group flex h-7 shrink-0 cursor-grab items-center gap-1.5 pl-3 pr-3 group-hover:pr-2 my-1.5 mx-0.5 rounded-full text-sm font-medium transition-all duration-200",
                       activeTabId === tab.id
-                        ? "text-foreground bg-accent"
-                        : "text-muted-foreground/60 hover:text-foreground hover:bg-primary/5",
+                        ? "text-white bg-white/10"
+                        : "text-white/50 hover:text-white/80 hover:bg-white/5",
                       draggingTabId === tab.id && "opacity-60 cursor-grabbing",
-                      dragOverTabId === tab.id && draggingTabId !== tab.id && "bg-muted/25"
+                      dragOverTabId === tab.id && draggingTabId !== tab.id && "bg-white/10"
                     )}
                     onClick={() => !draggingTabId && setActiveTabId(tab.id)}
                     onMouseDown={(event) => handleTabMouseDown(event, tab.id)}
@@ -2571,7 +2561,7 @@ export default function ProjectPage() {
                       closeTab(tab.id);
                     }}
                     aria-label={`Close ${tab.name} tab`}
-                    className="ml-1 shrink-0 rounded-full p-0.5 hidden group-hover:flex hover:bg-muted/50 transition-opacity"
+                    className="ml-1 shrink-0 rounded-full p-0.5 hidden group-hover:flex hover:bg-white/15 transition-opacity"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -2583,7 +2573,7 @@ export default function ProjectPage() {
               <DropdownMenuTrigger asChild>
                 <button
                   aria-label="New tab"
-                  className="flex h-7 w-7 items-center justify-center my-1.5 mx-0.5 rounded-full text-muted-foreground/70 transition-all duration-200 hover:bg-muted/25 hover:text-foreground"
+                  className="flex h-7 w-7 items-center justify-center my-1.5 mx-0.5 rounded-full text-white/50 transition-all duration-200 hover:bg-white/10 hover:text-white/80"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -2633,7 +2623,7 @@ export default function ProjectPage() {
             >
               <div
                 className="flex-1 overflow-hidden"
-                style={{ backgroundColor: terminalBg }}
+
               >
                 {tab.cwd ? (
                   <Terminal
@@ -2695,7 +2685,7 @@ export default function ProjectPage() {
 
           {/* Empty state when no tabs */}
           {terminalTabs.length === 0 && (
-            <div className="flex flex-1 flex-col items-center justify-center p-8" style={{ backgroundColor: terminalBg }}>
+            <div className="flex flex-1 flex-col items-center justify-center p-8">
               <div className="flex flex-col items-center text-center max-w-[280px]">
                 <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted/30 mb-4">
                   <Bot className="h-7 w-7 text-muted-foreground/70" />
@@ -2907,7 +2897,6 @@ export default function ProjectPage() {
           {/* Utility terminal content with AI */}
           <div
             className="flex-1 overflow-hidden"
-            style={{ backgroundColor: terminalBg }}
           >
             {utilityTerminalId === "closed" ? (
               /* Shell was explicitly closed */

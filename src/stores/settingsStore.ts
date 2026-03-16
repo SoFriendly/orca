@@ -42,7 +42,7 @@ interface SettingsState extends Settings {
 export const applyTheme = (theme: ThemeOption, customColors?: CustomThemeColors) => {
   const root = document.documentElement;
   // Remove all theme classes
-  root.classList.remove('dark', 'tokyo', 'light', 'custom');
+  root.classList.remove('dark', 'light', 'custom');
 
   // Remove existing custom style element
   const existingStyle = document.getElementById('custom-theme-style');
@@ -199,6 +199,10 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'orca-settings',
       onRehydrateStorage: () => (state) => {
+        // Migrate removed tokyo theme to dark
+        if (state && (state.theme as string) === 'tokyo') {
+          state.theme = 'dark';
+        }
         // Apply saved theme on load
         if (state?.theme) {
           applyTheme(state.theme, state.customTheme);

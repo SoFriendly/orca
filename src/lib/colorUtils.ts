@@ -209,5 +209,7 @@ export function generateCustomThemeCSS(colors: CustomThemeColors['colors']): str
   --border: ${hexToHSL(colors.border)};
   --input: ${hexToHSL(colors.input)};
   --ring: ${hexToHSL(colors.ring)};
+  --glass-bg: 0 0% 3% / 0.15;
+  --glass-border: 0 0% 100% / 0.08;
 }`;
 }

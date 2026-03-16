@@ -166,7 +166,7 @@ export interface ProjectTab {
 }
 
 // Settings types
-export type ThemeOption = 'dark' | 'tokyo' | 'light' | 'custom';
+export type ThemeOption = 'dark' | 'light' | 'custom';
 
 export interface CustomThemeColors {
   baseTheme: 'dark' | 'tokyo' | 'light';

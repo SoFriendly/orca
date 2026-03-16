@@ -12,7 +12,6 @@ const LOGO_BASE_HUE = 255;
 function getThemeHueRotation(theme: string): number {
   switch (theme) {
     case "dark": return 0;       // Purple — matches logo natively
-    case "tokyo": return 130;    // Orange/red — rotate to ~25 hue
     case "light": return 0;      // Purple — matches logo
     default: return 0;
   }

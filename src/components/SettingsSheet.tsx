@@ -73,8 +73,7 @@ interface ThemeInfo {
 }
 
 const THEMES: ThemeInfo[] = [
-  { id: "dark", name: "Orca Purple", gradient: "from-purple-500/60 to-indigo-950" },
-  { id: "tokyo", name: "Orca Ember", gradient: "from-orange-500/60 to-red-950" },
+  { id: "dark", name: "Dark", gradient: "from-purple-500/60 to-indigo-950" },
   { id: "light", name: "Light", gradient: "from-slate-200 to-slate-100" },
   { id: "custom", name: "Custom", gradient: "from-purple-500/60 via-pink-500/60 to-orange-500/60" },
 ];

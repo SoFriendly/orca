@@ -8,7 +8,6 @@ const LOGO_BASE_HUE = 255;
 
 function getThemeHueRotation(theme: string): number {
   switch (theme) {
-    case "tokyo": return 130;
     default: return 0;
   }
 }

@@ -1428,6 +1428,11 @@ fn resolve_conflict(repo_path: String, file_path: String, content: String) -> Re
     GitService::resolve_conflict(&repo_path, &file_path, &content)
 }
 
+#[tauri::command]
+fn resolve_conflict_with_side(repo_path: String, file_path: String, side: String) -> Result<(), String> {
+    GitService::resolve_conflict_with_side(&repo_path, &file_path, &side)
+}
+
 // Undo last commit
 #[tauri::command]
 fn undo_last_commit(repo_path: String) -> Result<(), String> {
@@ -4274,6 +4279,7 @@ pub fn run() {
             get_conflicted_files,
             get_conflict_content,
             resolve_conflict,
+            resolve_conflict_with_side,
             // Undo
             undo_last_commit,
             // Rebase
@@ -4387,6 +4393,23 @@ pub fn run() {
             //     })
             //     .on_tray_icon_event(|tray, event| { /* ... */ })
             //     .build(app)?;
+
+            // Apply native vibrancy for frosted glass effect (macOS only)
+            // CSS backdrop-filter is unreliable during window drag on WebKit,
+            // so we use the native NSVisualEffectView for consistent blur.
+            #[cfg(target_os = "macos")]
+            {
+                use tauri::Manager;
+                use tauri::window::{Effect, EffectState, EffectsBuilder};
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.set_effects(
+                        EffectsBuilder::new()
+                            .effect(Effect::HudWindow)
+                            .state(EffectState::Active)
+                            .build(),
+                    );
+                }
+            }
 
             // Create custom macOS menu with proper app name
             #[cfg(target_os = "macos")]

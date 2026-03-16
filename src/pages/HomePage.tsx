@@ -7,6 +7,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   FolderGit2,
+  LayoutGrid,
   Plus,
   Download,
   Settings,
@@ -38,7 +39,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useProjectStore, ensureFolders } from "@/stores/projectStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { cn } from "@/lib/utils";
-import { hslToHex, THEME_DEFAULTS } from "@/lib/colorUtils";
 import type { Project } from "@/types";
 import SettingsSheet from "@/components/SettingsSheet";
 import Onboarding from "@/components/Onboarding";
@@ -46,7 +46,7 @@ import Onboarding from "@/components/Onboarding";
 export default function HomePage() {
   const navigate = useNavigate();
   const { projects, addProject, removeProject } = useProjectStore();
-  const { defaultClonePath, hasSeenOnboarding, setHasSeenOnboarding, theme, customTheme } = useSettingsStore();
+  const { defaultClonePath, hasSeenOnboarding, setHasSeenOnboarding } = useSettingsStore();
   const [cloneUrl, setCloneUrl] = useState("");
   const [clonePath, setClonePath] = useState("");
   const [isCloning, setIsCloning] = useState(false);
@@ -98,16 +98,10 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, []);
 
-  // App background colors per theme (computed from CSS --background values)
-  const appBgColor =
-    theme === "custom" && customTheme
-      ? customTheme.colors.background
-      : hslToHex(THEME_DEFAULTS[theme as keyof typeof THEME_DEFAULTS]?.background || THEME_DEFAULTS.dark.background);
-
-  // Keep webview background aligned with app background to avoid edge tint differences
+  // Make webview transparent so native vibrancy shows through (macOS)
   useEffect(() => {
-    getCurrentWebview().setBackgroundColor(appBgColor).catch(() => {});
-  }, [appBgColor]);
+    getCurrentWebview().setBackgroundColor("#00000000").catch(() => {});
+  }, []);
 
   const handleNewWindow = async () => {
     try {
@@ -122,7 +116,8 @@ export default function HomePage() {
         titleBarStyle: "overlay",
         hiddenTitle: true,
         visible: false,
-        backgroundColor: appBgColor,
+        transparent: true,
+        windowEffects: { effects: ["hudWindow"], state: "active" },
       });
       webview.once("tauri://created", () => {
         webview.show();
@@ -166,7 +161,7 @@ export default function HomePage() {
           titleBarStyle: "overlay",
           hiddenTitle: true,
           visible: false,
-          backgroundColor: appBgColor,
+          transparent: true,
         });
         webview.once("tauri://created", () => { webview.show(); });
         webview.once("tauri://error", (e) => {
@@ -344,12 +339,12 @@ export default function HomePage() {
   };
 
   const navButtonBase =
-    "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/50 transition-all duration-200";
+    "flex h-8 w-8 items-center justify-center rounded-lg text-white/70 transition-all duration-200";
   const panelShellClass =
-    "rounded-2xl bg-card shadow-[var(--panel-shadow)]";
+    "rounded-2xl bg-[hsl(var(--card)/0.5)] shadow-xl border border-[hsl(var(--glass-border))] shadow-[var(--panel-shadow)]";
 
   return (
-    <div className="relative flex h-full">
+    <div className="relative flex h-full bg-[hsl(var(--glass-bg))]">
       {/* Titlebar drag region — native drag + double-click to maximize */}
       <div data-tauri-drag-region className="absolute inset-x-0 top-0 z-40 h-8" />
 
@@ -357,7 +352,7 @@ export default function HomePage() {
       <nav
         ref={sidebarNavRef}
         aria-label="Main navigation"
-        className="relative z-20 flex w-14 flex-col pl-2 pb-2 pt-9 backdrop-blur-sm"
+        className="relative z-20 flex w-14 flex-col pl-2 pb-2 pt-9"
       >
         {/* Top icon container */}
         <div className="flex flex-col items-center gap-1.5 px-3 py-1">
@@ -367,9 +362,9 @@ export default function HomePage() {
               <button
                 onClick={handleNewWindow}
                 aria-label="New window"
-                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
+                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-white/15")}
               >
-                <Plus className="h-5 w-5" />
+                <LayoutGrid className="h-5 w-5" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="right">New Window</TooltipContent>
@@ -380,7 +375,7 @@ export default function HomePage() {
               <button
                 onClick={handleOpenProject}
                 aria-label="Open folder"
-                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
+                className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-white/15")}
               >
                 <FolderOpen className="h-5 w-5" />
               </button>
@@ -399,8 +394,8 @@ export default function HomePage() {
                 className={cn(
                   navButtonBase,
                   activeSidebarItem === "settings"
-                    ? "text-primary"
-                    : "hover:text-foreground/70 hover:bg-muted/20"
+                    ? "bg-white/10"
+                    : "hover:text-foreground/70 hover:bg-white/15"
                 )}
               >
                 <Settings className="h-5 w-5" />
@@ -422,7 +417,7 @@ export default function HomePage() {
                 <button
                   onClick={() => setHasSeenOnboarding(false)}
                   aria-label="Show tour"
-                  className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-muted/20")}
+                  className={cn(navButtonBase, "hover:text-foreground/70 hover:bg-white/15")}
                 >
                   <HelpCircle className="h-5 w-5" />
                 </button>

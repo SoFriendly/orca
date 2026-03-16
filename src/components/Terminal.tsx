@@ -19,9 +19,9 @@ import "@xterm/xterm/css/xterm.css";
 
 // Compute background colors from CSS variables to ensure they match
 const THEME_BACKGROUNDS = {
-  dark: hslToHex(THEME_DEFAULTS.dark.card),
-  tokyo: hslToHex(THEME_DEFAULTS.tokyo.card),
-  light: hslToHex(THEME_DEFAULTS.light.card),
+  dark: hslToHex(THEME_DEFAULTS.dark.card) + "00",
+  tokyo: hslToHex(THEME_DEFAULTS.tokyo.card) + "00",
+  light: hslToHex(THEME_DEFAULTS.light.card) + "00",
 };
 
 interface TerminalProps {
@@ -270,7 +270,7 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
         theme: getTerminalTheme(),
         fontFamily: '"MesloLGS NF", "Hack Nerd Font", "FiraCode Nerd Font", "JetBrains Mono", "Fira Code", "SF Mono", "Menlo", monospace',
         fontSize: 13, lineHeight: 1.2, cursorBlink: false, cursorStyle: "bar",
-        allowProposedApi: true, scrollback: 5000, fastScrollModifier: "alt",
+        allowProposedApi: true, allowTransparency: true, scrollback: 5000, fastScrollModifier: "alt",
         fastScrollSensitivity: 5, smoothScrollDuration: 0,
       });
 
@@ -512,7 +512,7 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
 
   return (
     <>
-      <div className="h-full w-full p-1" style={{ backgroundColor: bgColor, transform: "translateZ(0)" }}
+      <div className="h-full w-full p-1" style={{ transform: "translateZ(0)" }}
         onClick={() => { closeContextMenu(); terminalRef.current?.focus(); }}
         onMouseUp={() => {
           const p = (window as any).__draggedFilePath;
