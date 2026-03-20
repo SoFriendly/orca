@@ -2,6 +2,11 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.3.4]
+
+### Bug Fixes
+- **Consistent Window Vibrancy**: Moved HudWindow vibrancy config from Rust setup to `tauri.conf.json` so the main window and JS-created windows use the same effect path, fixing transparency differences between opening a new app instance vs using the new window button
+
 ## [0.3.3]
 
 ### Improvements

@@ -31,7 +31,11 @@
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
         "visible": false,
-        "transparent": true
+        "transparent": true,
+        "windowEffects": {
+          "effects": ["hudWindow"],
+          "state": "active"
+        }
       }
     ],
     "security": {
