@@ -1174,6 +1174,7 @@ export default function ProjectPage() {
     const project = projects.find((p) => p.id === projectId);
     if (project) {
       setCurrentProject(project);
+      getCurrentWindow().setTitle(project.name).catch(() => {});
       openTab(project);
       loadGitData(project.path);
     } else {
@@ -1792,6 +1793,7 @@ export default function ProjectPage() {
       if (project) {
         const migrated = ensureFolders(project);
         setCurrentProject(migrated);
+        getCurrentWindow().setTitle(migrated.name).catch(() => {});
         openTab(migrated);
         loadGitData(migrated.path);
         // Write back migrated data if folders were missing

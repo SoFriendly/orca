@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { Effect, EffectState } from "@tauri-apps/api/window";
+import { getCurrentWindow, Effect, EffectState } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   FolderGit2,
@@ -65,6 +65,10 @@ export default function HomePage() {
   const sortedProjects = [...projects]
     .sort((a, b) => new Date(b.lastOpened).getTime() - new Date(a.lastOpened).getTime())
     .filter(p => !projectSearch || p.name.toLowerCase().includes(projectSearch.toLowerCase()) || p.path.toLowerCase().includes(projectSearch.toLowerCase()));
+
+  useEffect(() => {
+    getCurrentWindow().setTitle("Orca").catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (showCloneDialog && defaultClonePath && !clonePath) {

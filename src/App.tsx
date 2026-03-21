@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { Effect, EffectState } from "@tauri-apps/api/window";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,6 +24,29 @@ function App() {
     });
     return () => { unlisten.then((fn) => fn()); };
   }, [navigate]);
+
+  // Handle Cmd+N / File > New Window
+  useEffect(() => {
+    const isMacOS = navigator.platform.toUpperCase().includes("MAC");
+    const unlisten = listen("new-window", () => {
+      const webview = new WebviewWindow(`orca-${Date.now()}`, {
+        url: "/",
+        title: "Orca",
+        width: 1200,
+        height: 800,
+        minWidth: 600,
+        minHeight: 600,
+        center: true,
+        titleBarStyle: "overlay",
+        hiddenTitle: true,
+        visible: false,
+        transparent: isMacOS,
+        ...(isMacOS && { windowEffects: { effects: [Effect.HudWindow], state: EffectState.Active } }),
+      });
+      webview.once("tauri://created", () => { webview.show(); });
+    });
+    return () => { unlisten.then((fn) => fn()); };
+  }, []);
 
   // Handle opening .orca workspace files (from double-click in OS)
   useEffect(() => {

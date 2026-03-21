@@ -2,6 +2,15 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.3.5]
+
+### Improvements
+- **Window Titles**: Windows now show the project name instead of "Orca" in the title bar and macOS dock, making it easy to identify windows when multiple projects are open
+- **New Window Shortcut**: Added File > New Window menu item with Cmd+N keyboard shortcut
+
+### Bug Fixes
+- **Assistant Panel Scroll**: Fixed assistant panel randomly scrolling to the top instead of staying pinned to the bottom during panel resizes and visibility changes
+
 ## [0.3.4]
 
 ### Bug Fixes

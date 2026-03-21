@@ -4432,6 +4432,17 @@ pub fn run() {
                     ],
                 )?;
 
+                let file_menu = Submenu::with_items(
+                    app,
+                    "File",
+                    true,
+                    &[
+                        &MenuItemBuilder::with_id("new_window", "New Window")
+                            .accelerator("CmdOrCtrl+N")
+                            .build(app)?,
+                    ],
+                )?;
+
                 let window_menu = Submenu::with_items(
                     app,
                     "Window",
@@ -4444,15 +4455,21 @@ pub fn run() {
                     ],
                 )?;
 
-                let menu = Menu::with_items(app, &[&app_menu, &edit_menu, &window_menu])?;
+                let menu = Menu::with_items(app, &[&app_menu, &file_menu, &edit_menu, &window_menu])?;
                 app.set_menu(menu)?;
             }
 
             Ok(())
         })
         .on_menu_event(|app, event| {
-            if event.id().as_ref() == "check_for_updates" {
-                let _ = app.emit("check-for-updates", ());
+            match event.id().as_ref() {
+                "check_for_updates" => {
+                    let _ = app.emit("check-for-updates", ());
+                }
+                "new_window" => {
+                    let _ = app.emit("new-window", ());
+                }
+                _ => {}
             }
         })
         .on_window_event(move |window, event| {
