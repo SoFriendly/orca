@@ -2,6 +2,11 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.3.6]
+
+### Bug Fixes
+- **Terminal Scroll Stability**: Fixed terminal scrolling to the top when Claude Code clears context or repaints its TUI. Claude Code uses synchronized update transactions (mode 2026) that clear scrollback, causing xterm.js to lose scroll position. Now detects these repaint transactions and scrolls back to bottom when they complete
+
 ## [0.3.5]
 
 ### Improvements

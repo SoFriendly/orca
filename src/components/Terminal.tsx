@@ -121,7 +121,6 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
   const theme = useSettingsStore((state) => state.theme);
   const customTheme = useSettingsStore((state) => state.customTheme);
   const preferredEditor = useSettingsStore((state) => state.preferredEditor);
-  const savedScrollTopRef = useRef(0);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -310,6 +309,35 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
         for (const p of params) if (p === 1004 || (Array.isArray(p) && p.includes(1004))) return true;
         return false;
       });
+
+      // Detect repaint transactions (mode 2026 synchronized updates + CSI 3J clear scrollback)
+      // Claude Code wraps screen redraws in these — scroll to bottom when the transaction ends
+      let inSyncTransaction = false;
+      let inRepaintTransaction = false;
+      let lastClearScrollbackTs = 0;
+      terminal.parser.registerCsiHandler({ final: "J" }, (params) => {
+        if (params[0] === 3) {
+          lastClearScrollbackTs = Date.now();
+          if (inSyncTransaction) inRepaintTransaction = true;
+        }
+        return false;
+      });
+      terminal.parser.registerCsiHandler({ prefix: "?", final: "h" }, (params) => {
+        if (params[0] === 2026) inSyncTransaction = true;
+        return false;
+      });
+      terminal.parser.registerCsiHandler({ prefix: "?", final: "l" }, (params) => {
+        if (params[0] === 2026) {
+          inSyncTransaction = false;
+          const wasRepaint = inRepaintTransaction;
+          inRepaintTransaction = false;
+          if (wasRepaint && Date.now() - lastClearScrollbackTs <= 2000) {
+            setTimeout(() => terminal.scrollToBottom(), 20);
+          }
+        }
+        return false;
+      });
+
       try { terminal.loadAddon(new CanvasAddon()); } catch { try { terminal.loadAddon(new WebglAddon()); } catch {} }
 
       // Keyboard shortcuts
@@ -419,20 +447,11 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
       const resizeDisposable = terminal.onResize(({ cols, rows }) => invoke("resize_terminal", { id: activeId, cols, rows }).catch(() => {}));
 
       let lastCols = cols, lastRows = rows, fitTimer: ReturnType<typeof setTimeout> | null = null;
+      let lastWidth = container.offsetWidth;
       const safeFit = () => {
         try {
           if (container.offsetWidth > 0 && container.offsetHeight > 0) {
-            const vp = container.querySelector('.xterm-viewport') as HTMLElement;
-            const prevScrollTop = vp?.scrollTop ?? savedScrollTopRef.current;
-            const wasAtBottom = vp ? (vp.scrollHeight - vp.scrollTop - vp.clientHeight < 5) : true;
             fitAddon.fit();
-            if (vp) {
-              if (wasAtBottom) {
-                vp.scrollTop = vp.scrollHeight - vp.clientHeight;
-              } else if (prevScrollTop > 0) {
-                vp.scrollTop = Math.min(prevScrollTop, vp.scrollHeight - vp.clientHeight);
-              }
-            }
             if (terminal.cols !== lastCols || terminal.rows !== lastRows) {
               lastCols = terminal.cols; lastRows = terminal.rows;
               invoke("resize_terminal", { id: activeId, cols: terminal.cols, rows: terminal.rows }).catch(() => {});
@@ -442,7 +461,14 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
       };
       const debouncedFit = () => { if (fitTimer) clearTimeout(fitTimer); fitTimer = setTimeout(safeFit, 50); };
 
-      const ro = new ResizeObserver(() => debouncedFit());
+      const ro = new ResizeObserver(() => {
+        // Only refit on width changes — height changes disrupt scroll position
+        const w = container.offsetWidth;
+        if (w !== lastWidth) {
+          lastWidth = w;
+          debouncedFit();
+        }
+      });
       ro.observe(container);
       window.addEventListener("resize", debouncedFit);
 
@@ -450,17 +476,12 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
       container.addEventListener('paste', handlePaste);
       container.addEventListener('contextmenu', handleContextMenu as EventListener);
 
-      const vp = container.querySelector('.xterm-viewport') as HTMLElement;
-      const handleScroll = () => { if (vp?.scrollTop > 0) savedScrollTopRef.current = vp.scrollTop; };
-      vp?.addEventListener('scroll', handleScroll, { passive: true });
-
       cleanupRef.current = () => {
         if (fitTimer) clearTimeout(fitTimer);
         dataDisposable.dispose(); resizeDisposable.dispose(); ro.disconnect();
         window.removeEventListener("resize", debouncedFit);
         container.removeEventListener('paste', handlePaste);
         container.removeEventListener('contextmenu', handleContextMenu as EventListener);
-        vp?.removeEventListener('scroll', handleScroll);
         unlisten();
         terminal.dispose();
         if (!id) invoke("kill_terminal", { id: activeId }).catch(() => {});
@@ -494,20 +515,9 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
   useEffect(() => {
     if (visible && terminalRef.current && fitAddonRef.current && terminalId) {
       terminalRef.current.focus();
-      const container = containerRef.current;
       const t = setTimeout(() => {
         try {
-          const vp = container?.querySelector('.xterm-viewport') as HTMLElement | null;
-          const prevScrollTop = vp?.scrollTop ?? savedScrollTopRef.current;
-          const wasAtBottom = vp ? (vp.scrollHeight - vp.scrollTop - vp.clientHeight < 5) : true;
           fitAddonRef.current?.fit();
-          if (vp) {
-            if (wasAtBottom) {
-              vp.scrollTop = vp.scrollHeight - vp.clientHeight;
-            } else if (prevScrollTop > 0) {
-              vp.scrollTop = Math.min(prevScrollTop, vp.scrollHeight - vp.clientHeight);
-            }
-          }
           if (terminalRef.current) invoke("resize_terminal", { id: terminalId, cols: terminalRef.current.cols, rows: terminalRef.current.rows }).catch(() => {});
         } catch {}
       }, 100);
