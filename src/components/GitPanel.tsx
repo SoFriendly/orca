@@ -445,6 +445,8 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
   const [commitToReset, setCommitToReset] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
   const [isUndoing, setIsUndoing] = useState(false);
+  const [nestedRepoPath, setNestedRepoPath] = useState<string | null>(null);
+  const [isResolvingNestedRepo, setIsResolvingNestedRepo] = useState(false);
   const [fileTree, setFileTree] = useState<FileTreeNode[]>([]);
   const [fileTrees, setFileTrees] = useState<Record<string, FileTreeNode[]>>({}); // File trees per folder (Issue #6)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set()); // Which root folders are expanded (Issue #6)
@@ -1401,10 +1403,46 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
       onRefresh();
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      toast.error(errorMsg || "Failed to commit");
-      console.error("Commit failed:", error);
+      if (errorMsg.startsWith("NESTED_REPO:")) {
+        setNestedRepoPath(errorMsg.replace("NESTED_REPO:", ""));
+      } else {
+        toast.error(errorMsg || "Failed to commit");
+        console.error("Commit failed:", error);
+      }
     } finally {
       setIsCommitting(false);
+    }
+  };
+
+  const handleFlattenNestedRepo = async () => {
+    if (!nestedRepoPath || !gitRepoPath) return;
+    setIsResolvingNestedRepo(true);
+    try {
+      await invoke("flatten_nested_repo", { repoPath: gitRepoPath, nestedPath: nestedRepoPath });
+      toast.success("Removed nested .git directory — files can now be committed");
+      setNestedRepoPath(null);
+      onRefresh();
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      toast.error(errorMsg || "Failed to remove nested .git");
+    } finally {
+      setIsResolvingNestedRepo(false);
+    }
+  };
+
+  const handleAddAsSubmodule = async () => {
+    if (!nestedRepoPath || !gitRepoPath) return;
+    setIsResolvingNestedRepo(true);
+    try {
+      await invoke("add_as_submodule", { repoPath: gitRepoPath, nestedPath: nestedRepoPath });
+      toast.success("Added as submodule");
+      setNestedRepoPath(null);
+      onRefresh();
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      toast.error(errorMsg || "Failed to add as submodule");
+    } finally {
+      setIsResolvingNestedRepo(false);
     }
   };
 
@@ -4423,6 +4461,29 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Nested git repo dialog */}
+      <Dialog open={!!nestedRepoPath} onOpenChange={(open) => !open && setNestedRepoPath(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nested Git Repository Detected</DialogTitle>
+            <DialogDescription>
+              The directory <span className="font-mono text-primary">{nestedRepoPath}</span> contains its own <span className="font-mono">.git</span> folder. It must be added as a submodule or have its <span className="font-mono">.git</span> removed before the files can be committed.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNestedRepoPath(null)} disabled={isResolvingNestedRepo}>Cancel</Button>
+            <Button variant="outline" onClick={handleAddAsSubmodule} disabled={isResolvingNestedRepo}>Add as Submodule</Button>
+            <Button
+              onClick={handleFlattenNestedRepo}
+              disabled={isResolvingNestedRepo}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove .git and Add Files
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Stash dialog */}
       <Dialog open={showStashDialog} onOpenChange={setShowStashDialog}>

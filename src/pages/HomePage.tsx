@@ -170,7 +170,8 @@ export default function HomePage() {
           titleBarStyle: "overlay",
           hiddenTitle: true,
           visible: false,
-          transparent: true,
+          transparent: isMacOS,
+          ...(isMacOS && { windowEffects: { effects: [Effect.HudWindow], state: EffectState.Active } }),
         });
         webview.once("tauri://created", () => { webview.show(); });
         webview.once("tauri://error", (e) => {

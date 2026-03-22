@@ -969,6 +969,20 @@ async fn commit(repo_path: String, message: String, files: Option<Vec<String>>) 
 }
 
 #[tauri::command]
+async fn flatten_nested_repo(repo_path: String, nested_path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || GitService::flatten_nested_repo(&repo_path, &nested_path))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
+}
+
+#[tauri::command]
+async fn add_as_submodule(repo_path: String, nested_path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || GitService::add_as_submodule(&repo_path, &nested_path))
+        .await
+        .map_err(|e| format!("Task failed: {}", e))?
+}
+
+#[tauri::command]
 fn get_branches(repo_path: String) -> Result<Vec<Branch>, String> {
     GitService::get_branches(&repo_path)
 }
@@ -4238,6 +4252,8 @@ pub fn run() {
             get_status,
             get_diff,
             commit,
+            flatten_nested_repo,
+            add_as_submodule,
             get_branches,
             checkout_branch,
             create_branch,

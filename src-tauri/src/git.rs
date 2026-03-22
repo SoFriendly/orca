@@ -264,7 +264,29 @@ impl GitService {
 
                 let status = entry.status();
                 if status.is_wt_new() || status.is_wt_modified() || status.is_wt_renamed() || status.is_wt_typechange() {
-                    index.add_path(std::path::Path::new(path)).map_err(|e| e.to_string())?;
+                    match index.add_path(std::path::Path::new(path)) {
+                        Ok(_) => {},
+                        Err(e) => {
+                            let full = std::path::Path::new(repo_path).join(path);
+                            let repo_root = std::path::Path::new(repo_path);
+                            // Check the path itself first (git2 may report the nested repo dir directly)
+                            if full.join(".git").exists() {
+                                let rel = std::path::Path::new(path);
+                                return Err(format!("NESTED_REPO:{}", rel.display()));
+                            }
+                            // Then walk up ancestors
+                            let mut check = full.as_path();
+                            while let Some(parent) = check.parent() {
+                                if parent == repo_root { break; }
+                                if parent.join(".git").exists() {
+                                    let rel = parent.strip_prefix(repo_root).unwrap_or(parent);
+                                    return Err(format!("NESTED_REPO:{}", rel.display()));
+                                }
+                                check = parent;
+                            }
+                            return Err(e.to_string());
+                        }
+                    }
                 } else if status.is_wt_deleted() {
                     index.remove_path(std::path::Path::new(path)).map_err(|e| e.to_string())?;
                 }
@@ -292,6 +314,64 @@ impl GitService {
             &parents,
         )
         .map_err(|e| e.to_string())?;
+
+        Ok(())
+    }
+
+    pub fn flatten_nested_repo(repo_path: &str, nested_path: &str) -> Result<(), String> {
+        let repo_root = std::path::Path::new(repo_path);
+        let nested = repo_root.join(nested_path);
+
+        // Security: ensure nested_path is within repo_path
+        let canonical_repo = repo_root.canonicalize().map_err(|e| e.to_string())?;
+        let canonical_nested = nested.canonicalize().map_err(|e| e.to_string())?;
+        if !canonical_nested.starts_with(&canonical_repo) {
+            return Err("Path is outside the repository".to_string());
+        }
+
+        let git_dir = nested.join(".git");
+        if !git_dir.exists() {
+            return Err("No .git directory found at the specified path".to_string());
+        }
+
+        std::fs::remove_dir_all(&git_dir).map_err(|e| format!("Failed to remove .git directory: {}", e))?;
+        Ok(())
+    }
+
+    pub fn add_as_submodule(repo_path: &str, nested_path: &str) -> Result<(), String> {
+        let repo_root = std::path::Path::new(repo_path);
+        let nested = repo_root.join(nested_path);
+
+        // Security: ensure nested_path is within repo_path
+        let canonical_repo = repo_root.canonicalize().map_err(|e| e.to_string())?;
+        let canonical_nested = nested.canonicalize().map_err(|e| e.to_string())?;
+        if !canonical_nested.starts_with(&canonical_repo) {
+            return Err("Path is outside the repository".to_string());
+        }
+
+        // Read remote URL from the nested repo
+        let nested_repo = Repository::open(&nested).map_err(|e| format!("Failed to open nested repo: {}", e))?;
+        let remote = nested_repo.find_remote("origin").map_err(|_| {
+            "No remote URL found for the nested repository. You can remove the .git directory and add the files directly instead.".to_string()
+        })?;
+        let url = remote.url().ok_or("Remote URL is not valid UTF-8")?.to_string();
+        drop(remote);
+        drop(nested_repo);
+
+        // Remove the nested directory
+        std::fs::remove_dir_all(&nested).map_err(|e| format!("Failed to remove nested directory: {}", e))?;
+
+        // Run git submodule add
+        let output = std::process::Command::new("git")
+            .args(["submodule", "add", &url, nested_path])
+            .current_dir(repo_path)
+            .output()
+            .map_err(|e| format!("Failed to run git submodule add: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("git submodule add failed: {}", stderr));
+        }
 
         Ok(())
     }
