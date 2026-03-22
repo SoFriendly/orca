@@ -138,12 +138,12 @@ echo ""
 echo "=== Uploading Windows artifacts ==="
 
 # Windows MSI
-MSI_FILE=$(find src-tauri/target/release/bundle/msi -name "*.msi" 2>/dev/null | head -1)
+MSI_FILE=$(find src-tauri/target/release/bundle/msi -name "*${VERSION}*.msi" 2>/dev/null | head -1)
 [ -n "$MSI_FILE" ] && upload_file "$MSI_FILE" "v${VERSION}/Orca_${VERSION}_x64-setup.msi"
 [ -f "${MSI_FILE}.sig" ] && upload_file "${MSI_FILE}.sig" "v${VERSION}/Orca_${VERSION}_x64-setup.msi.sig"
 
 # Windows NSIS installer
-NSIS_FILE=$(find src-tauri/target/release/bundle/nsis -name "*.exe" 2>/dev/null | head -1)
+NSIS_FILE=$(find src-tauri/target/release/bundle/nsis -name "*${VERSION}*.exe" 2>/dev/null | head -1)
 [ -n "$NSIS_FILE" ] && upload_file "$NSIS_FILE" "v${VERSION}/Orca_${VERSION}_x64-setup.exe"
 [ -f "${NSIS_FILE}.sig" ] && upload_file "${NSIS_FILE}.sig" "v${VERSION}/Orca_${VERSION}_x64-setup.exe.sig"
 
