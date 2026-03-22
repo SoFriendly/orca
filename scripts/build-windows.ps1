@@ -8,11 +8,16 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Add Windows SDK to PATH for signtool
-$sdkPath = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64"
-if (Test-Path $sdkPath) {
-    $env:PATH = "$sdkPath;$env:PATH"
-    Write-Host "Added Windows SDK to PATH: $sdkPath"
+# Add Windows SDK to PATH for signtool (find latest installed version)
+$sdkBase = "C:\Program Files (x86)\Windows Kits\10\bin"
+$sdkPath = Get-ChildItem $sdkBase -Directory -Filter "10.*" -ErrorAction SilentlyContinue |
+    Sort-Object Name -Descending | Select-Object -First 1
+if ($sdkPath) {
+    $sdkBin = Join-Path $sdkPath.FullName "x64"
+    $env:PATH = "$sdkBin;$env:PATH"
+    Write-Host "Added Windows SDK to PATH: $sdkBin"
+} else {
+    Write-Warning "Windows SDK not found at $sdkBase"
 }
 
 # Load environment variables from .env.local if it exists
@@ -98,7 +103,11 @@ if ($cert) {
     Write-Host ""
     Write-Host "Signing installers with Sectigo certificate..." -ForegroundColor Cyan
     Write-Host "(Your USB token will prompt for PIN)" -ForegroundColor Yellow
-    $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64\signtool.exe"
+    $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
+    if (-not $signtool) {
+        Write-Error "signtool.exe not found in PATH"
+        exit 1
+    }
     $thumbprint = $cert.Thumbprint
     
     $msiFiles = Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" -ErrorAction SilentlyContinue
