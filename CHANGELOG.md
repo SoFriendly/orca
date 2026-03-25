@@ -2,6 +2,11 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.3.7]
+
+### Bug Fixes
+- **Open Folder Window Transparency**: Fixed new windows opened from the home screen and project page folder selectors missing the HudWindow vibrancy effect, causing them to look different from the main window. Now applies the same `windowEffects` and platform-conditional transparency as other window creation paths
+
 ## [0.3.6]
 
 ### Bug Fixes
