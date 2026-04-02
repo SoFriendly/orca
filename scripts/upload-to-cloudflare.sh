@@ -214,9 +214,8 @@ if [ -n "$JQ_FILTER" ]; then
   # Remove leading " | "
   JQ_FILTER="${JQ_FILTER# | }"
 
-  # Always update version, notes, and pub_date along with platforms
+  # Apply platform updates first, then conditionally update version
   PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  JQ_FILTER=".version = \$ver | .notes = \$notes | .pub_date = \$pub_date | $JQ_FILTER"
 
   jq --arg ver "$VERSION" \
      --arg notes "$CHANGELOG_NOTES" \
@@ -226,6 +225,25 @@ if [ -n "$JQ_FILTER" ]; then
      --arg linux_arm_sig "$LINUX_ARM_SIG" \
      --arg win_sig "$WIN_SIG" \
      "$JQ_FILTER" "$LATEST_JSON" > "${LATEST_JSON}.tmp" && mv "${LATEST_JSON}.tmp" "$LATEST_JSON"
+
+  # Only bump top-level version if all platform URLs point to the same version
+  ALL_MATCH=true
+  for url in $(jq -r '.platforms[].url' "$LATEST_JSON"); do
+    plat_ver=$(echo "$url" | grep -oP 'Orca_\K[\d.]+')
+    if [ -n "$plat_ver" ] && [ "$plat_ver" != "$VERSION" ]; then
+      ALL_MATCH=false
+      echo "Note: Found platform at version $plat_ver (uploading $VERSION)"
+    fi
+  done
+
+  if [ "$ALL_MATCH" = true ]; then
+    echo "All platforms at version $VERSION - updating top-level version"
+    jq --arg ver "$VERSION" --arg notes "$CHANGELOG_NOTES" --arg pub_date "$PUB_DATE" \
+       '.version = $ver | .notes = $notes | .pub_date = $pub_date' \
+       "$LATEST_JSON" > "${LATEST_JSON}.tmp" && mv "${LATEST_JSON}.tmp" "$LATEST_JSON"
+  else
+    echo "Platforms at different versions - preserving existing top-level version ($(jq -r '.version' "$LATEST_JSON"))"
+  fi
 
   upload_file "$LATEST_JSON" "latest.json"
 else

@@ -94,37 +94,60 @@ if ($msiFile -and (Test-Path "$($msiFile.FullName).sig")) {
 
 $pubDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
-# Read existing latest.json if it exists to preserve other platforms
+# Read existing latest.json and only update the Windows platform entry
 $latestJsonPath = "src-tauri\target\release\bundle\latest.json"
-$latestJson = @{
-    version = $VERSION
-    notes = "Update to version $VERSION"
-    pub_date = $pubDate
-    platforms = @{
-        "windows-x86_64" = @{
-            signature = $winSig
-            url = "https://releases.chell.app/v$VERSION/Orca_${VERSION}_x64-setup.msi"
+$latestJson = $null
+
+try {
+    $existingJson = Invoke-RestMethod -Uri "https://releases.chell.app/latest.json" -ErrorAction Stop
+    # Preserve existing latest.json, only update Windows platform entry
+    $latestJson = @{
+        version = $existingJson.version
+        notes = $existingJson.notes
+        pub_date = $existingJson.pub_date
+        platforms = @{}
+    }
+    if ($existingJson.platforms) {
+        foreach ($platform in $existingJson.platforms.PSObject.Properties) {
+            $latestJson.platforms[$platform.Name] = $platform.Value
+        }
+    }
+} catch {
+    Write-Host "Note: Could not fetch existing latest.json, creating new one" -ForegroundColor Yellow
+}
+
+if (-not $latestJson) {
+    $latestJson = @{
+        version = $VERSION
+        notes = "Update to version $VERSION"
+        pub_date = $pubDate
+        platforms = @{}
+    }
+}
+
+# Update Windows platform entry
+$latestJson.platforms["windows-x86_64"] = @{
+    signature = $winSig
+    url = "https://releases.chell.app/v$VERSION/Orca_${VERSION}_x64-setup.msi"
+}
+
+# Only bump version/pub_date if all platform URLs point to the same version
+$allVersionsMatch = $true
+foreach ($platform in $latestJson.platforms.GetEnumerator()) {
+    if ($platform.Value.url -match 'Orca_([\d.]+)') {
+        if ($matches[1] -ne $VERSION) {
+            $allVersionsMatch = $false
+            Write-Host "Note: $($platform.Key) is at version $($matches[1]), not $VERSION" -ForegroundColor Yellow
         }
     }
 }
 
-# Try to read existing latest.json to merge platforms
-try {
-    $existingJson = Invoke-RestMethod -Uri "https://releases.chell.app/latest.json" -ErrorAction Stop
-    if ($existingJson.platforms) {
-        # Preserve other platforms, update Windows
-        foreach ($platform in $existingJson.platforms.PSObject.Properties) {
-            if ($platform.Name -ne "windows-x86_64") {
-                $latestJson.platforms[$platform.Name] = $platform.Value
-            }
-        }
-    }
-    # Keep existing notes if present
-    if ($existingJson.notes) {
-        $latestJson.notes = $existingJson.notes
-    }
-} catch {
-    Write-Host "Note: Could not fetch existing latest.json, creating new one" -ForegroundColor Yellow
+if ($allVersionsMatch) {
+    $latestJson.version = $VERSION
+    $latestJson.pub_date = $pubDate
+    Write-Host "All platforms at version $VERSION - updating top-level version" -ForegroundColor Green
+} else {
+    Write-Host "Platforms at different versions - preserving existing top-level version ($($latestJson.version))" -ForegroundColor Yellow
 }
 
 $jsonContent = $latestJson | ConvertTo-Json -Depth 10
