@@ -2,6 +2,11 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.3.8]
+
+### Bug Fixes
+- **Merge Commit with Deleted Files**: Fixed `git add failed: fatal: pathspec did not match any files` error when committing during a merge that includes deleted files. Now detects deleted files and stages the removal with `git rm --cached` instead of failing on `git add`
+
 ## [0.3.7]
 
 ### Bug Fixes

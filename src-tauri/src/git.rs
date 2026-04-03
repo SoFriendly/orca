@@ -201,15 +201,30 @@ impl GitService {
             // Stage files first
             if let Some(ref file_list) = files {
                 for file in file_list {
-                    let output = std::process::Command::new("git")
-                        .arg("-C").arg(repo_path)
-                        .arg("add").arg(file)
-                        .stdin(std::process::Stdio::null())
-                        .output()
-                        .map_err(|e| format!("Failed to run git add: {}", e))?;
-                    if !output.status.success() {
-                        let stderr = String::from_utf8_lossy(&output.stderr);
-                        return Err(format!("git add failed: {}", stderr.trim()));
+                    let file_full_path = std::path::Path::new(repo_path).join(file);
+                    if file_full_path.exists() {
+                        let output = std::process::Command::new("git")
+                            .arg("-C").arg(repo_path)
+                            .arg("add").arg("--").arg(file)
+                            .stdin(std::process::Stdio::null())
+                            .output()
+                            .map_err(|e| format!("Failed to run git add: {}", e))?;
+                        if !output.status.success() {
+                            let stderr = String::from_utf8_lossy(&output.stderr);
+                            return Err(format!("git add failed: {}", stderr.trim()));
+                        }
+                    } else {
+                        // File was deleted — stage the removal
+                        let output = std::process::Command::new("git")
+                            .arg("-C").arg(repo_path)
+                            .arg("rm").arg("--cached").arg("--").arg(file)
+                            .stdin(std::process::Stdio::null())
+                            .output()
+                            .map_err(|e| format!("Failed to run git rm: {}", e))?;
+                        if !output.status.success() {
+                            let stderr = String::from_utf8_lossy(&output.stderr);
+                            return Err(format!("git rm failed: {}", stderr.trim()));
+                        }
                     }
                 }
             } else {
