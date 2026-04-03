@@ -6,7 +6,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://releases.chell.app/latest.json"
+        "https://releases.chell.app/latest.json?target={{target}}"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ4MDhDNTE5RjQwNTVGN0UKUldSK1h3WDBHY1VJMk9LZExycFRNc2lSTGVLZEp1SG9acitNK3Z4Z3lmdllsczVzd0ZscFhRYWMK"
     }

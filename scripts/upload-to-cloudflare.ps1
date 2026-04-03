@@ -131,24 +131,11 @@ $latestJson.platforms["windows-x86_64"] = @{
     url = "https://releases.chell.app/v$VERSION/Orca_${VERSION}_x64-setup.msi"
 }
 
-# Only bump version/pub_date if all platform URLs point to the same version
-$allVersionsMatch = $true
-foreach ($platform in $latestJson.platforms.GetEnumerator()) {
-    if ($platform.Value.url -match 'Orca_([\d.]+)') {
-        if ($matches[1] -ne $VERSION) {
-            $allVersionsMatch = $false
-            Write-Host "Note: $($platform.Key) is at version $($matches[1]), not $VERSION" -ForegroundColor Yellow
-        }
-    }
-}
-
-if ($allVersionsMatch) {
-    $latestJson.version = $VERSION
-    $latestJson.pub_date = $pubDate
-    Write-Host "All platforms at version $VERSION - updating top-level version" -ForegroundColor Green
-} else {
-    Write-Host "Platforms at different versions - preserving existing top-level version ($($latestJson.version))" -ForegroundColor Yellow
-}
+# Always update version to current build version.
+# The Cloudflare Worker dynamically overrides this with the per-platform version
+# based on the ?target= query param, so it's safe even when platforms differ.
+$latestJson.version = $VERSION
+$latestJson.pub_date = $pubDate
 
 $jsonContent = $latestJson | ConvertTo-Json -Depth 10
 [System.IO.File]::WriteAllText($latestJsonPath, $jsonContent, [System.Text.UTF8Encoding]::new($false))
