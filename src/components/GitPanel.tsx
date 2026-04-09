@@ -1855,8 +1855,9 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     // Double RAF + timeout to ensure UI updates before blocking operation
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 10))));
     try {
-      await invoke("pull_remote", { repoPath: gitRepoPath, remote: "origin" });
-      toast.success("Pulled from remote");
+      const remote = await invoke<string>("get_branch_tracking_remote", { repoPath: gitRepoPath });
+      await invoke("pull_remote", { repoPath: gitRepoPath, remote });
+      toast.success(`Pulled from ${remote}`);
       onRefresh();
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -1872,8 +1873,9 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     // Double RAF + timeout to ensure UI updates before blocking operation
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 10))));
     try {
-      await invoke("push_remote", { repoPath: gitRepoPath, remote: "origin" });
-      toast.success("Pushed to remote");
+      const remote = await invoke<string>("get_branch_tracking_remote", { repoPath: gitRepoPath });
+      await invoke("push_remote", { repoPath: gitRepoPath, remote });
+      toast.success(`Pushed to ${remote}`);
       onRefresh();
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);

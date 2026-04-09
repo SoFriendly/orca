@@ -538,6 +538,33 @@ impl GitService {
         let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
         let full_path = std::path::Path::new(repo_path).join(file_path);
 
+        // Check if this path is a submodule
+        if repo.find_submodule(file_path).is_ok() {
+            // Reset submodule to the commit recorded in HEAD
+            let output = std::process::Command::new("git")
+                .arg("-C")
+                .arg(repo_path)
+                .args(["submodule", "update", "--init", "--force", "--"])
+                .arg(file_path)
+                .output()
+                .map_err(|e| format!("Failed to run git submodule update: {}", e))?;
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("git submodule update failed: {}", stderr.trim()));
+            }
+
+            // Also unstage any staged submodule changes
+            let _ = std::process::Command::new("git")
+                .arg("-C")
+                .arg(repo_path)
+                .args(["reset", "HEAD", "--"])
+                .arg(file_path)
+                .output();
+
+            return Ok(());
+        }
+
         // Check if file is untracked (not in HEAD)
         let head = repo.head().ok().and_then(|h| h.peel_to_tree().ok());
         let is_untracked = match &head {
@@ -1761,6 +1788,32 @@ impl GitService {
         }
 
         Ok(())
+    }
+
+    /// Get the remote that the current branch is tracking (e.g. "origin", "upstream", a fork remote).
+    /// Falls back to "origin" if no upstream is configured.
+    pub fn get_branch_tracking_remote(repo_path: &str) -> Result<String, String> {
+        let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
+        let head = repo.head().map_err(|e| e.to_string())?;
+
+        if !head.is_branch() {
+            return Ok("origin".to_string());
+        }
+
+        let branch_name = head.shorthand().unwrap_or("HEAD");
+        if let Ok(branch) = repo.find_branch(branch_name, git2::BranchType::Local) {
+            if let Ok(upstream) = branch.upstream() {
+                // upstream name is like "origin/branch-name" or "fork-user/branch-name"
+                if let Some(name) = upstream.name().ok().flatten() {
+                    // Extract the remote part (everything before the first '/')
+                    if let Some(remote) = name.split('/').next() {
+                        return Ok(remote.to_string());
+                    }
+                }
+            }
+        }
+
+        Ok("origin".to_string())
     }
 
     pub async fn push_async(repo_path: &str, remote: &str) -> Result<(), String> {

@@ -1369,6 +1369,11 @@ async fn pull_remote(repo_path: String, remote: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_branch_tracking_remote(repo_path: String) -> Result<String, String> {
+    GitService::get_branch_tracking_remote(&repo_path)
+}
+
+#[tauri::command]
 async fn push_remote(repo_path: String, remote: String) -> Result<(), String> {
     GitService::push_async(&repo_path, &remote).await
 }
@@ -4271,6 +4276,7 @@ pub fn run() {
             clone_repo,
             fetch_remote,
             pull_remote,
+            get_branch_tracking_remote,
             push_remote,
             publish_branch,
             watch_repo,
