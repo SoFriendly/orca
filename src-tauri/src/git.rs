@@ -1745,13 +1745,22 @@ impl GitService {
 
     pub async fn pull_async(repo_path: &str, remote: &str) -> Result<(), String> {
         let repo_path_owned = repo_path.to_string();
-        let child = tokio::process::Command::new("git")
-            .arg("-C")
+        let upstream_branch = Self::get_upstream_branch_name(repo_path)?;
+
+        let mut cmd = tokio::process::Command::new("git");
+        cmd.arg("-C")
             .arg(repo_path)
             .arg("pull")
             .arg("--rebase")
             .arg("--autostash")
-            .arg(remote)
+            .arg(remote);
+
+        // If upstream branch name differs from local, specify it explicitly
+        if let Some(ref branch) = upstream_branch {
+            cmd.arg(branch);
+        }
+
+        let child = cmd
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -1816,12 +1825,51 @@ impl GitService {
         Ok("origin".to_string())
     }
 
+    /// Get the upstream branch name on the remote (without the remote prefix).
+    /// e.g. if upstream is "fork-user/feature-branch", returns Some("feature-branch").
+    /// Returns None if no upstream is configured.
+    pub fn get_upstream_branch_name(repo_path: &str) -> Result<Option<String>, String> {
+        let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
+        let head = repo.head().map_err(|e| e.to_string())?;
+
+        if !head.is_branch() {
+            return Ok(None);
+        }
+
+        let branch_name = head.shorthand().unwrap_or("HEAD");
+        if let Ok(branch) = repo.find_branch(branch_name, git2::BranchType::Local) {
+            if let Ok(upstream) = branch.upstream() {
+                if let Some(name) = upstream.name().ok().flatten() {
+                    // name is "remote/branch" — strip the remote prefix
+                    if let Some(pos) = name.find('/') {
+                        return Ok(Some(name[pos + 1..].to_string()));
+                    }
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
     pub async fn push_async(repo_path: &str, remote: &str) -> Result<(), String> {
-        let child = tokio::process::Command::new("git")
-            .arg("-C")
+        // Resolve the upstream branch name to build a proper refspec.
+        // This handles the case where the local branch name differs from the
+        // remote branch name (e.g. checking out someone else's PR).
+        let refspec = Self::get_upstream_branch_name(repo_path)?;
+
+        let mut cmd = tokio::process::Command::new("git");
+        cmd.arg("-C")
             .arg(repo_path)
             .arg("push")
-            .arg(remote)
+            .arg(remote);
+
+        // If we know the upstream branch name, push with an explicit refspec
+        // so git doesn't reject the push due to name mismatch
+        if let Some(upstream_branch) = &refspec {
+            cmd.arg(format!("HEAD:{}", upstream_branch));
+        }
+
+        let child = cmd
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
