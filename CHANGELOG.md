@@ -2,11 +2,13 @@
 
 All notable changes to Orca will be documented in this file.
 
-## [0.3.10]
+## [0.3.11]
 
 ### Bug Fixes
 - **Push/Pull to Correct Remote**: Push and pull now use the current branch's tracking remote instead of always targeting `origin`, and resolve the upstream branch name for the refspec. Fixes pushing to someone else's PR silently succeeding without updating their branch when the local and remote branch names differ — the app now behaves like GitHub Desktop
 - **Discard Submodule Changes**: Discarding changes on a submodule now works by running `git submodule update --init --force` instead of `checkout_head`, which doesn't handle submodules. Matches GitHub Desktop behavior
+
+## [0.3.10]
 
 ## [0.3.9]
 
