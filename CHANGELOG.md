@@ -2,6 +2,12 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.3.12]
+
+### Improvements
+- **Add Dir to .gitignore**: New "Add dir to .gitignore" context menu option on files in the git changes list. Extracts the top-level directory from the file path (e.g., `.venv/bin/foo` → `.venv/`) and adds it to `.gitignore`. Only shown for files inside a subdirectory.
+- **Multi-Select Gitignore**: "Add to .gitignore" and "Add dir to .gitignore" now work with multi-selected files. Select multiple changed files, right-click, and add all of them (or their unique top-level directories) to `.gitignore` in one action.
+
 ## [0.3.11]
 
 ### Bug Fixes

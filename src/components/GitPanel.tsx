@@ -1340,6 +1340,18 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
     }
   };
 
+  const handleAddDirToGitignoreForBase = async (filePath: string, basePath: string) => {
+    const dir = filePath.includes("/") ? filePath.split("/")[0] + "/" : filePath;
+    try {
+      await invoke("add_to_gitignore", { repoPath: basePath, pattern: dir });
+      toast.success(`Added ${dir} to .gitignore`);
+      onRefresh();
+    } catch (error) {
+      toast.error("Failed to add directory to .gitignore");
+      console.error(error);
+    }
+  };
+
   const getBasePathForContentMatch = (match: ContentMatch) => {
     const suffix = `/${match.path}`;
     if (match.absolutePath.endsWith(suffix)) {
@@ -2035,12 +2047,32 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
   };
 
   const handleAddToGitignore = async (filePath: string, basePath?: string) => {
+    const repoPath = basePath || gitRepoPath;
+    const paths = selectedFiles.size > 1 && selectedFiles.has(filePath) ? Array.from(selectedFiles) : [filePath];
     try {
-      await invoke("add_to_gitignore", { repoPath: basePath || gitRepoPath, pattern: filePath });
-      toast.success(`Added ${filePath} to .gitignore`);
+      for (const p of paths) {
+        await invoke("add_to_gitignore", { repoPath, pattern: p });
+      }
+      toast.success(paths.length > 1 ? `Added ${paths.length} files to .gitignore` : `Added ${filePath} to .gitignore`);
       onRefresh();
     } catch (error) {
       toast.error("Failed to add to .gitignore");
+      console.error(error);
+    }
+  };
+
+  const handleAddDirToGitignore = async (filePath: string, basePath?: string) => {
+    const repoPath = basePath || gitRepoPath;
+    const paths = selectedFiles.size > 1 && selectedFiles.has(filePath) ? Array.from(selectedFiles) : [filePath];
+    const dirs = [...new Set(paths.map(p => p.includes("/") ? p.split("/")[0] + "/" : p))];
+    try {
+      for (const dir of dirs) {
+        await invoke("add_to_gitignore", { repoPath, pattern: dir });
+      }
+      toast.success(dirs.length > 1 ? `Added ${dirs.length} dirs to .gitignore` : `Added ${dirs[0]} to .gitignore`);
+      onRefresh();
+    } catch (error) {
+      toast.error("Failed to add directory to .gitignore");
       console.error(error);
     }
   };
@@ -2390,6 +2422,12 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
               <EyeOff className="mr-2 h-4 w-4" />
               Add to .gitignore
             </ContextMenuItem>
+            {diff.path.includes("/") && (
+              <ContextMenuItem onClick={() => handleAddDirToGitignore(diff.path)}>
+                <FolderMinus className="mr-2 h-4 w-4" />
+                Add dir to .gitignore
+              </ContextMenuItem>
+            )}
           </ContextMenuContent>
         </ContextMenu>
 
@@ -2496,6 +2534,12 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                           <EyeOff className="mr-2 h-4 w-4" />
                           Add to .gitignore
                         </ContextMenuItem>
+                        {diff.path.includes("/") && (
+                          <ContextMenuItem onClick={() => handleAddDirToGitignore(diff.path)}>
+                            <FolderMinus className="mr-2 h-4 w-4" />
+                            Add dir to .gitignore
+                          </ContextMenuItem>
+                        )}
                       </ContextMenuContent>
                     </ContextMenu>
                   ))}
@@ -2704,6 +2748,12 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                   <EyeOff className="mr-2 h-4 w-4" />
                   Add to .gitignore
                 </ContextMenuItem>
+                {node.path.includes("/") && (
+                  <ContextMenuItem onClick={() => handleAddDirToGitignore(node.path, projectPath)}>
+                    <FolderMinus className="mr-2 h-4 w-4" />
+                    Add dir to .gitignore
+                  </ContextMenuItem>
+                )}
                 <ContextMenuSeparator />
                 <ContextMenuItem
                   onClick={() => handleDeleteFile(node.path, projectPath)}
@@ -3722,6 +3772,12 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                                   <EyeOff className="mr-2 h-4 w-4" />
                                   Add to .gitignore
                                 </ContextMenuItem>
+                                {match.path.includes("/") && (
+                                  <ContextMenuItem onClick={() => handleAddDirToGitignoreForBase(match.path, match.basePath)}>
+                                    <FolderMinus className="mr-2 h-4 w-4" />
+                                    Add dir to .gitignore
+                                  </ContextMenuItem>
+                                )}
                               </ContextMenuContent>
                             ) : (
                               <ContextMenuContent>
@@ -3758,6 +3814,12 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                                   <EyeOff className="mr-2 h-4 w-4" />
                                   Add to .gitignore
                                 </ContextMenuItem>
+                                {match.path.includes("/") && (
+                                  <ContextMenuItem onClick={() => handleAddDirToGitignoreForBase(match.path, match.basePath)}>
+                                    <FolderMinus className="mr-2 h-4 w-4" />
+                                    Add dir to .gitignore
+                                  </ContextMenuItem>
+                                )}
                                 <ContextMenuSeparator />
                                 <ContextMenuItem
                                   onClick={() => handleDeleteFileAbsolute(`${match.basePath}/${match.path}`, match.basePath)}
@@ -3840,6 +3902,12 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                                 <EyeOff className="mr-2 h-4 w-4" />
                                 Add to .gitignore
                               </ContextMenuItem>
+                              {match.path.includes("/") && (
+                                <ContextMenuItem onClick={() => handleAddDirToGitignoreForBase(match.path, getBasePathForContentMatch(match))}>
+                                  <FolderMinus className="mr-2 h-4 w-4" />
+                                  Add dir to .gitignore
+                                </ContextMenuItem>
+                              )}
                               <ContextMenuSeparator />
                               <ContextMenuItem
                                 onClick={() => handleDeleteFileAbsolute(match.absolutePath, getBasePathForContentMatch(match))}
