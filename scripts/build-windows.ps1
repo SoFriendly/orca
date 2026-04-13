@@ -102,7 +102,38 @@ npm run tauri -- build
 Write-Host ""
 Write-Host "Build complete!"
 
-# Sign the installers if certificate is available
+# Collect build artifacts
+$msiFiles = Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" -ErrorAction SilentlyContinue
+$nsisFiles = Get-ChildItem -Path "src-tauri\target\release\bundle\nsis\*.exe" -ErrorAction SilentlyContinue
+
+# Re-generate Tauri updater signatures first (before Authenticode signing).
+# The build already generated .sig files, but we regenerate them here so the
+# order is: (1) updater .sig for unsigned binary, (2) Authenticode sign,
+# (3) re-generate .sig for signed binary.  By doing the Authenticode sign
+# LAST we guarantee nothing can strip it afterward.
+if ($env:TAURI_SIGNING_PRIVATE_KEY) {
+    Write-Host ""
+    Write-Host "Generating Tauri updater signatures (pre-codesign)..." -ForegroundColor Cyan
+    foreach ($file in @($msiFiles) + @($nsisFiles)) {
+        if (-not $file) { continue }
+        Write-Host "Signing $($file.Name) for updater..."
+        $sigArgs = @("signer", "sign")
+        if ($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
+            $sigArgs += "--password"
+            $sigArgs += $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+        }
+        $sigArgs += "--private-key"
+        $sigArgs += $env:TAURI_SIGNING_PRIVATE_KEY
+        $sigArgs += $file.FullName
+        npx tauri @sigArgs
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to sign $($file.Name) for updater"
+            exit 1
+        }
+    }
+}
+
+# Sign the installers with Authenticode (must be LAST step before upload)
 if ($cert) {
     Write-Host ""
     Write-Host "Signing installers with Sectigo certificate..." -ForegroundColor Cyan
@@ -113,43 +144,25 @@ if ($cert) {
         exit 1
     }
     $thumbprint = $cert.Thumbprint
-    
-    $msiFiles = Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" -ErrorAction SilentlyContinue
-    foreach ($file in $msiFiles) {
+
+    foreach ($file in @($msiFiles) + @($nsisFiles)) {
+        if (-not $file) { continue }
         Write-Host "Signing $($file.Name)..."
         & $signtool sign /sha1 $thumbprint /fd SHA256 /tr http://timestamp.sectigo.com /td SHA256 $file.FullName
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "signtool failed for $($file.Name)"
+            exit 1
+        }
     }
-    
-    $nsisFiles = Get-ChildItem -Path "src-tauri\target\release\bundle\nsis\*.exe" -ErrorAction SilentlyContinue
-    foreach ($file in $nsisFiles) {
-        Write-Host "Signing $($file.Name)..."
-        & $signtool sign /sha1 $thumbprint /fd SHA256 /tr http://timestamp.sectigo.com /td SHA256 $file.FullName
-    }
-    
+
     Write-Host "Signing complete!" -ForegroundColor Green
 
-    # Re-generate Tauri updater signatures after code signing
-    # The .sig files generated during build are now invalid because signtool modified the binaries
+    # Re-generate Tauri updater signatures for the code-signed binaries
     if ($env:TAURI_SIGNING_PRIVATE_KEY) {
         Write-Host ""
         Write-Host "Re-generating updater signatures for code-signed binaries..." -ForegroundColor Cyan
-        foreach ($file in $msiFiles) {
-            Write-Host "Re-signing $($file.Name) for updater..."
-            $sigArgs = @("signer", "sign")
-            if ($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
-                $sigArgs += "--password"
-                $sigArgs += $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-            }
-            $sigArgs += "--private-key"
-            $sigArgs += $env:TAURI_SIGNING_PRIVATE_KEY
-            $sigArgs += $file.FullName
-            npx tauri @sigArgs
-            if ($LASTEXITCODE -ne 0) {
-                Write-Error "Failed to re-sign $($file.Name) for updater"
-                exit 1
-            }
-        }
-        foreach ($file in $nsisFiles) {
+        foreach ($file in @($msiFiles) + @($nsisFiles)) {
+            if (-not $file) { continue }
             Write-Host "Re-signing $($file.Name) for updater..."
             $sigArgs = @("signer", "sign")
             if ($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
@@ -166,9 +179,22 @@ if ($cert) {
             }
         }
         Write-Host "Updater signatures regenerated!" -ForegroundColor Green
-    } else {
-        Write-Warning "TAURI_SIGNING_PRIVATE_KEY not set - updater signatures may be invalid after code signing!"
     }
+
+    # Verify Authenticode signatures survived the Tauri re-signing
+    Write-Host ""
+    Write-Host "Verifying Authenticode signatures..." -ForegroundColor Cyan
+    foreach ($file in @($msiFiles) + @($nsisFiles)) {
+        if (-not $file) { continue }
+        $authSig = Get-AuthenticodeSignature $file.FullName
+        if ($authSig.Status -ne "Valid") {
+            Write-Error "Authenticode signature MISSING on $($file.Name) after Tauri re-signing! Status: $($authSig.Status)"
+            exit 1
+        }
+        Write-Host "  $($file.Name): $($authSig.Status) - $($authSig.SignerCertificate.Subject)" -ForegroundColor Green
+    }
+} else {
+    Write-Warning "Code signing certificate not available - installers will show 'Unknown Publisher'"
 }
 
 Write-Host ""
