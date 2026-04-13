@@ -23,6 +23,18 @@ mod git;
 mod github;
 mod portal;
 
+/// Create a `std::process::Command` that won't spawn a visible console window on Windows.
+pub fn cmd_no_window(program: &str) -> std::process::Command {
+    let mut cmd = std::process::Command::new(program);
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    cmd
+}
+
 use database::Database;
 use git::GitService;
 use github::GitHubClient;
@@ -1579,7 +1591,7 @@ fn get_augmented_path() -> String {
 
 #[tauri::command]
 fn github_get_cli_token() -> Result<String, String> {
-    let output = std::process::Command::new("gh")
+    let output = cmd_no_window("gh")
         .args(["auth", "token"])
         .env("PATH", get_augmented_path())
         .output()
@@ -2132,7 +2144,7 @@ fn open_file_in_editor(path: String, line: Option<u32>, column: Option<u32>) -> 
     }
     #[cfg(target_os = "windows")]
     {
-        std::process::Command::new("cmd")
+        cmd_no_window("cmd")
             .args(["/C", "start", "", &path])
             .spawn()
             .map_err(|e| e.to_string())?;
@@ -2180,7 +2192,7 @@ fn open_in_terminal_editor(path: String, editor: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         // Open a new cmd window with the editor
-        std::process::Command::new("cmd")
+        cmd_no_window("cmd")
             .args(["/c", "start", "cmd", "/k", &format!("{} \"{}\"", editor, path)])
             .spawn()
             .map_err(|e| e.to_string())?;
@@ -2703,7 +2715,7 @@ async fn check_commands_installed(commands: Vec<String>) -> Result<Vec<String>, 
                 #[cfg(target_os = "windows")]
                 {
                     for cmd in &still_not_found {
-                        let output = std::process::Command::new("cmd.exe")
+                        let output = cmd_no_window("cmd.exe")
                             .args(["/C", &format!("where {}", cmd)])
                             .stdin(std::process::Stdio::null())
                             .output();

@@ -1,4 +1,4 @@
-use crate::{Branch, Commit, DiffHunk, DiffLine, FileDiff, GitStatus};
+use crate::{Branch, Commit, DiffHunk, DiffLine, FileDiff, GitStatus, cmd_no_window};
 use git2::{DiffOptions, Repository, StatusOptions};
 
 pub struct GitService;
@@ -202,7 +202,7 @@ impl GitService {
             if let Some(ref file_list) = files {
                 for file in file_list {
                     // Use -A to handle all states: added, modified, deleted, and unmerged paths
-                    let output = std::process::Command::new("git")
+                    let output = cmd_no_window("git")
                         .arg("-C").arg(repo_path)
                         .arg("add").arg("-A").arg("--").arg(file)
                         .stdin(std::process::Stdio::null())
@@ -218,7 +218,7 @@ impl GitService {
                     }
                 }
             } else {
-                let output = std::process::Command::new("git")
+                let output = cmd_no_window("git")
                     .arg("-C").arg(repo_path)
                     .arg("add").arg("-A")
                     .stdin(std::process::Stdio::null())
@@ -230,7 +230,7 @@ impl GitService {
                 }
             }
 
-            let output = std::process::Command::new("git")
+            let output = cmd_no_window("git")
                 .arg("-C").arg(repo_path)
                 .arg("commit").arg("-m").arg(message)
                 .stdin(std::process::Stdio::null())
@@ -367,7 +367,7 @@ impl GitService {
         std::fs::remove_dir_all(&nested).map_err(|e| format!("Failed to remove nested directory: {}", e))?;
 
         // Run git submodule add
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .args(["submodule", "add", &url, nested_path])
             .current_dir(repo_path)
             .output()
@@ -541,7 +541,7 @@ impl GitService {
         // Check if this path is a submodule
         if repo.find_submodule(file_path).is_ok() {
             // Reset submodule to the commit recorded in HEAD
-            let output = std::process::Command::new("git")
+            let output = cmd_no_window("git")
                 .arg("-C")
                 .arg(repo_path)
                 .args(["submodule", "update", "--init", "--force", "--"])
@@ -555,7 +555,7 @@ impl GitService {
             }
 
             // Also unstage any staged submodule changes
-            let _ = std::process::Command::new("git")
+            let _ = cmd_no_window("git")
                 .arg("-C")
                 .arg(repo_path)
                 .args(["reset", "HEAD", "--"])
@@ -616,7 +616,7 @@ impl GitService {
         }
 
         // Apply the patch in reverse using git command
-        let mut child = std::process::Command::new("git")
+        let mut child = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("apply")
@@ -685,7 +685,7 @@ impl GitService {
     /// Revert a commit by creating a new commit that undoes the changes
     pub fn revert_commit(repo_path: &str, commit_id: &str) -> Result<(), String> {
         // Use git command for revert since libgit2's revert is complex
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .args(["revert", "--no-edit", commit_id])
             .current_dir(repo_path)
             .output()
@@ -867,7 +867,7 @@ impl GitService {
 
     /// List all worktrees using `git worktree list --porcelain`
     pub fn list_worktrees(repo_path: &str) -> Result<Vec<crate::WorktreeInfo>, String> {
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("worktree")
@@ -940,7 +940,7 @@ impl GitService {
         branch: Option<&str>,
         new_branch: Option<&str>,
     ) -> Result<crate::WorktreeInfo, String> {
-        let mut cmd = std::process::Command::new("git");
+        let mut cmd = cmd_no_window("git");
         cmd.arg("-C").arg(repo_path).arg("worktree").arg("add");
 
         if let Some(nb) = new_branch {
@@ -976,7 +976,7 @@ impl GitService {
 
     /// Remove a worktree using `git worktree remove`
     pub fn remove_worktree(repo_path: &str, worktree_path: &str, force: bool) -> Result<(), String> {
-        let mut cmd = std::process::Command::new("git");
+        let mut cmd = cmd_no_window("git");
         cmd.arg("-C").arg(repo_path).arg("worktree").arg("remove");
 
         if force {
@@ -1000,7 +1000,7 @@ impl GitService {
 
     /// Prune stale worktree entries using `git worktree prune`
     pub fn prune_worktrees(repo_path: &str) -> Result<(), String> {
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("worktree")
@@ -1018,7 +1018,7 @@ impl GitService {
 
     /// Lock a worktree using `git worktree lock`
     pub fn lock_worktree(repo_path: &str, worktree_path: &str, reason: Option<&str>) -> Result<(), String> {
-        let mut cmd = std::process::Command::new("git");
+        let mut cmd = cmd_no_window("git");
         cmd.arg("-C").arg(repo_path).arg("worktree").arg("lock");
 
         if let Some(r) = reason {
@@ -1042,7 +1042,7 @@ impl GitService {
 
     /// Unlock a worktree using `git worktree unlock`
     pub fn unlock_worktree(repo_path: &str, worktree_path: &str) -> Result<(), String> {
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("worktree")
@@ -1063,7 +1063,7 @@ impl GitService {
     // === Stash operations ===
 
     pub fn stash_save(repo_path: &str, message: Option<&str>) -> Result<(), String> {
-        let mut cmd = std::process::Command::new("git");
+        let mut cmd = cmd_no_window("git");
         cmd.arg("-C").arg(repo_path).arg("stash").arg("push");
         if let Some(msg) = message {
             cmd.arg("-m").arg(msg);
@@ -1081,7 +1081,7 @@ impl GitService {
     }
 
     pub fn stash_list(repo_path: &str) -> Result<Vec<(usize, String, String, String)>, String> {
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("stash")
@@ -1112,7 +1112,7 @@ impl GitService {
 
     pub fn stash_apply(repo_path: &str, index: usize) -> Result<(), String> {
         let stash_ref = format!("stash@{{{}}}", index);
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("stash")
@@ -1131,7 +1131,7 @@ impl GitService {
 
     pub fn stash_pop(repo_path: &str, index: usize) -> Result<(), String> {
         let stash_ref = format!("stash@{{{}}}", index);
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("stash")
@@ -1150,7 +1150,7 @@ impl GitService {
 
     pub fn stash_drop(repo_path: &str, index: usize) -> Result<(), String> {
         let stash_ref = format!("stash@{{{}}}", index);
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("stash")
@@ -1170,7 +1170,7 @@ impl GitService {
     // === Merge operations ===
 
     pub fn merge_branch(repo_path: &str, branch: &str, strategy: &str) -> Result<String, String> {
-        let mut cmd = std::process::Command::new("git");
+        let mut cmd = cmd_no_window("git");
         cmd.arg("-C").arg(repo_path).arg("merge");
         match strategy {
             "no-ff" => { cmd.arg("--no-ff"); }
@@ -1196,7 +1196,7 @@ impl GitService {
     }
 
     pub fn abort_merge(repo_path: &str) -> Result<(), String> {
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("merge")
@@ -1213,7 +1213,7 @@ impl GitService {
     }
 
     pub fn continue_merge(repo_path: &str, message: Option<&str>) -> Result<(), String> {
-        let mut cmd = std::process::Command::new("git");
+        let mut cmd = cmd_no_window("git");
         cmd.arg("-C").arg(repo_path).arg("commit");
 
         // Check if MERGE_MSG exists for --no-edit, otherwise provide a default message
@@ -1240,7 +1240,7 @@ impl GitService {
     // === Conflict operations ===
 
     pub fn get_conflicted_files(repo_path: &str) -> Result<Vec<String>, String> {
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("diff")
@@ -1268,7 +1268,7 @@ impl GitService {
             _ => return Err(format!("Invalid side: {}. Must be 'ours' or 'theirs'", side)),
         };
 
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("checkout")
@@ -1284,7 +1284,7 @@ impl GitService {
             return Err(format!("git checkout {} failed: {}", side_flag, stderr.trim()));
         }
 
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("add")
@@ -1305,7 +1305,7 @@ impl GitService {
         std::fs::write(&full_path, content)
             .map_err(|e| format!("Failed to write file: {}", e))?;
 
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("add")
@@ -1340,7 +1340,7 @@ impl GitService {
     // === Rebase operations ===
 
     pub fn rebase_onto(repo_path: &str, onto_branch: &str) -> Result<String, String> {
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("rebase")
@@ -1360,7 +1360,7 @@ impl GitService {
     }
 
     pub fn rebase_continue(repo_path: &str) -> Result<String, String> {
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("rebase")
@@ -1381,7 +1381,7 @@ impl GitService {
     }
 
     pub fn rebase_abort(repo_path: &str) -> Result<(), String> {
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("rebase")
@@ -1398,7 +1398,7 @@ impl GitService {
     }
 
     pub fn cherry_pick(repo_path: &str, commit_id: &str) -> Result<String, String> {
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("cherry-pick")
@@ -1420,7 +1420,7 @@ impl GitService {
     // === Tag operations ===
 
     pub fn list_tags(repo_path: &str) -> Result<Vec<(String, String, String)>, String> {
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("tag")
@@ -1448,7 +1448,7 @@ impl GitService {
     }
 
     pub fn create_tag(repo_path: &str, name: &str, message: Option<&str>, commit: Option<&str>) -> Result<(), String> {
-        let mut cmd = std::process::Command::new("git");
+        let mut cmd = cmd_no_window("git");
         cmd.arg("-C").arg(repo_path).arg("tag");
         if let Some(msg) = message {
             cmd.arg("-a").arg(name).arg("-m").arg(msg);
@@ -1471,7 +1471,7 @@ impl GitService {
     }
 
     pub fn delete_tag(repo_path: &str, name: &str) -> Result<(), String> {
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("tag")
@@ -1492,7 +1492,7 @@ impl GitService {
 
     pub fn stage_lines(repo_path: &str, file_path: &str, line_ranges: Vec<(u32, u32)>) -> Result<(), String> {
         // Generate a partial patch from the full diff and apply it
-        let output = std::process::Command::new("git")
+        let output = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("diff")
@@ -1511,7 +1511,7 @@ impl GitService {
         let filtered_patch = Self::filter_patch_lines(&full_patch, &line_ranges)?;
 
         // Apply the filtered patch to the index
-        let mut child = std::process::Command::new("git")
+        let mut child = cmd_no_window("git")
             .arg("-C")
             .arg(repo_path)
             .arg("apply")
