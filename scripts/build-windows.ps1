@@ -123,6 +123,48 @@ if ($cert) {
     }
     
     Write-Host "Signing complete!" -ForegroundColor Green
+
+    # Re-generate Tauri updater signatures after code signing
+    # The .sig files generated during build are now invalid because signtool modified the binaries
+    if ($env:TAURI_SIGNING_PRIVATE_KEY) {
+        Write-Host ""
+        Write-Host "Re-generating updater signatures for code-signed binaries..." -ForegroundColor Cyan
+        foreach ($file in $msiFiles) {
+            Write-Host "Re-signing $($file.Name) for updater..."
+            $sigArgs = @("signer", "sign")
+            if ($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
+                $sigArgs += "--password"
+                $sigArgs += $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+            }
+            $sigArgs += "--private-key"
+            $sigArgs += $env:TAURI_SIGNING_PRIVATE_KEY
+            $sigArgs += $file.FullName
+            npx tauri @sigArgs
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "Failed to re-sign $($file.Name) for updater"
+                exit 1
+            }
+        }
+        foreach ($file in $nsisFiles) {
+            Write-Host "Re-signing $($file.Name) for updater..."
+            $sigArgs = @("signer", "sign")
+            if ($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
+                $sigArgs += "--password"
+                $sigArgs += $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+            }
+            $sigArgs += "--private-key"
+            $sigArgs += $env:TAURI_SIGNING_PRIVATE_KEY
+            $sigArgs += $file.FullName
+            npx tauri @sigArgs
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "Failed to re-sign $($file.Name) for updater"
+                exit 1
+            }
+        }
+        Write-Host "Updater signatures regenerated!" -ForegroundColor Green
+    } else {
+        Write-Warning "TAURI_SIGNING_PRIVATE_KEY not set - updater signatures may be invalid after code signing!"
+    }
 }
 
 Write-Host ""

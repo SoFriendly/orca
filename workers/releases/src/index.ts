@@ -92,6 +92,32 @@ export default {
         return new Response("Not Found", { status: 404 });
       }
 
+      // For latest.json, override the top-level version with the requesting platform's
+      // actual version (extracted from its URL) so the Tauri updater only sees an update
+      // when a newer binary actually exists for that platform.
+      if (key === "latest.json") {
+        const target = url.searchParams.get("target");
+        if (target) {
+          const latest = await object.json<{
+            version: string;
+            notes?: string;
+            pub_date?: string;
+            platforms: Record<string, { url: string; signature: string }>;
+          }>();
+          const platformEntry = latest.platforms[target];
+          if (platformEntry?.url) {
+            const match = platformEntry.url.match(/Orca_([\d.]+)/);
+            if (match) {
+              latest.version = match[1];
+            }
+          }
+          const headers = new Headers();
+          headers.set("Access-Control-Allow-Origin", "*");
+          headers.set("Content-Type", "application/json");
+          return new Response(JSON.stringify(latest), { headers });
+        }
+      }
+
       const headers = new Headers();
       headers.set("Access-Control-Allow-Origin", "*");
       headers.set("etag", object.httpEtag);

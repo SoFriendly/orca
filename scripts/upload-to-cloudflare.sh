@@ -214,7 +214,9 @@ if [ -n "$JQ_FILTER" ]; then
   # Remove leading " | "
   JQ_FILTER="${JQ_FILTER# | }"
 
-  # Always update version, notes, and pub_date along with platforms
+  # Always update version to current build version.
+  # The Cloudflare Worker dynamically overrides this with the per-platform version
+  # based on the ?target= query param, so it's safe even when platforms differ.
   PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   JQ_FILTER=".version = \$ver | .notes = \$notes | .pub_date = \$pub_date | $JQ_FILTER"
 

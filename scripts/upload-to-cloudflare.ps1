@@ -94,38 +94,48 @@ if ($msiFile -and (Test-Path "$($msiFile.FullName).sig")) {
 
 $pubDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
-# Read existing latest.json if it exists to preserve other platforms
+# Read existing latest.json and only update the Windows platform entry
 $latestJsonPath = "src-tauri\target\release\bundle\latest.json"
-$latestJson = @{
-    version = $VERSION
-    notes = "Update to version $VERSION"
-    pub_date = $pubDate
-    platforms = @{
-        "windows-x86_64" = @{
-            signature = $winSig
-            url = "https://releases.chell.app/v$VERSION/Orca_${VERSION}_x64-setup.msi"
-        }
-    }
-}
+$latestJson = $null
 
-# Try to read existing latest.json to merge platforms
 try {
     $existingJson = Invoke-RestMethod -Uri "https://releases.chell.app/latest.json" -ErrorAction Stop
-    if ($existingJson.platforms) {
-        # Preserve other platforms, update Windows
-        foreach ($platform in $existingJson.platforms.PSObject.Properties) {
-            if ($platform.Name -ne "windows-x86_64") {
-                $latestJson.platforms[$platform.Name] = $platform.Value
-            }
-        }
+    # Preserve existing latest.json, only update Windows platform entry
+    $latestJson = @{
+        version = $existingJson.version
+        notes = $existingJson.notes
+        pub_date = $existingJson.pub_date
+        platforms = @{}
     }
-    # Keep existing notes if present
-    if ($existingJson.notes) {
-        $latestJson.notes = $existingJson.notes
+    if ($existingJson.platforms) {
+        foreach ($platform in $existingJson.platforms.PSObject.Properties) {
+            $latestJson.platforms[$platform.Name] = $platform.Value
+        }
     }
 } catch {
     Write-Host "Note: Could not fetch existing latest.json, creating new one" -ForegroundColor Yellow
 }
+
+if (-not $latestJson) {
+    $latestJson = @{
+        version = $VERSION
+        notes = "Update to version $VERSION"
+        pub_date = $pubDate
+        platforms = @{}
+    }
+}
+
+# Update Windows platform entry
+$latestJson.platforms["windows-x86_64"] = @{
+    signature = $winSig
+    url = "https://releases.chell.app/v$VERSION/Orca_${VERSION}_x64-setup.msi"
+}
+
+# Always update version to current build version.
+# The Cloudflare Worker dynamically overrides this with the per-platform version
+# based on the ?target= query param, so it's safe even when platforms differ.
+$latestJson.version = $VERSION
+$latestJson.pub_date = $pubDate
 
 $jsonContent = $latestJson | ConvertTo-Json -Depth 10
 [System.IO.File]::WriteAllText($latestJsonPath, $jsonContent, [System.Text.UTF8Encoding]::new($false))
