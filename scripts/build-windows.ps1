@@ -90,6 +90,10 @@ if ($cert) {
 }
 
 Write-Host ""
+Write-Host "Cleaning previous build artifacts..."
+Remove-Item -Path "src-tauri\target\release\bundle\msi\*" -Force -ErrorAction SilentlyContinue
+Remove-Item -Path "src-tauri\target\release\bundle\nsis\*" -Force -ErrorAction SilentlyContinue
+
 Write-Host "Building Orca for Windows..."
 
 # Build the app
@@ -175,3 +179,8 @@ Write-Host ""
 Write-Host "Built files:"
 Get-ChildItem -Path "src-tauri\target\release\bundle\msi" -ErrorAction SilentlyContinue
 Get-ChildItem -Path "src-tauri\target\release\bundle\nsis" -ErrorAction SilentlyContinue
+
+# Upload to Cloudflare R2
+Write-Host ""
+Write-Host "Uploading to Cloudflare R2..." -ForegroundColor Cyan
+& "$PSScriptRoot\upload-to-cloudflare.ps1"

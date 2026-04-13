@@ -62,8 +62,8 @@ function Upload-File {
 Write-Host ""
 Write-Host "=== Uploading Windows artifacts ===" -ForegroundColor Green
 
-# Windows MSI
-$msiFile = Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" -ErrorAction SilentlyContinue | Select-Object -First 1
+# Windows MSI - match current version to avoid picking up stale artifacts
+$msiFile = Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*$VERSION*.msi" -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($msiFile) {
     Upload-File $msiFile.FullName "v$VERSION/Orca_${VERSION}_x64-setup.msi"
     $msiSig = "$($msiFile.FullName).sig"
@@ -72,8 +72,8 @@ if ($msiFile) {
     }
 }
 
-# Windows NSIS installer  
-$nsisFile = Get-ChildItem -Path "src-tauri\target\release\bundle\nsis\*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+# Windows NSIS installer - match current version to avoid picking up stale artifacts
+$nsisFile = Get-ChildItem -Path "src-tauri\target\release\bundle\nsis\*$VERSION*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($nsisFile) {
     Upload-File $nsisFile.FullName "v$VERSION/Orca_${VERSION}_x64-setup.exe"
     $nsisSig = "$($nsisFile.FullName).sig"
