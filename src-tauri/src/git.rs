@@ -256,6 +256,26 @@ impl GitService {
             .as_ref()
             .map(|f| f.iter().map(|s| s.as_str()).collect());
 
+        // Unstage anything already in the index that wasn't selected, so it isn't committed
+        if let Some(ref allowed) = files_to_commit {
+            let index_flags = git2::Status::INDEX_NEW | git2::Status::INDEX_MODIFIED
+                | git2::Status::INDEX_DELETED | git2::Status::INDEX_RENAMED | git2::Status::INDEX_TYPECHANGE;
+            let mut unselected: Vec<String> = Vec::new();
+            for entry in statuses.iter() {
+                if !entry.status().intersects(index_flags) { continue; }
+                if let Some(delta) = entry.head_to_index() {
+                    for p in [delta.old_file().path(), delta.new_file().path()].into_iter().flatten() {
+                        let p = p.to_string_lossy().to_string();
+                        if !allowed.contains(p.as_str()) { unselected.push(p); }
+                    }
+                }
+            }
+            if !unselected.is_empty() {
+                let head = repo.head().ok().and_then(|h| h.peel(git2::ObjectType::Commit).ok());
+                repo.reset_default(head.as_ref(), unselected.iter()).map_err(|e| e.to_string())?;
+            }
+        }
+
         // Add each file individually to the index
         let mut index = repo.index().map_err(|e| e.to_string())?;
         for entry in statuses.iter() {
@@ -1967,5 +1987,33 @@ impl GitService {
             return Err(format!("git push tag failed: {}", stderr.trim()));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GitService;
+    use std::process::Command;
+
+    #[test]
+    fn unchecked_staged_file_is_not_committed() {
+        let dir = std::env::temp_dir().join(format!("chell-commit-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.to_str().unwrap();
+        let git = |args: &[&str]| assert!(Command::new("git").arg("-C").arg(p).args(args).status().unwrap().success());
+        git(&["init", "-q"]);
+        git(&["config", "user.email", "t@t"]);
+        git(&["config", "user.name", "t"]);
+        std::fs::write(dir.join("a.txt"), "a").unwrap();
+        std::fs::write(dir.join("b.txt"), "b").unwrap();
+        git(&["add", "b.txt"]); // b is staged but unchecked
+
+        GitService::commit(p, "msg", Some(vec!["a.txt".into()])).unwrap();
+
+        let out = Command::new("git").arg("-C").arg(p).args(["show", "--name-only", "--format="]).output().unwrap();
+        assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "a.txt");
+        assert!(dir.join("b.txt").exists());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
