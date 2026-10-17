@@ -1,3 +1,4 @@
+import { GithubIcon } from "@/components/icons/GithubIcon";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
@@ -22,7 +23,6 @@ import {
   Trash2,
   Plus,
   Mic,
-  Github,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -61,7 +61,7 @@ const NAV_ITEMS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: "assistants", label: "Assistants", icon: <Bot className="h-4 w-4" /> },
   { id: "appearance", label: "Appearance", icon: <Palette className="h-4 w-4" /> },
   { id: "ai", label: "AI Behavior", icon: <Sparkles className="h-4 w-4" /> },
-  { id: "github", label: "GitHub", icon: <Github className="h-4 w-4" /> },
+  { id: "github", label: "GitHub", icon: <GithubIcon className="h-4 w-4" /> },
   { id: "portal", label: "Remote Portal", icon: <Smartphone className="h-4 w-4" /> },
   { id: "keyboard", label: "Keyboard", icon: <Keyboard className="h-4 w-4" /> },
   { id: "about", label: "About", icon: <Info className="h-4 w-4" /> },

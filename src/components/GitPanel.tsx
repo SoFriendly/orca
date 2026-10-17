@@ -1,3 +1,4 @@
+import { GithubIcon } from "@/components/icons/GithubIcon";
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -45,7 +46,6 @@ import {
   AlertTriangle,
   GitMerge,
   TagIcon,
-  Github,
   PlayCircle,
   XCircle,
 } from "lucide-react";
@@ -3006,7 +3006,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={openCreatePrDialog}>
-                        <Github className="mr-2 h-4 w-4" />
+                        <GithubIcon className="mr-2 h-4 w-4" />
                         Open PR
                       </DropdownMenuItem>
                     </>
@@ -3193,7 +3193,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                                 {mergingPrNumber === pr.number ? (
                                   <Loader2 className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5 animate-spin" />
                                 ) : (
-                                  <Github className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
+                                  <GithubIcon className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
                                 )}
                                 <div className="flex-1 min-w-0">
                                   <div className="text-xs break-words">
@@ -3388,7 +3388,7 @@ export default function GitPanel({ projectPath, isGitRepo, onRefresh, onInitRepo
                           })()}
                           {isGithubRemote && (
                             <ContextMenuItem onClick={() => handleViewCommitOnGithub(commit.id)}>
-                              <Github className="mr-2 h-4 w-4" />
+                              <GithubIcon className="mr-2 h-4 w-4" />
                               View on GitHub
                             </ContextMenuItem>
                           )}

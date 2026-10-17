@@ -4,7 +4,6 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebglAddon } from "@xterm/addon-webgl";
-import { CanvasAddon } from "@xterm/addon-canvas";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -272,7 +271,7 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
         theme: getTerminalTheme(),
         fontFamily: '"MesloLGS NF", "Hack Nerd Font", "FiraCode Nerd Font", "JetBrains Mono", "Fira Code", "SF Mono", "Menlo", monospace',
         fontSize: 13, lineHeight: 1.2, cursorBlink: false, cursorStyle: "bar",
-        allowProposedApi: true, allowTransparency: IS_MACOS, scrollback: 5000, fastScrollModifier: "alt",
+        allowProposedApi: true, allowTransparency: IS_MACOS, scrollback: 5000,
         fastScrollSensitivity: 5, smoothScrollDuration: 0,
       });
 
@@ -338,7 +337,7 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
         return false;
       });
 
-      try { terminal.loadAddon(new CanvasAddon()); } catch { try { terminal.loadAddon(new WebglAddon()); } catch {} }
+      try { const webgl = new WebglAddon(); webgl.onContextLoss(() => webgl.dispose()); terminal.loadAddon(webgl); } catch {}
 
       // Keyboard shortcuts
       terminal.attachCustomKeyEventHandler((e) => {

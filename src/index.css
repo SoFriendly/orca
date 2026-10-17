@@ -155,6 +155,8 @@
 
 .xterm .xterm-viewport {
   overflow-y: auto;
+  /* xterm 6 no longer sets the theme bg inline here, so xterm.css's #000 would cover macOS vibrancy */
+  background-color: transparent;
 }
 
 .xterm .xterm-screen {
