@@ -2,6 +2,16 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.3.16]
+
+### Improvements
+- **xterm.js 6**: Upgraded the terminal to xterm.js 6. Terminals now render with WebGL only (the canvas renderer was removed upstream), falling back to the DOM renderer if the GPU context is lost.
+- **Sharper Terminal Text on macOS**: Patched the WebGL renderer's glyph blending so text over the transparent, vibrancy-backed terminal background is no longer drawn too thin.
+- **Platform & Dependency Updates**: Updated Tauri to 2.12 (including the wry and tao webview/windowing layers) for better macOS, Windows and Linux compatibility, along with React 19.3, Vite 8, TypeScript 7, git2 0.21, rusqlite 0.40 and notify 8 for file watching.
+
+### Bug Fixes
+- **Unselected Files Committed**: Files that were already staged but unchecked in the changes list are now unstaged before committing, so only the selected files end up in the commit.
+
 ## [0.3.13]
 
 ### Improvements
