@@ -14,7 +14,7 @@ impl GitService {
         let head = repo.head().ok();
         let branch = head
             .as_ref()
-            .and_then(|h| h.shorthand())
+            .and_then(|h| h.shorthand().ok())
             .map(|s| s.to_string())
             .unwrap_or_else(|| "HEAD".to_string());
 
@@ -279,7 +279,7 @@ impl GitService {
         // Add each file individually to the index
         let mut index = repo.index().map_err(|e| e.to_string())?;
         for entry in statuses.iter() {
-            if let Some(path) = entry.path() {
+            if let Ok(path) = entry.path() {
                 // Skip if we have a specific file list and this file isn't in it
                 if let Some(ref allowed) = files_to_commit {
                     if !allowed.contains(path) {
@@ -379,7 +379,7 @@ impl GitService {
         let remote = nested_repo.find_remote("origin").map_err(|_| {
             "No remote URL found for the nested repository. You can remove the .git directory and add the files directly instead.".to_string()
         })?;
-        let url = remote.url().ok_or("Remote URL is not valid UTF-8")?.to_string();
+        let url = remote.url().map_err(|_| "Remote URL is not valid UTF-8")?.to_string();
         drop(remote);
         drop(nested_repo);
 
@@ -406,7 +406,7 @@ impl GitService {
         let mut branches = Vec::new();
 
         let head = repo.head().ok();
-        let head_name = head.as_ref().and_then(|h| h.shorthand()).map(|s| s.to_string());
+        let head_name = head.as_ref().and_then(|h| h.shorthand().ok()).map(|s| s.to_string());
 
         for branch in repo
             .branches(None)
@@ -444,7 +444,7 @@ impl GitService {
         // First, try to find a local branch with this name
         if let Ok(local_branch) = repo.find_branch(branch, git2::BranchType::Local) {
             // Local branch exists, check it out
-            let refname = local_branch.get().name().ok_or("Invalid branch name")?;
+            let refname = local_branch.get().name().map_err(|_| "Invalid branch name")?;
             let obj = local_branch.get().peel(git2::ObjectType::Commit).map_err(|e| e.to_string())?;
             repo.checkout_tree(&obj, None).map_err(|e| e.to_string())?;
             repo.set_head(refname).map_err(|e| e.to_string())?;
@@ -462,7 +462,7 @@ impl GitService {
             local_branch.set_upstream(Some(&remote_name)).map_err(|e| e.to_string())?;
 
             // Now checkout the new local branch
-            let refname = local_branch.get().name().ok_or("Invalid branch name")?;
+            let refname = local_branch.get().name().map_err(|_| "Invalid branch name")?;
             let obj = local_branch.get().peel(git2::ObjectType::Commit).map_err(|e| e.to_string())?;
             repo.checkout_tree(&obj, None).map_err(|e| e.to_string())?;
             repo.set_head(refname).map_err(|e| e.to_string())?;
@@ -480,7 +480,7 @@ impl GitService {
         match reference {
             Some(gref) => {
                 let name = gref.name()
-                    .ok_or_else(|| "Branch reference name is not valid UTF-8".to_string())?;
+                    .map_err(|_| "Branch reference name is not valid UTF-8".to_string())?;
                 repo.set_head(name)
                     .map_err(|e| e.to_string())?;
             }
@@ -866,7 +866,7 @@ impl GitService {
             .map_err(|_| "No 'origin' remote found".to_string())?;
         let url = remote
             .url()
-            .ok_or_else(|| "Remote URL is not valid UTF-8".to_string())?
+            .map_err(|_| "Remote URL is not valid UTF-8".to_string())?
             .to_string();
 
         // Convert SSH URLs to HTTPS

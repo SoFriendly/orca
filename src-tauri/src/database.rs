@@ -49,20 +49,20 @@ fn get_device_name() -> String {
 }
 
 fn generate_pairing_code() -> String {
-    use rand::Rng;
-    let mut rng = rand::thread_rng();
-    format!("{:06}", rng.gen_range(0..1000000))
+    use rand::RngExt;
+    let mut rng = rand::rng();
+    format!("{:06}", rng.random_range(0..1000000))
 }
 
 fn generate_passphrase() -> String {
-    use rand::seq::SliceRandom;
+    use rand::seq::IndexedRandom;
     const WORDS: &[&str] = &[
         "apple", "banana", "cherry", "dolphin", "eagle", "forest",
         "garden", "harbor", "island", "jungle", "kitten", "lemon",
         "mountain", "nectar", "ocean", "palace", "quartz", "river",
         "sunset", "temple", "umbrella", "valley", "willow", "yellow",
     ];
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     (0..6)
         .map(|_| *WORDS.choose(&mut rng).unwrap())
         .collect::<Vec<_>>()

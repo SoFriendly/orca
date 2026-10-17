@@ -3146,8 +3146,8 @@ fn portal_disable(state: tauri::State<Arc<AppState>>) -> Result<(), String> {
 
 #[tauri::command]
 fn portal_regenerate_pairing(app: tauri::AppHandle, state: tauri::State<Arc<AppState>>) -> Result<database::PortalConfig, String> {
-    use rand::Rng;
-    use rand::seq::SliceRandom;
+    use rand::RngExt;
+    use rand::seq::IndexedRandom;
 
     let mut config = {
         let db = state.database.lock();
@@ -3155,8 +3155,8 @@ fn portal_regenerate_pairing(app: tauri::AppHandle, state: tauri::State<Arc<AppS
     };
 
     // Generate new pairing code
-    let mut rng = rand::thread_rng();
-    config.pairing_code = format!("{:06}", rng.gen_range(0..1000000));
+    let mut rng = rand::rng();
+    config.pairing_code = format!("{:06}", rng.random_range(0..1000000));
 
     // Generate new passphrase
     const WORDS: &[&str] = &[
