@@ -591,6 +591,8 @@ fn spawn_terminal(
     // Set terminal type for proper rendering
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
+    // xterm.js renders OSC 8 hyperlinks; tell CLIs (supports-hyperlinks, Claude Code) to emit them
+    cmd.env("FORCE_HYPERLINK", "1");
 
     // Set UTF-8 locale (Unix only - Windows handles encoding differently)
     #[cfg(not(target_os = "windows"))]

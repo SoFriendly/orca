@@ -4,6 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebglAddon } from "@xterm/addon-webgl";
+import { ImageAddon } from "@xterm/addon-image";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -273,6 +274,20 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
         fontSize: 13, lineHeight: 1.2, cursorBlink: false, cursorStyle: "bar",
         allowProposedApi: true, allowTransparency: IS_MACOS, scrollback: 5000,
         fastScrollSensitivity: 5, smoothScrollDuration: 0,
+        // OSC 8 hyperlinks: the only way a URL stays one link when a TUI (Claude Code)
+        // hard-wraps it across rows. PTY sets FORCE_HYPERLINK=1 so programs emit them.
+        linkHandler: {
+          activate: (e, uri) => {
+            if (IS_MACOS ? e.metaKey : e.ctrlKey) {
+              openUrl(uri).catch((err) => {
+                console.error("[Terminal] Failed to open URL:", uri, err);
+                navigator.clipboard.writeText(uri).catch(() => {});
+              });
+            }
+          },
+          hover: (_e, uri) => { hoveredWebLinkRef.current = uri; },
+          leave: () => { hoveredWebLinkRef.current = null; },
+        },
       });
 
       const fitAddon = new FitAddon();
@@ -300,6 +315,7 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
       }));
       terminal.loadAddon(new Unicode11Addon());
       terminal.unicode.activeVersion = "11";
+      terminal.loadAddon(new ImageAddon()); // Sixel + iTerm2 inline images (OSC 1337)
       terminal.open(container);
       const linkProvider = new FilePathLinkProvider(terminal, cwd, 100, (msg) => toast.error(msg));
       linkProviderRef.current = linkProvider;
@@ -307,6 +323,15 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
       terminal.parser.registerCsiHandler({ prefix: "?", final: "h" }, (params) => {
         for (const p of params) if (p === 1004 || (Array.isArray(p) && p.includes(1004))) return true;
         return false;
+      });
+
+      // XTVERSION (CSI > q). xterm.js doesn't answer it at all, and Claude Code only draws
+      // inline images (OSC 1337, handled by ImageAddon) when the reply names iTerm2 >= 3.5.
+      // ponytail: claims to be iTerm2; switch to an honest name if Claude Code gains a
+      // force flag for the iTerm2 protocol or xterm.js gains Kitty unicode placeholders.
+      terminal.parser.registerCsiHandler({ prefix: ">", final: "q" }, () => {
+        terminal.input("\x1bP>|iTerm2 3.6.0\x1b\\", false);
+        return true;
       });
 
       // Detect repaint transactions (mode 2026 synchronized updates + CSI 3J clear scrollback)
