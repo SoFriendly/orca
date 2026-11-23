@@ -2,6 +2,19 @@
 
 All notable changes to Orca will be documented in this file.
 
+## [0.3.17]
+
+### New Features
+- **Inline Images in the Terminal**: Terminals now render images inline using the Sixel, iTerm2 and Kitty graphics protocols. Claude Code draws its images through the iTerm2 protocol, and Codex shows its image previews and pets through Kitty graphics.
+- **Links That Survive Line Wraps**: Added OSC 8 hyperlink support, so a long URL that an assistant wraps across several rows is one clickable link instead of a broken fragment. Cmd+click (Ctrl+click on Windows/Linux) opens it, and right-click offers the same Open/Copy menu as other web links.
+
+### Improvements
+- **Cleaner Copy from Assistants**: Copying text from an assistant terminal now rejoins lines that were only broken to fit the terminal width, so a command Claude Code or Codex printed across several rows pastes as the single line it was meant to be. Real line breaks, blank lines and table borders are left alone. Shell terminals copy exactly as before.
+- **xterm.js 6.1 (beta)**: Moved the terminal to the xterm.js 6.1 beta and its matching addons for Kitty graphics support, with the macOS glyph-blending patch carried over.
+
+### Bug Fixes
+- **Mismatched Bold Letters**: Fixed bold and italic terminal text sometimes mixing letters from two different fonts. The bundled MesloLGS NF faces are now fully loaded before the terminal starts drawing.
+
 ## [0.3.16]
 
 ### Improvements
