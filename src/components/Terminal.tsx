@@ -13,6 +13,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { FilePathLinkProvider, HoveredLinkInfo } from "@/utils/terminalLinkProvider";
 import { hslToHex, THEME_DEFAULTS } from "@/lib/colorUtils";
+import { unwrapSelection } from "@/lib/unwrapSelection";
 import { toast } from "sonner";
 import { ExternalLink, FolderOpen, Copy, SquareTerminal } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
@@ -267,6 +268,14 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
       }
       if (cancelled) return;
 
+      // Load all four bundled font faces first. They're lazy (@font-face), and the WebGL
+      // glyph atlas permanently caches whatever fallback glyph it drew before a face arrived,
+      // leaving bold/italic text with a mix of two fonts.
+      await Promise.all(["", "bold ", "italic ", "bold italic "].map(
+        (style) => document.fonts.load(`${style}13px "MesloLGS NF"`),
+      )).catch(() => {});
+      if (cancelled) return;
+
       // Create xterm
       const terminal = new XTerm({
         theme: getTerminalTheme(),
@@ -315,7 +324,7 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
       }));
       terminal.loadAddon(new Unicode11Addon());
       terminal.unicode.activeVersion = "11";
-      terminal.loadAddon(new ImageAddon()); // Sixel + iTerm2 inline images (OSC 1337)
+      terminal.loadAddon(new ImageAddon()); // Sixel, iTerm2 inline images (OSC 1337), Kitty graphics
       terminal.open(container);
       const linkProvider = new FilePathLinkProvider(terminal, cwd, 100, (msg) => toast.error(msg));
       linkProviderRef.current = linkProvider;
@@ -364,6 +373,20 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
 
       try { const webgl = new WebglAddon(); webgl.onContextLoss(() => webgl.dispose()); terminal.loadAddon(webgl); } catch {}
 
+      // Assistant TUIs hard-wrap their output, so rejoin those lines when copying
+      const copyText = () => {
+        const s = terminal.getSelection();
+        return isAssistant ? unwrapSelection(s, terminal.cols, terminal.getSelectionPosition()?.start.x ?? 0) : s;
+      };
+      // Capture on the container so this runs before xterm's own copy handler (macOS Cmd+C)
+      const handleCopy = (e: ClipboardEvent) => {
+        if (!isAssistant || !terminal.hasSelection() || !e.clipboardData) return;
+        e.clipboardData.setData("text/plain", copyText());
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      };
+      container.addEventListener("copy", handleCopy, true);
+
       // Keyboard shortcuts
       terminal.attachCustomKeyEventHandler((e) => {
         const isMac = navigator.platform.toUpperCase().includes('MAC');
@@ -371,7 +394,7 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
         if (modifier && e.key >= '1' && e.key <= '9') return true;
         if (e.type === 'keydown') {
           if (e.shiftKey && e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); terminal.input('\n'); return false; }
-          if (!isMac && e.ctrlKey && e.key === 'c') { const s = terminal.getSelection(); if (s) { navigator.clipboard.writeText(s); return false; } return true; }
+          if (!isMac && e.ctrlKey && e.key === 'c') { const s = copyText(); if (s) { navigator.clipboard.writeText(s); return false; } return true; }
           if (!isMac && e.ctrlKey && e.key === 'v') return true;
           if (isMac) {
             if (e.metaKey && e.key === 'Backspace') { terminal.input('\x15'); return false; }
@@ -437,6 +460,10 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
       // On Enter, read the terminal buffer line at the cursor and strip the prompt.
       // This works regardless of how input arrived (typed, pasted, shell history).
       const dataDisposable = terminal.onData((data) => {
+        // Swallow Kitty graphics replies. ImageAddon would answer Claude Code's support
+        // probe with OK, and Claude Code would then switch from the iTerm2 protocol to
+        // Kitty unicode placeholders, which the addon can't draw. Codex never asks.
+        if (data.startsWith("\x1b_G")) return;
         invoke("write_terminal", { id: activeId, data }).catch(() => {});
         if (isAssistant) return;
 
@@ -505,6 +532,7 @@ export default function Terminal({ id, command = "", args, cwd, onTerminalReady,
         dataDisposable.dispose(); resizeDisposable.dispose(); ro.disconnect();
         window.removeEventListener("resize", debouncedFit);
         container.removeEventListener('paste', handlePaste);
+        container.removeEventListener("copy", handleCopy, true);
         container.removeEventListener('contextmenu', handleContextMenu as EventListener);
         unlisten();
         terminal.dispose();

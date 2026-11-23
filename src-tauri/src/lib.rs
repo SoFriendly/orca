@@ -593,6 +593,11 @@ fn spawn_terminal(
     cmd.env("COLORTERM", "truecolor");
     // xterm.js renders OSC 8 hyperlinks; tell CLIs (supports-hyperlinks, Claude Code) to emit them
     cmd.env("FORCE_HYPERLINK", "1");
+    // Codex picks its image protocol from env alone: any TERM_PROGRAM containing "kitty"
+    // selects Kitty graphics (rendered by xterm's ImageAddon). Setting it also stops an
+    // inherited TERM_PROGRAM (e.g. iTerm.app when launched from a shell) from leaking through.
+    cmd.env("TERM_PROGRAM", "chell-kitty");
+    cmd.env_remove("TERM_PROGRAM_VERSION");
 
     // Set UTF-8 locale (Unix only - Windows handles encoding differently)
     #[cfg(not(target_os = "windows"))]
