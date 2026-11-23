@@ -2,7 +2,7 @@
 
 A visual git client with an integrated terminal, designed for AI coding assistants.
 
-Orca combines a simplified git interface with a full terminal environment, so you can run Claude Code, Aider, or any CLI-based coding assistant while keeping track of your changes.
+Orca combines a simplified git interface with a full terminal environment, so you can run Claude Code, Codex, or any CLI-based coding assistant while keeping track of your changes.
 
 ## Features
 
@@ -17,7 +17,7 @@ Orca combines a simplified git interface with a full terminal environment, so yo
   - macOS: `xcode-select --install` or `brew install git`
   - Linux: `sudo apt install git` or `sudo dnf install git`
   - Windows: [git-scm.com](https://git-scm.com/download/win)
-- **AI coding assistant** (optional) — Claude Code, Aider, or any CLI-based assistant you want to use in the terminal
+- **AI coding assistant** (optional) — Claude Code, Codex, or any CLI-based assistant you want to use in the terminal
 
 ## Download
 

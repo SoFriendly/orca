@@ -223,7 +223,7 @@ function MockAssistantPanel() {
           {/* Inactive tab */}
           <div className="group flex items-center gap-1 border-r border-border/70 px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-card/50 hover:text-foreground">
             <TerminalIcon className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate max-w-[120px]">Aider</span>
+            <span className="truncate max-w-[120px]">OpenAI Codex</span>
             <button className="ml-1 rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity">
               <X className="h-3 w-3" />
             </button>

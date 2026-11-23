@@ -15,15 +15,6 @@ export const BUILT_IN_ASSISTANTS: AssistantDefinition[] = [
     isBuiltIn: true,
   },
   {
-    id: "aider",
-    name: "Aider",
-    command: "aider",
-    description: "AI pair programming in your terminal",
-    installCommand: "pip install aider-chat",
-    docsUrl: "https://aider.chat",
-    isBuiltIn: true,
-  },
-  {
     id: "antigravity",
     name: "Antigravity CLI",
     command: "agy",
@@ -50,15 +41,6 @@ export const BUILT_IN_ASSISTANTS: AssistantDefinition[] = [
     description: "OpenCode AI coding assistant",
     installCommand: "curl -fsSL https://opencode.ai/install | bash",
     docsUrl: "https://opencode.ai/docs",
-    isBuiltIn: true,
-  },
-  {
-    id: "pi",
-    name: "Pi",
-    command: "pi",
-    description: "Pi coding agent for AI-assisted development",
-    installCommand: "npm install -g @mariozechner/pi-coding-agent",
-    docsUrl: "https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent",
     isBuiltIn: true,
   },
 ];

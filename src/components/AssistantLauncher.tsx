@@ -27,13 +27,6 @@ const KNOWN_ASSISTANTS: CodingAssistant[] = [
     icon: "Bot",
   },
   {
-    id: "aider",
-    name: "Aider",
-    command: "aider",
-    installed: false,
-    icon: "Bot",
-  },
-  {
     id: "opencode",
     name: "OpenCode",
     command: "opencode",

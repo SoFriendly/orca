@@ -22,7 +22,7 @@ The mobile app doesn't run any commands locally. Instead:
 
 - **Git Panel**: View status, stage/unstage files, view diffs, commit, pull, push, switch branches, commit history (with revert/undo), stash/pop/drop
 - **Terminal**: Remote shell with command history, Ctrl+C, Tab completion
-- **AI Assistant**: Launch Claude Code, Aider, Antigravity CLI, OpenAI Codex, OpenCode, Pi, or shell; Smart Shell for natural language commands
+- **AI Assistant**: Launch Claude Code, Antigravity CLI, OpenAI Codex, OpenCode, or shell; Smart Shell for natural language commands
 - **Theme Sync**: Automatically matches your desktop theme (Dark, Tokyo, Light, Custom)
 - **Multi-Desktop**: Link multiple desktop machines and switch between them
 - **Project Switching**: See all projects opened on desktop and switch between them from mobile

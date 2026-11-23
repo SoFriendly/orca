@@ -811,7 +811,7 @@ fn spawn_terminal(
     } else if shell.is_empty() {
         "shell".to_string()
     } else {
-        let assistant_commands = ["claude", "aider", "agy", "codex", "opencode", "pi"];
+        let assistant_commands = ["claude", "agy", "codex", "opencode"];
         let cmd = shell.split_whitespace().next().unwrap_or("");
         if assistant_commands.contains(&cmd) {
             "assistant".to_string()
@@ -2572,11 +2572,6 @@ fn check_installed_assistants() -> Result<Vec<String>, String> {
         installed.push("claude".to_string());
     }
 
-    // Check for Aider
-    if command_exists("aider") {
-        installed.push("aider".to_string());
-    }
-
     // Check for Antigravity CLI
     if command_exists("agy") {
         installed.push("agy".to_string());
@@ -2590,11 +2585,6 @@ fn check_installed_assistants() -> Result<Vec<String>, String> {
     // Check for OpenCode CLI
     if command_exists("opencode") {
         installed.push("opencode".to_string());
-    }
-
-    // Check for Pi
-    if command_exists("pi") {
-        installed.push("pi".to_string());
     }
 
     Ok(installed)
@@ -2790,7 +2780,6 @@ fn install_assistant(command: String) -> Result<String, String> {
                 "curl -fsSL https://claude.ai/install.sh | bash"
             }
         }
-        "aider" => "pip install aider-chat",
         "agy" => {
             if cfg!(target_os = "windows") {
                 "irm https://antigravity.google/cli/install.ps1 | iex"
@@ -2800,7 +2789,6 @@ fn install_assistant(command: String) -> Result<String, String> {
         }
         "codex" => "npm install -g @openai/codex",
         "opencode" => "curl -fsSL https://opencode.ai/install | bash",
-        "pi" => "npm install -g @mariozechner/pi-coding-agent",
         _ => return Err(format!("Unknown assistant: {}", command)),
     };
 
